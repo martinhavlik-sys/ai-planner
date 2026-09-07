@@ -1,0 +1,1108 @@
+AI PLANNER – MASTER SPECIFICATION
+Jediný produktový zdroj pravdy
+Aktualizované: 6. 9. 2026
+
+STATUS A ÚČEL DOKUMENTU
+
+Tento dokument je jediným aktuálnym produktovým zdrojom pravdy pre návrh a vývoj aplikácie AI Planner. Obsahuje platnú víziu, produktovú logiku, dátové princípy, funkčné moduly, používateľské toky, etapy vývoja a otvorené rozhodnutia.
+
+Nové nápady sa už neukladajú ako samostatné voľné doplnenia. Najskôr sa prediskutujú v texte alebo cez Live a následne sa zaradia do príslušnej kapitoly tohto dokumentu. Ak nové rozhodnutie nahradí staršie, staršia formulácia sa odstráni alebo jednoznačne označí ako neplatná.
+
+Pravidlá kvality a bezpečnosti sú priamo v kapitole 24 tohto dokumentu. Samostatný starší súbor pravidiel kvality je iba archív, nie ďalší platný zdroj.
+
+Aktívna dokumentácia má presne dva základné súbory:
+
+- AI-Planner-Konstitucia.txt: stabilné pravidlá spolupráce, komunikácie a rozhodovania.
+- AI-Planner-Master.txt: tento živý dokument; produkt, architektúra, kvalita, bezpečnosť a stav prípravy implementácie.
+
+Názvy oboch súborov zostávajú stabilné. Dátum a stručný záznam zmien sú vnútri, história uchováva predchádzajúce znenia. Tento súbor nahrádza názov AI-kalendar-Master-verzia-3.txt, nie jeho obsah alebo kontinuitu.
+
+ORIENTÁCIA V DOKUMENTE
+- Kapitola 0: strategické rozhodnutia.
+- Kapitoly 1–17: produkt, funkcie a UX.
+- Kapitoly 18–19: architektúra a rozsah MVP oproti budúcim modulom.
+- Kapitoly 20–23: odkazy na spôsob práce, vývojové fázy, najbližší krok a otvorené otázky.
+- Kapitola 24: kvalita, bezpečnosť, testovanie a podmienky vydania.
+- Kapitola 25: stručný záznam zmien.
+
+Opis funkcie je požiadavka, nie dôkaz implementácie. Zaradenie do vydania určuje kapitola 19 a dohodnutý implementačný celok; budúce moduly sa týmto zlúčením nepridávajú do MVP.
+
+0. STRATEGICKÉ ROZHODNUTIA – 1. 9. 2026
+
+[DECISION STR-001] Prechod do implementácie
+Projekt prechádza z čistého navrhovania do implementačnej fázy. Doplnenie celého budúceho produktu nie je podmienkou prvého funkčného celku. Nové nápady sa zbierajú priebežne a nemenia automaticky rozsah rozpracovanej úlohy. Tento záznam znamená zmenu spôsobu postupu, nie tvrdenie, že aplikácia už bola naprogramovaná alebo nasadená.
+
+[DECISION STR-002] Dve vetvy dokumentácie
+Konštitúcia určuje spôsob spolupráce. Master dokumentácia určuje produkt a jeho technické požiadavky vrátane pravidiel kvality v kapitole 24. Sú to dva aktívne dokumenty. Spresnenie ich správy je zaznamenané ako DECISION DOC-001 v Konštitúcii; tam sú aj významy dohodnutých značiek.
+
+[DECISION STR-003] Subdoména pre prvé nasadenie
+Samostatnú doménu zatiaľ nevyberáme ani nekupujeme. Prvé nasadenie pôjde cez subdoménu. Konkrétna adresa a poskytovateľ zostávajú otvorenou prevádzkovou voľbou. Vlastná doména môže pribudnúť neskôr.
+
+[DECISION STR-004] Viacpoužívateľský SaaS základ od začiatku
+Účty, členstvo, vlastníctvo údajov a izolácia pracovných priestorov sa navrhujú od prvého dňa. Pilot môže testovať jeden človek; tímové rozhranie, chat, verejná registrácia ani fakturácia tým nie sú automaticky zaradené do MVP.
+
+[DECISION STR-005] Nezávislosť od adresy a značky
+Doména a vizuálna značka sú konfigurácia, nie identita používateľov alebo databázových záznamov. Zmena adresy či názvu nemá vyžadovať prepis dátového modelu ani obchodnej logiky. Prevádzkové kroky zmeny adresy sa riadia kapitolami 18.1 a 24.20.2.
+
+[DECISION STR-006] Time tracking patrí používateľovi, reporting patrí tímu
+AI Planner je nástroj na správu úloh, projektov, priorít a kapacít. Nie je nástrojom na kontrolu odpracovaného času zamestnancov. Detailné časové záznamy a osobné časové štatistiky patria používateľovi. Manažérske a tímové prehľady vychádzajú z úloh, projektov, priorít, stavov, termínov a kapacít, nie z individuálneho odpracovaného času. Tento princíp chráni dôveru v tíme a zároveň poskytuje manažérom prehľad potrebný na plánovanie bez mikromanažmentu.
+
+
+1. PRODUKTOVÁ VÍZIA
+
+Cieľom nie je vytvoriť ďalší kalendár. AI Planner má byť pracovný operačný systém na plánovanie času, úloh, projektov a tímovej práce.
+
+Produkt pomáha ľuďom plánovať a tímom koordinovať prácu. Nemá sa zmeniť na nástroj dohľadu nad zamestnancami. Individuálny time tracking slúži používateľovi na vlastnú evidenciu, spätnú väzbu a lepší odhad práce; tímový reporting slúži na plánovanie výsledkov a kapacít.
+
+Systém má spájať:
+
+- zachytávanie a evidenciu úloh,
+- backlog alebo Sklad úloh,
+- plánovanie práce v kalendári,
+- projekty a podúlohy,
+- rutiny a opakovateľné pracovné šablóny,
+- time tracking,
+- dashboard a rekapitulácie,
+- reporty a exporty,
+- tímovú spoluprácu,
+- AI asistenciu,
+- externé integrácie.
+
+Google Calendar, Trello, Monday, Teams, Slack a moderné Apple aplikácie slúžia ako zdroje overených princípov, nie ako predlohy na mechanické kopírovanie.
+
+Základným cieľom je dostať sa čo najskôr k malému, reálne použiteľnému jadru. Ďalšie rozhodnutia sa majú robiť podľa skutočného používania, nie iba podľa predstáv pred spustením.
+
+
+2. CIEĽOVÁ PLATFORMA A ROZSAH
+
+Aplikácia bude:
+
+- webová,
+- najskôr dostupná na subdoméne, neskôr voliteľne na vlastnej doméne,
+- použiteľná na desktope, tablete a mobile,
+- responzívna a dotykovo ovládateľná,
+- prevádzkovaná v cloude,
+- navrhnutá modulárne,
+- škálovateľná od jedného používateľa po tímovú spoluprácu,
+- pripravená na integrácie a automatizácie.
+
+Prvé MVP môže pilotne používať jeden človek, ale od začiatku sa buduje ako viacpoužívateľská SaaS aplikácia. Dátový model, účty, členstvo a serverové oprávnenia musia bezpečne oddeľovať pracovné priestory a používateľov. Nejde len o neurčitú prípravu na budúci multi-user systém.
+
+Samostatný Mac mini ani vlastný server nie sú podmienkou. Vývoj a produkčná prevádzka majú používať štandardné cloudové služby s primeranými nákladmi.
+
+
+3. ZÁKLADNÝ DOMÉNOVÝ MODEL
+
+3.1 Úloha
+
+Úloha je základnou pracovnou jednotkou systému. Obsahuje informáciu o tom, čo treba vykonať, pre koho, v akom kontexte, s akou prioritou a odhadom trvania.
+
+Úloha môže byť:
+
+- nenaplánovaná v Sklade úloh,
+- naplánovaná v jednom alebo viacerých pracovných blokoch,
+- rozdelená na podúlohy,
+- priradená jednému alebo viacerým ľuďom,
+- dokončená,
+- archivovaná, pričom zostáva dostupná pre históriu a reporting.
+
+3.2 Projekt
+
+Projekt je kontajner, ktorý združuje súvisiace úlohy, podprojekty, termíny, ľudí a výsledky. Projekt sa nevkladá do kalendára ako jeden neurčitý blok. Do kalendára sa plánujú konkrétne pracovné bloky jeho úloh.
+
+Príklad:
+
+Projekt: Navigácia SNV
+→ Exteriér
+→ Interiér
+→ Interiér – offline
+→ Interiér – online
+→ konkrétne úlohy a pracovné bloky
+
+Hierarchia má byť dostatočne flexibilná, ale v používateľskom rozhraní nesmie pôsobiť zložito.
+
+3.3 Pracovný blok
+
+Pracovný blok je konkrétne časové umiestnenie úlohy v kalendári.
+
+Jedna úloha môže:
+
+- mať jeden pracovný blok,
+- byť rozdelená do viacerých blokov v rôznych dňoch,
+- byť presunutá bez straty svojho obsahu a histórie,
+- mať plánované a skutočné trvanie.
+
+Kalendár teda neobsahuje samostatné duplicitné tasky a eventy. Obsahuje časové bloky naviazané na úlohy.
+
+3.4 Rutina
+
+Rutina je opakovateľná šablóna pracovnej činnosti. Samotná šablóna zostáva čistá.
+
+Keď sa rutina naplánuje do kalendára:
+
+- vytvorí sa konkrétna inštancia,
+- používateľ môže upraviť jej čas, trvanie a stav,
+- môže do nej zapísať, čo reálne vykonal,
+- tieto poznámky nemenia pôvodnú šablónu.
+
+Zmena šablóny ovplyvní budúce inštancie podľa jasne definovaného pravidla. Už dokončená história sa nesmie spätne prepisovať.
+
+3.5 Organizácia, tím a pracovný kontext
+
+Systém má počítať s kontextmi:
+
+- súkromný,
+- pracovný,
+- organizácia,
+- tím,
+- nemocnica alebo prevádzka,
+- oddelenie alebo úsek,
+- externý zadávateľ alebo klient.
+
+Príklady tímov:
+
+- Penta Hospitals Marketing,
+- Penta Hospitals International.
+
+Každý používateľ môže mať prístup iba k tým organizáciám, tímom, projektom a kalendárom, na ktoré má oprávnenie.
+
+
+4. ZÁKLADNÝ PRACOVNÝ TOK
+
+Hlavný tok:
+
+VYTVORENIE ÚLOHY
+→ SKLAD ÚLOH
+→ SPRESNENIE A PRIORITIZÁCIA
+→ NAPLÁNOVANIE PRACOVNÉHO BLOKU
+→ REALIZÁCIA A TIME TRACKING
+→ DOKONČENIE
+→ DENNÁ REKAPITULÁCIA
+→ HISTÓRIA A REPORTY
+
+Ak používateľ pri vytvorení úlohy nezadá konkrétny čas, úloha zostane v Sklade úloh. Ak zadá termín a čas, vytvorí sa pracovný blok v kalendári.
+
+Používateľ musí vedieť úlohu neskôr upraviť, rozdeliť, presunúť, vrátiť do skladu, označiť za dokončenú alebo obnoviť bez straty histórie.
+
+
+5. ÚDAJE ÚLOHY
+
+Základné polia:
+
+- názov,
+- popis alebo zadanie,
+- poznámka používateľa,
+- zadávateľ / klient / „pre koho“,
+- organizácia,
+- tím,
+- nemocnica alebo prevádzka,
+- oddelenie / úsek,
+- projekt a nadradená úloha,
+- kategória alebo typ výstupu,
+- typ vykonávanej činnosti,
+- priorita alebo urgencia,
+- stav,
+- termín dokončenia,
+- plánovaný dátum a čas,
+- odhadované trvanie,
+- skutočne odpracovaný čas,
+- priradení používatelia,
+- notifikácie,
+- dátum vytvorenia, zmeny a dokončenia.
+
+Kategórie, typy práce, zadávatelia, oddelenia a ďalšie číselníky musia byť upraviteľné bez prerábania aplikácie. Pri zadávaní má byť možné rýchlo vytvoriť nového zadávateľa alebo inú chýbajúcu hodnotu podľa oprávnení.
+
+
+6. SKLAD ÚLOH
+
+Sklad úloh je zásobník všetkých nenaplánovaných alebo dočasne odložených úloh.
+
+Desktop:
+
+- sklad sa vysúva z pravej strany,
+- otvorením sa kalendár primerane zmenší,
+- po zatvorení kalendár opäť využije dostupnú šírku,
+- aplikácia si môže zapamätať posledný stav panela,
+- šírka skladu má byť primerane nastaviteľná alebo navrhnutá pre pohodlnú prácu.
+
+Mobil:
+
+- sklad sa nezobrazuje zmenšením kalendára,
+- otvorí sa ako samostatný panel alebo obrazovka,
+- úlohu musí byť možné naplánovať aj dotykom bez presného desktopového drag and drop.
+
+Karta úlohy v sklade má v kompaktnom stave zobrazovať minimálne:
+
+- názov,
+- zadávateľa alebo projekt a jeho farbu,
+- prioritu,
+- odhad trvania,
+- termín, ak existuje,
+- informáciu o priradení.
+
+Sklad podporuje vyhľadávanie, triedenie, zoskupovanie a filtre.
+
+
+7. KALENDÁR A PLÁNOVANIE
+
+Kalendár vychádza z jednoduchosti Google Kalendára, ale je orientovaný na plánovanie pracovných úloh.
+
+Požadované pohľady:
+
+- deň,
+- 3 dni,
+- 5 pracovných dní,
+- 7 dní,
+- mesiac,
+- zoznam,
+- nasledujúcich 7 dní,
+- neskôr voliteľný Kanban pohľad.
+
+Používateľ môže:
+
+- presunúť úlohu zo skladu do kalendára,
+- presúvať pracovné bloky medzi dňami a časmi,
+- meniť dĺžku bloku potiahnutím,
+- rozdeliť úlohu do viacerých blokov,
+- vrátiť blok alebo úlohu späť do skladu,
+- zobraziť viacero kalendárov súčasne,
+- dočasne skryť vybrané kalendáre alebo kontexty.
+
+Časová mriežka musí byť nastaviteľná. Predvolené bloky môžu byť napríklad 30, 60 a 90 minút, ale systém musí umožniť aj jemnejšie plánovanie.
+
+Kalendár musí podporovať súbežné úlohy a viac drobných úloh v rámci jednej hodiny. Vizualizácia nesmie používateľa nútiť predstierať, že v rovnakom čase existuje iba jedna udalosť.
+
+Pri drag and drop musí byť vždy jasné:
+
+- kam bude blok vložený,
+- aké bude jeho trvanie,
+- či vzniká konflikt,
+- či sa presúva celý task alebo iba jeden pracovný blok.
+
+
+8. FARBY, KALENDÁRE A FILTRE
+
+Farebnosť môže reprezentovať zadávateľa, projekt, tím alebo kalendár podľa zvoleného pravidla. Toto mapovanie musí byť konzistentné a používateľsky zrozumiteľné.
+
+Informácia nesmie byť vyjadrená iba farbou.
+
+Filtre majú postupne podporovať minimálne:
+
+- organizáciu,
+- tím,
+- nemocnicu alebo prevádzku,
+- oddelenie / úsek,
+- zadávateľa,
+- projekt,
+- prioritu alebo urgenciu,
+- typ práce,
+- stav,
+- priradeného používateľa,
+- pracovný alebo súkromný kalendár.
+
+Používateľ môže mať zobrazených viacero kalendárov naraz a kombinovať ich podľa potreby.
+
+
+9. TIME TRACKING A DENNÁ REKAPITULÁCIA
+
+Princíp prístupu: time tracking patrí používateľovi. Detailné časové záznamy, osobné porovnanie plánu so skutočnosťou a osobné štatistiky vidí ich používateľ. Môže ich upravovať spätne podľa pravidiel auditu a používať na vlastnú sebareflexiu, plánovanie a zlepšovanie odhadov.
+
+Manažér ani tímový administrátor nezískava prístup k individuálnym časovým záznamom iba na základe svojej roly. Prípadné zdieľanie konkrétneho časového údaja musí mať samostatne definovaný účel, minimálny rozsah a vedomé oprávnenie používateľa; nesmie vzniknúť skrytým exportom, AI analýzou ani odvodením cez inú obrazovku.
+
+Systém rozlišuje:
+
+- plánované trvanie,
+- odpracovaný čas,
+- prípadný rozdiel medzi plánom a realitou.
+
+Time tracking musí byť:
+
+- jednoduchý pri bežnej práci,
+- editovateľný aj spätne,
+- naviazaný na úlohu a konkrétny pracovný blok,
+- použiteľný bez neustáleho spúšťania stopiek,
+- pripravený na budúce doplnenie živého časovača.
+
+Na konci dňa aplikácia ponúkne rekapituláciu:
+
+- ktoré úlohy boli dokončené,
+- pri ktorých chýba odpracovaný čas,
+- ktoré bloky sa neuskutočnili,
+- kde sa plán výrazne líšil od reality,
+- čo zostalo nedokončené.
+
+Systém môže odporučiť doplnenie alebo opravu údajov, ale zmenu potvrdzuje používateľ.
+
+
+10. DASHBOARD
+
+Dashboard má poskytovať rýchly pracovný prehľad, nie dekoratívnu nástenku.
+
+Základný obsah:
+
+- dnešné úlohy a pracovné bloky,
+- blížiace sa termíny,
+- omeškané úlohy,
+- vyťaženosť dňa alebo týždňa,
+- neplánované priority v sklade,
+- úlohy vyžadujúce doplnenie času,
+- AI odporúčania alebo upozornenia.
+
+Dashboard má používateľa viesť k rozhodnutiu, čo urobiť ďalej. Nemá duplikovať celý kalendár ani reporty.
+
+
+11. REPORTY A EXPORTY
+
+Reporty sa delia na osobné a tímové:
+
+- osobný report môže obsahovať vlastné plánované a skutočné časy, rozdiely, trendy a odporúčania,
+- tímový alebo manažérsky report zobrazuje úlohy, projekty, priority, stavy, termíny, objem práce a kapacitu,
+- tímový report nezobrazuje odpracovaný čas jednotlivcov, ich osobné časové štatistiky ani poradie ľudí podľa času,
+- agregácia sa nesmie použiť tak, aby bolo možné jednoducho spätne dopočítať čas konkrétneho človeka,
+- export rešpektuje rovnaké hranice prístupu ako obrazovka; vyššia rola sama osebe tieto hranice neruší.
+
+Reporty musia byť filtrovateľné minimálne podľa:
+
+- obdobia alebo vlastného intervalu,
+- organizácie,
+- tímu,
+- nemocnice alebo prevádzky,
+- oddelenia / úseku,
+- zadávateľa,
+- projektu,
+- typu práce,
+- stavu úloh.
+
+Možné výstupy:
+
+- počet úloh,
+- rozdelenie práce podľa kategórií,
+- vyťaženosť,
+- dokončené a oneskorené úlohy,
+- tímové a projektové prehľady.
+
+Odpracovaný čas a porovnanie plánovaného so skutočným časom patria medzi možné výstupy osobného reportu používateľa, nie medzi predvolené tímové výstupy.
+
+Exporty:
+
+- PDF,
+- Excel alebo iný tabuľkový formát,
+- tlačiteľný prehľad,
+- grafický výstup alebo graf.
+
+Grafické reporty môžu neskôr podporovať vizuálnu identitu organizácie, napríklad Penta Hospitals. Export nesmie byť iba obrázok; údaje majú zostať dostupné aj v strojovo spracovateľnom formáte.
+
+
+12. SPOLUPRÁCA, KOMENTÁRE A KOMUNIKÁCIA
+
+Poznámky a komentáre viazané na úlohu sú oddelené od všeobecného chatu.
+
+Pri úlohe sa eviduje:
+
+- pracovný kontext,
+- poznámky k realizácii,
+- komentáre a rozhodnutia,
+- história významných zmien,
+- prípadné prílohy alebo odkazy.
+
+V budúcnosti môže pribudnúť samostatný tímový chat podobný Teams alebo Slack. Tento chat však nesmie nahradiť štruktúrovanú komunikáciu pri úlohách. Dôležité zadanie alebo rozhodnutie musí zostať dohľadateľné v kontexte príslušnej úlohy alebo projektu.
+
+
+13. MULTI-USER, TÍMY A OPRÁVNENIA
+
+Základné roly, ktoré zohľadňuje architektúra od začiatku:
+
+- administrátor,
+- používateľ,
+- prípadne ďalšie roly podľa reálnej potreby.
+
+Používateľ môže:
+
+- patriť do viacerých tímov,
+- mať vlastné a zdieľané kalendáre,
+- zdieľať úlohy a projekty,
+- priradiť úlohu viacerým používateľom,
+- zobraziť tímovú kapacitu podľa oprávnení.
+
+Každá položka musí mať jasného vlastníka, kontext a pravidlá prístupu. Oprávnenia sa kontrolujú na serveri. Používateľ nesmie cez API ani inú cestu vidieť dáta, na ktoré nemá oprávnenie.
+
+Time tracking je samostatná chránená dátová oblasť. Tímové roly môžu pracovať s plánovanou kapacitou, pridelenými úlohami, termínmi a stavmi, ale nemajú automatický prístup k skutočným časom jednotlivcov. Rovnaké obmedzenie platí pre API, vyhľadávanie, dashboard, export, AI vrstvu, notifikácie, logy a administrátorské obrazovky.
+
+Pracovný priestor (tenant) je bezpečnostná hranica údajov. Používateľ môže byť členom viacerých priestorov; jeho prístup vyplýva z overeného členstva, nie z názvu organizácie, značky alebo zadanej URL. Konkrétna väzba medzi organizáciou a pracovným priestorom sa spresní pri dátovom modeli. Samostatná databáza pre každého používateľa nie je automatickou požiadavkou; povinná je overená izolácia prístupu.
+
+
+14. NOTIFIKÁCIE
+
+Notifikácie sa nastavujú podľa typu udalosti a preferencie používateľa.
+
+Príklady:
+
+- deň vopred,
+- týždeň vopred,
+- 10 minút vopred,
+- 1 minútu vopred,
+- pri priradení úlohy,
+- pri zmene termínu,
+- pri novom komentári,
+- pri blížiacom sa alebo prekročenom termíne.
+
+Notifikácie nesmú používateľa zahltiť. Systém má umožniť globálne nastavenia aj výnimky pri konkrétnej úlohe.
+
+
+15. AI VRSTVA
+
+AI je samostatná pripojiteľná vrstva nad dátami a pracovnými tokmi, nie pevne zabudované rozhodovacie jadro.
+
+Architektúra má umožniť pripojenie vlastného podporovaného providera, napríklad:
+
+- OpenAI,
+- Anthropic Claude,
+- Google Gemini,
+- prípadne ďalších providerov cez jednotné rozhranie.
+
+Používateľ alebo administrátor musí vedieť, ktorý provider a model sa používa, aké údaje sa mu odosielajú a aké môžu vzniknúť náklady.
+
+AI funkcie:
+
+- sumarizácia úloh, projektov a pracovného obdobia,
+- návrh priorít,
+- návrh rozdelenia veľkej úlohy,
+- odporúčanie termínu podľa kapacity,
+- upozornenie na konflikty a preťaženie,
+- analýza plánovaného a skutočného času,
+- návrh dennej alebo týždennej rekapitulácie,
+- pomoc s vyhľadávaním a reportmi.
+
+AI pripravuje návrhy a analýzy. Konečné rozhodnutie a rizikové zmeny zostávajú na používateľovi. Základné manuálne funkcie musia fungovať aj bez AI providera.
+
+
+16. INTEGRÁCIE
+
+Architektúra má byť pripravená na API integrácie, ktoré sa budú pridávať postupne:
+
+- Google Calendar,
+- Microsoft 365 a Outlook Calendar,
+- Google Drive,
+- Microsoft OneDrive,
+- SharePoint,
+- Figma,
+- Jira,
+- Basecamp,
+- prípadne ďalšie pracovné systémy.
+
+Pri každej integrácii sa musí určiť:
+
+- ktoré dáta sú zdrojom pravdy,
+- smer synchronizácie,
+- správanie pri konflikte,
+- rozsah oprávnení,
+- spôsob obnovenia pripojenia,
+- logovanie zlyhaní,
+- možnosť odpojenia a vymazania tokenov.
+
+Prepojenie s Google Calendar nie je podmienkou prvého MVP.
+
+
+17. UX A VIZUÁLNY SMER
+
+UX vychádza:
+
+- z jednoduchosti a čitateľnosti Google Kalendára,
+- z čistoty, hierarchie a plynulosti moderných Apple aplikácií,
+- z praktickosti Trella a Monday pri práci s úlohami,
+- z vlastných potrieb pracovného procesu.
+
+Postup návrhu:
+
+1. hlavné user flow,
+2. low-fidelity wireframy,
+3. interaktívny prototyp,
+4. testovanie na reálnych scenároch,
+5. finálny UI dizajn a dizajnový systém.
+
+Tento cyklus sa od prechodu do implementácie vykonáva po funkčných celkoch. Nie je potrebné dokončiť wireframy a finálny dizajn všetkých budúcich modulov pred prvým kódom.
+
+Požadované vlastnosti:
+
+- pokojné a čisté rozhranie,
+- jasná vizuálna hierarchia,
+- kvalitná typografia,
+- svetlý a tmavý režim,
+- plynulé, ale funkčné animácie,
+- výborné správanie na mobile,
+- dostupnosť klávesnicou a dotykom,
+- prístupnosť a dostatočný kontrast.
+
+Vizuálne efekty nesmú znižovať čitateľnosť, výkon ani pochopenie ovládania.
+
+
+18. TECHNICKÁ ARCHITEKTÚRA
+
+Predbežný tok:
+
+zdrojový kód
+→ Git repozitár
+→ automatizované kontroly a testy
+→ testovacie nasadenie
+→ schválenie
+→ produkčná webová aplikácia
+
+webová aplikácia
+↔ aplikačná vrstva/API
+↔ databáza
+↔ integrácie a voliteľní AI provideri
+
+Princípy:
+
+- modulárna architektúra,
+- oddelenie používateľského rozhrania, dátovej a integračnej vrstvy,
+- databáza oddelená od nasadzovaného kódu,
+- verzované databázové migrácie,
+- vývojové, testovacie a produkčné prostredie,
+- tajné hodnoty mimo zdrojového kódu,
+- automatizované testy,
+- možnosť návratu na stabilnú verziu,
+- štandardné technológie,
+- primeraný vendor lock-in,
+- exportovateľnosť dát a vlastníctvo kódu.
+
+Konkrétny technologický stack sa vyberie pri príprave prvého implementačného celku, po ujasnení jeho toku, dát a bezpečnostných požiadaviek. Nečakáme na kompletný návrh všetkých modulov.
+
+18.1 Nezávislosť domény, značky a dát
+
+- Používatelia, priestory, úlohy a projekty majú stabilné interné identifikátory nezávislé od názvu a URL.
+- Doména, základná URL, logo, názov produktu, téma a firemné reportové šablóny sú oddelená konfigurácia.
+- Penta Hospitals a nemocničné členenie sú použiteľný pracovný kontext, nie natvrdo zakódovaná identita celej SaaS aplikácie.
+- Zmena značky ani adresy nesmie meniť vlastníctvo, členstvo alebo väzby pracovných dát.
+- Zmena domény môže vyžadovať DNS, HTTPS, povolené adresy, OAuth návratové URL, cookies/relácie, webhooky, odkazy v notifikáciách a presmerovania. Tieto kroky sa naplánujú a otestujú; nesľubuje sa nulová konfigurácia alebo automatické zachovanie relácie prehliadača.
+- Pri zmene adresy nie je dôvod sťahovať databázu. Prípadná migrácia hostingu alebo databázy je samostatná operácia.
+
+
+19. ROZDELENIE MVP A BUDÚCICH MODULOV
+
+19.1 Jadro MVP
+
+- pilotné používanie jedným človekom nad viacpoužívateľským základom,
+- bezpečné účty, členstvo a overená izolácia pracovných priestorov,
+- vytvorenie a editácia úlohy,
+- Sklad úloh,
+- základné projekty,
+- kalendár s pracovnými blokmi,
+- drag and drop,
+- zmena času a dĺžky,
+- nastaviteľná časová mriežka v nevyhnutnom rozsahu,
+- základné filtre,
+- dokončenie a história,
+- jednoduchý plánovaný a skutočný čas,
+- základná denná rekapitulácia,
+- responzívny desktop a mobil,
+- bezpečné uloženie dát.
+
+19.2 Rozšírené moduly
+
+- rutiny a ich inštancie,
+- pokročilé reporty a exporty,
+- dashboard,
+- viaceré kalendáre,
+- projekty a podúlohy vo väčšej hĺbke,
+- rozšírené tímové rozhranie a zdieľanie nad už existujúcim multi-user základom,
+- komentáre a prílohy,
+- samostatný tímový chat,
+- notifikácie,
+- integrácie,
+- AI provideri a AI odporúčania,
+- automatizácie.
+
+Rozsah najbližšieho implementačného celku sa určí pred jeho realizáciou. Nové nápady sa zaradia do backlogu a MVP sa rozšíri iba vedomým rozhodnutím. Budúce moduly nemajú blokovať prvé funkčné nasadenie. SaaS základ sám osebe neznamená zavedenie platených plánov alebo fakturácie.
+
+
+20. PROCES TVORBY A SPRÁVA ROZHODNUTÍ
+
+Spôsob spolupráce, význam značiek, schvaľovanie a aktualizácie určuje výhradne AI-Planner-Konstitucia.txt. Táto kapitola je iba odkaz, nie druhá kópia pravidiel.
+
+Produktové a technické rozhodnutia patria k príslušnému modulu alebo do kapitoly 0; otvorené otázky sú v kapitole 23. Plán najbližšieho celku je v kapitole 22. Kvalita a podmienky dokončenia sú v kapitole 24. Implementačné zadanie odkazuje na tieto kapitoly, nekopíruje celú špecifikáciu.
+
+
+21. VÝVOJOVÉ FÁZY
+
+Aktuálna fáza: prechod do implementácie (DECISION STR-001).
+
+1. Vybrať prvý malý funkčný celok a jeho akceptačné kritériá.
+2. Spresniť potrebný user flow a jednoduchý wireframe; zvyšok navrhovať priebežne.
+3. Zvoliť stack, repozitár, hosting a databázu a zaviesť SaaS bezpečnostný základ.
+4. Implementovať celok od rozhrania po trvalé uloženie údajov.
+5. Vykonať automatizované a manuálne kontroly vrátane izolácie dát.
+6. Nasadiť pilot na subdoménu a začať reálne testovanie.
+7. Opraviť nedostatky, aktualizovať Master a opakovať cyklus.
+8. Postupne pridávať rozšírené moduly podľa priorít.
+
+Konštitúcia zostáva stabilná; Master dokumentácia, backlog a implementácia sa priebežne vyvíjajú.
+
+
+22. NAJBLIŽŠÍ KROK
+
+Najbližšie sa pripraví prvý implementačný celok: prihlásenie, pracovný priestor, vytvorenie úlohy, sklad a jej naplánovanie do kalendára s trvalým uložením. Širší tok jadra, ktorý budeme dopĺňať po malých častiach:
+
+vytvorenie úlohy
+→ uloženie do Skladu úloh
+→ doplnenie údajov a priority
+→ presun do kalendára
+→ vytvorenie pracovného bloku
+→ zmena času alebo trvania
+→ rozdelenie do viacerých blokov
+→ zaznamenanie skutočne vykonanej práce
+→ dokončenie
+→ denná rekapitulácia
+→ história a jednoduchý report
+
+Jednoduchý desktopový wireframe s kalendárom a vysúvateľným Skladom úloh a mobilný variant slúžia na overenie tohto celku. Nečakáme na dokončenie celého vizuálneho systému. Kritériom úspechu prvého celku je uloženie úlohy, vytvorenie a presun bloku, zachovanie dát po opätovnom prihlásení a neprístupnosť údajov cudzieho pracovného priestoru. Ide o plánovaný krok, nie o už dokončenú implementáciu.
+
+
+23. OTVORENÉ ROZHODNUTIA
+
+- konečný názov aplikácie,
+- presná hranica prvého MVP,
+- presný model projektovej hierarchie,
+- predvolené pravidlo farebnosti,
+- presné možnosti časovej mriežky,
+- správanie pri súbežných blokoch,
+- rozsah time trackingu v MVP,
+- spôsob mobilného plánovania bez desktopového drag and drop,
+- konkrétny technologický stack,
+- konkrétny poskytovateľ hostingu a prvá subdoména,
+- prvý AI provider a spôsob správy používateľských API kľúčov,
+- prvá implementovaná integrácia,
+- rozsah offline správania.
+
+Vlastná doména nie je otvorený blokátor implementácie: jej riešenie je zámerne odložené podľa DECISION STR-003.
+
+
+24. KVALITA, BEZPEČNOSŤ A PODMIENKY VYDANIA
+
+Táto kapitola obsahuje celý vecný kontrolný rámec prenesený zo samostatných Pravidiel kvality. Ich pôvodné kapitoly 1–23 sú teraz 24.1–24.23; podkapitoly 20.1 a 20.2 sú 24.20.1 a 24.20.2. Ďalšie úpravy sa robia iba tu.
+
+Každá funkcia sa posudzuje podľa používateľskej hodnoty, bezpečnosti, spoľahlivosti a udržateľnosti. Rýchlosť implementácie nie je dôvodom na obídenie kontrol. Pravidlá pre budúce moduly sa uplatnia pri ich implementácii; nejde o pokyn vyvinúť ich všetky pred pilotom. Ak vznikne rozpor s inou kapitolou, označí sa a vyrieši rozhodnutím pred dotknutou implementáciou.
+
+Odkazy a verzie externých štandardov boli prevzaté z pôvodného dokumentu. Toto zlúčenie nie je ich novým odborným overením ani bezpečnostným auditom aplikácie; relevantnosť sa overí pri implementácii.
+
+24.1 PRODUKTOVÁ ZMYSLUPLNOSŤ
+
+Každá funkcia musí mať jasnú odpoveď na otázky:
+
+- Aký konkrétny problém rieši?
+- Kto a kedy ju použije?
+- Patrí do MVP alebo môže počkať?
+- Neexistuje jednoduchšie riešenie?
+- Nenarušuje hlavný pracovný tok?
+
+Do aplikácie sa nepridávajú funkcie iba preto, že ich má konkurenčný produkt alebo že ich AI dokáže rýchlo vytvoriť.
+
+
+24.2 USER FLOW A STAVY FUNKCIE
+
+Pred implementáciou musí byť opísané:
+
+- ako používateľ funkciu spustí,
+- aké údaje zadáva,
+- čo sa stane po potvrdení,
+- ako operáciu zruší alebo vráti,
+- čo sa stane pri chybe,
+- ako vyzerá prázdny stav,
+- ako vyzerá načítavanie,
+- čo sa stane bez internetového pripojenia,
+- aké potvrdenie používateľ dostane.
+
+Funkcia sa nepovažuje za dokončenú, ak funguje iba jej ideálny scenár.
+
+
+24.3 DIZAJNOVÝ SYSTÉM A UX
+
+Dizajn má byť inšpirovaný aktuálnymi princípmi Apple Human Interface Guidelines, nie mechanickou kópiou systému Apple.
+
+Požiadavky:
+
+- čistá a pokojná vizuálna hierarchia,
+- konzistentné rozostupy, typografia, farby a komponenty,
+- jasne rozlíšené primárne a sekundárne akcie,
+- primerané vrstvenie, tiene a priehľadnosť,
+- zmysluplné animácie, ktoré pomáhajú orientácii,
+- rešpektovanie nastavenia obmedzenia pohybu,
+- svetlý a tmavý režim,
+- žiadne nejasné ikonové tlačidlá bez názvu alebo dostupného popisu,
+- dôležité funkcie nesmú byť dostupné iba po prejdení myšou,
+- používateľ musí vždy rozumieť aktuálnemu stavu a následku akcie.
+
+Rozhranie má pôsobiť moderne, ale použiteľnosť má prednosť pred vizuálnym efektom.
+
+
+24.4 RESPONZIVITA A ZARIADENIA
+
+Každá funkcia sa navrhuje pre desktop aj mobil.
+
+Kontroluje sa minimálne:
+
+- široký desktop,
+- bežný notebook,
+- tablet,
+- mobil na výšku,
+- mobil na šírku, ak je daný scenár relevantný,
+- ovládanie myšou,
+- ovládanie dotykom,
+- ovládanie klávesnicou.
+
+Na malom displeji sa desktopové rozloženie iba nezmenší. Obsah sa musí zmysluplne preskladať. Vysúvateľný Sklad úloh sa napríklad na mobile zmení na samostatný panel alebo obrazovku.
+
+
+24.5 PRÍSTUPNOSŤ
+
+Aplikácia má rešpektovať aktuálne zásady WCAG na primeranej úrovni pre modernú webovú aplikáciu.
+
+Požiadavky:
+
+- dostatočný kontrast textu a ovládacích prvkov,
+- ovládanie klávesnicou,
+- viditeľný stav fokusu,
+- zmysluplné názvy polí, tlačidiel a ikon,
+- správna sémantická štruktúra,
+- informácia nesmie byť vyjadrená iba farbou,
+- formuláre musia mať zrozumiteľné chyby a návody na opravu,
+- rešpektovanie zväčšenia textu a nastavení zariadenia,
+- obmedzenie zbytočného pohybu a animácií.
+
+
+24.6 BEZPEČNOSŤ OD NÁVRHU
+
+Bezpečnosť sa rieši od návrhu, nie až pred spustením. Kontrolný rámec bude vychádzať z relevantných častí OWASP Application Security Verification Standard 5.0.0 a OWASP Top 10:2025.
+
+Základné pravidlá:
+
+- všetka komunikácia v produkcii používa HTTPS,
+- heslá sa nikdy neukladajú v čitateľnej podobe,
+- prihlasovanie a obnova prístupu používajú overený autentifikačný mechanizmus,
+- každý používateľ má prístup iba k vlastným alebo oprávnene zdieľaným dátam v rámci overeného členstva,
+- oprávnenia sa kontrolujú na serveri, nie iba skrytím prvku v rozhraní,
+- vstupy sa validujú na klientovi aj serveri,
+- aplikácia sa chráni pred injection, XSS, CSRF a zneužitím uploadov,
+- API má primerané obmedzenie požiadaviek,
+- chybové hlásenia nesmú odhaľovať citlivé technické informácie,
+- administrátorské funkcie musia byť jasne oddelené a chránené,
+- významné bezpečnostné udalosti sa zaznamenávajú,
+- závislosti sa pravidelne kontrolujú a aktualizujú,
+- pred produkčným nasadením sa spustia bezpečnostné kontroly.
+
+Referenčné zdroje:
+
+- https://owasp.org/www-project-application-security-verification-standard/
+- https://owasp.org/Top10/2025/en/
+
+
+24.7 OCHRANA SÚKROMIA A DÁT
+
+Ukladajú sa iba údaje potrebné na fungovanie aplikácie.
+
+Požiadavky:
+
+- jasne definovať, aké údaje sa ukladajú a prečo,
+- citlivé údaje a prístupové tokeny nesmú byť v zdrojovom kóde,
+- tajné hodnoty sa ukladajú v zabezpečenom prostredí hostingu,
+- dáta používateľov sú logicky a technicky oddelené,
+- používateľ môže svoje dáta exportovať,
+- musí existovať bezpečný spôsob vymazania účtu a dát,
+- logy nesmú zbytočne obsahovať osobné alebo citlivé informácie,
+- integrácie dostanú iba nevyhnutné oprávnenia,
+- pred pridaním firemných alebo zdravotných údajov sa samostatne posúdi ich vhodnosť a právne požiadavky.
+- detailné časové záznamy sú súkromnými pracovnými údajmi používateľa a nesmú byť sprístupnené tímu alebo manažérovi iba na základe organizačnej roly,
+- systém nesmie vytvárať skryté metriky výkonu, rebríčky zamestnancov ani profilovanie založené na individuálne odpracovanom čase,
+- ochrana individuálneho času sa uplatňuje aj na odvodené metriky, AI výstupy, exporty, logy a rozhrania administrátora.
+
+Pri prepájaní externého AI providera alebo integračnej služby sa používateľovi zrozumiteľne oznámi:
+
+- kto údaje spracúva,
+- ktoré údaje sa odosielajú,
+- na aký účel sa používajú,
+- či a ako dlho ich externá služba uchováva,
+- aké oprávnenia integrácia získava,
+- ako možno pripojenie zrušiť a tokeny odstrániť.
+
+
+24.8 DATABÁZA A INTEGRITA DÁT
+
+- databázová schéma od začiatku podporuje viac používateľov a izolované pracovné priestory SaaS aplikácie,
+- každá používateľská položka musí mať jasného vlastníka,
+- zmeny databázovej schémy sa vykonávajú cez verzované migrácie,
+- aktualizácia aplikácie nesmie vymazať alebo poškodiť existujúce dáta,
+- kritické operácie majú byť transakčné alebo bezpečne obnoviteľné,
+- dátumy, časy a časové pásma sa ukladajú konzistentne,
+- mazanie má byť primerane potvrdené a podľa potreby obnoviteľné,
+- konfliktné zmeny nesmú potichu prepísať novšie dáta.
+
+Úloha, projekt, pracovný blok, rutina a inštancia rutiny musia byť dátovo oddelené objekty s jasnými väzbami. Poznámka zapísaná k jednej inštancii rutiny nesmie meniť šablónu ani ostatné inštancie. Plánovaný a skutočný čas sa uchovávajú oddelene, aby sa nestratila možnosť spätnej analýzy.
+
+
+24.9 ZÁLOHY A OBNOVA
+
+- databáza musí mať pravidelné automatické zálohy,
+- zdrojový kód musí byť verzovaný a zálohovateľný,
+- musí byť jasné, ako sa obnoví predchádzajúca verzia aplikácie,
+- obnova databázy sa musí aspoň periodicky overiť,
+- produkčné dáta sa nesmú používať v nezabezpečenom testovacom prostredí,
+- pred rizikovou migráciou sa vytvorí bod obnovy.
+
+Záloha sa nepovažuje za spoľahlivú, pokiaľ nevieme, že ju možno úspešne obnoviť.
+
+
+24.10 VLASTNÍCTVO A PRENOSITEĽNOSŤ
+
+- používateľ vlastní zdrojový kód a svoje dáta,
+- kód sa uchováva v štandardnom Git repozitári,
+- dáta musia byť exportovateľné v bežne čitateľnom formáte,
+- hosting alebo databázu musí byť možné v budúcnosti zmeniť,
+- uprednostňujú sa štandardné technológie a dokumentované rozhrania,
+- kritická funkcionalita nesmie zostať bez dokumentácie iba vo vnútri jedného AI rozhovoru.
+
+Vlastníctvo zdrojového kódu sa tu vzťahuje na vlastníka projektu, nie automaticky na každého koncového používateľa SaaS. Koncový používateľ pristupuje k svojim a oprávnene zdieľaným dátam podľa definovaných pravidiel.
+
+
+24.11 KÓD A UDRŽATEĽNOSŤ
+
+- kód má byť čitateľný, modulárny a primerane zdokumentovaný,
+- pomenovania majú byť konzistentné,
+- funkcie a komponenty majú mať jasnú zodpovednosť,
+- opakovaný kód sa má rozumne zdieľať,
+- konfigurácia musí byť oddelená od aplikačnej logiky,
+- do repozitára sa nesmú ukladať heslá, tokeny ani produkčné tajomstvá,
+- významné technické rozhodnutia sa zapíšu do dokumentácie,
+- nové riešenie nesmie bez dôvodu rozbiť existujúce správanie.
+
+
+24.12 TESTOVANIE
+
+Každá funkcia má mať overenie primerané svojmu riziku.
+
+Kontroluje sa:
+
+- základná funkčnosť,
+- validácia vstupov,
+- chybové a hraničné stavy,
+- oprávnenia a oddelenie dát,
+- desktop a mobil,
+- podporované prehliadače,
+- klávesnica a dotyk,
+- regresie existujúcich funkcií,
+- základná prístupnosť,
+- bezpečnostné kontroly.
+
+Kritické pracovné toky majú mať automatizované end-to-end testy. Opravená chyba má podľa možnosti dostať test, ktorý zabráni jej návratu.
+
+Pri kalendári a time trackingu sa osobitne testuje:
+
+- zmena časového pásma a prechod letného/zimného času,
+- rozdelenie úlohy do viacerých blokov,
+- súbežné pracovné bloky,
+- zmena dĺžky potiahnutím,
+- spätná úprava odpracovaného času,
+- rozdiel medzi šablónou rutiny a jej inštanciou,
+- konflikt zmien z viacerých zariadení alebo používateľov,
+- zachovanie histórie po presune, dokončení alebo archivácii.
+
+
+24.13 VÝKON A SPOĽAHLIVOSŤ
+
+- hlavné obrazovky sa majú načítať bez zbytočného čakania,
+- aplikácia nemá sťahovať alebo spracúvať dáta, ktoré nepotrebuje,
+- dlhé zoznamy a kalendár sa musia správať plynulo,
+- drag & drop musí mať okamžitú a jasnú spätnú väzbu,
+- sieťová chyba nesmie viesť k tichej strate zmien,
+- používateľ musí vedieť, či bola operácia uložená,
+- aplikácia má rozumne zvládať dočasnú nedostupnosť databázy alebo integrácie.
+
+Zobrazenie viacerých kalendárov, rozsiahleho skladu a súbežných úloh musí zostať plynulé. Filtre nemajú vyžadovať opakované načítanie nepotrebných dát a používateľ musí dostať okamžitú spätnú väzbu aj vtedy, keď sa zmena ešte bezpečne ukladá na server.
+
+
+24.14 LOGOVANIE A MONITORING
+
+- produkčné chyby sa zaznamenávajú spôsobom, ktorý umožní diagnostiku,
+- logy neobsahujú heslá, tokeny ani nepotrebné osobné údaje,
+- významné zlyhania majú byť rozpoznateľné bez čakania na hlásenie používateľa,
+- pri integráciách sa sledujú neúspešné synchronizácie,
+- používateľské a systémové chyby sa rozlišujú,
+- monitoring má byť primeraný rozsahu a nákladom aplikácie.
+
+
+24.15 AI A AUTOMATIZOVANÉ ROZHODNUTIA
+
+Ak sa doplní AI:
+
+- AI návrhy musia byť jasne označené,
+- používateľ musí rozumieť, čo AI navrhla alebo zmenila,
+- rizikové alebo hromadné zmeny vyžadujú potvrdenie,
+- AI nesmie mať zbytočne široké oprávnenia,
+- citlivé dáta sa neposielajú externému modelu bez vedomého rozhodnutia,
+- musí existovať možnosť opraviť alebo vrátiť AI zásah,
+- kvalita AI funkcií sa testuje na reálnych scenároch,
+- zlyhanie AI nesmie znefunkčniť základné manuálne ovládanie aplikácie.
+
+AI vrstva musí byť oddelená od základnej doménovej logiky:
+
+- aplikácia musí fungovať bez aktívneho AI providera,
+- provideri sa pripájajú cez jednotné abstrahované rozhranie,
+- používateľ vie, ktorý provider a model sa používa,
+- API kľúče sa ukladajú šifrovane a nikdy sa nezobrazujú ani nelogujú v plnom znení,
+- zmena providera nesmie vyžadovať prepis jadra aplikácie,
+- AI odpoveď sa nepovažuje automaticky za pravdivý údaj,
+- AI nemôže bez potvrdenia vykonať hromadné presuny, mazanie, zmenu oprávnení alebo odoslanie dát,
+- pred odoslaním sa minimalizuje rozsah kontextu a citlivých dát,
+- náklady a limity AI volaní majú byť kontrolovateľné,
+- dôležité AI funkcie musia mať merateľné testovacie scenáre.
+
+
+24.16 INTEGRÁCIE A SYNCHRONIZÁCIA
+
+Každá integrácia musí mať pred implementáciou definované:
+
+- zdroj pravdy pre jednotlivé dáta,
+- jednosmerný alebo obojsmerný tok,
+- identifikáciu záznamov bez nebezpečného duplikovania,
+- riešenie konfliktov,
+- opakovanie po dočasnej chybe,
+- zaznamenanie poslednej úspešnej synchronizácie,
+- rozsah oprávnení podľa princípu najmenších privilégií,
+- bezpečné obnovenie a zrušenie autorizácie,
+- správanie po odpojení služby,
+- ochranu pred stratou alebo spätným prepisom údajov.
+
+Integrácia nesmie spôsobiť, že základné údaje aplikácie prestanú byť dostupné pri výpadku externého systému.
+
+
+24.17 TIME TRACKING A AUDITOVATEĽNOSŤ
+
+- plánovaný a skutočný čas sa uchovávajú oddelene,
+- spätné úpravy času sú možné podľa oprávnení,
+- významné úpravy majú históriu autora a času,
+- denná rekapitulácia iba odporúča doplnenia a používateľ ich potvrdzuje,
+- systém nesmie potichu domýšľať odpracovaný čas,
+- report musí vedieť vysvetliť, z akých záznamov výsledok vznikol,
+- súčet pracovných blokov nesmie automaticky znamenať skutočne odpracovaný čas,
+- používateľ musí vedieť opraviť chybu bez poškodenia pôvodnej histórie.
+- používateľ má prístup k svojim detailným časom a osobným štatistikám; tímové roly k nim nemajú automatický prístup,
+- tímový reporting používa pracovné výsledky a kapacitné signály bez zobrazenia individuálneho odpracovaného času,
+- autorizačné testy musia potvrdiť, že detailný čas nemožno získať cez API, export, vyhľadávanie, AI ani odvodenú agregáciu bez osobitného oprávnenia,
+- produkt nesmie porovnávať, hodnotiť alebo zoradiť ľudí podľa odpracovaného času.
+
+
+24.18 KOMUNIKÁCIA A DOHĽADATEĽNOSŤ
+
+- komentár k úlohe alebo projektu zostáva v jeho kontexte,
+- všeobecný tímový chat je samostatný modul,
+- chat nesmie byť jediným miestom, kde zostane dôležité zadanie alebo rozhodnutie,
+- používateľ musí vedieť rozlíšiť poznámku, komentár, systémovú zmenu a AI návrh,
+- úpravy a odstránenia komentárov sa riadia oprávneniami,
+- notifikácia nesmie nahrádzať trvalý záznam,
+- prílohy a odkazy majú jasného vlastníka a pravidlá prístupu.
+
+
+24.19 REPORTY A EXPORTY
+
+- čísla v dashboarde a reporte musia pochádzať z rovnakých definovaných zdrojov,
+- filtre sa aplikujú konzistentne na obrazovku aj export,
+- PDF a grafické exporty musia byť čitateľné a prístupné v primeranom rozsahu,
+- Excel alebo tabuľkový export musí zachovať strojovo spracovateľné hodnoty,
+- dátum, čas, jednotky a časové pásmo musia byť jednoznačné,
+- používateľ musí vedieť identifikovať použité obdobie a filtre,
+- export nesmie obsahovať dáta, na ktoré používateľ nemá oprávnenie,
+- grafická identita organizácie nesmie znižovať čitateľnosť výsledku.
+- osobné časové reporty sú dostupné ich používateľovi, kým tímové reporty sú založené na úlohách, projektoch, prioritách, stavoch, termínoch a kapacitách,
+- manažérska rola nesmie obísť súkromie time trackingu exportom, zmenou filtra, priamym URL, API požiadavkou ani AI sumarizáciou,
+- agregované tímové výstupy musia používať dostatočný rozsah, aby neodhalili čas konkrétneho jednotlivca.
+
+
+24.20 MODULARITA A ŠKÁLOVANIE
+
+- jadro úloh a kalendára nesmie byť technicky previazané s jediným AI providerom, chatom ani integráciou,
+- moduly sa pripájajú cez dokumentované rozhrania,
+- účty, členstvo, oprávnenia a izolácia pracovných priestorov sú súčasťou základnej architektúry; tímové rozhranie sa rozširuje postupne,
+- nepoužívaný modul musí byť možné vypnúť bez narušenia jadra,
+- rozšírenie z jedného používateľa na tím nesmie vyžadovať migráciu neoddelených dát,
+- optimalizácia pre budúcnosť nesmie zbytočne skomplikovať prvé MVP,
+- každá významná závislosť má mať zdokumentovaný účel a spôsob nahradenia.
+
+24.20.1 Overenie SaaS izolácie
+
+- Pred prvým nasadením s reálnymi dátami sa testujú aspoň dva účty a dva oddelené pracovné priestory, aj keď pilot používa iba Martin.
+- Cudzie identifikátory v API, URL, vyhľadávaní a exporte nesmú sprístupniť ani meniť cudzie dáta.
+- Kontext priestoru a rola sa overujú na serveri; názov, doména ani klientom zaslané ID samy osebe nie sú dôkazom oprávnenia.
+- Zdieľanie a odobratie členstva sa testujú podľa implementovaného rozsahu. Budúce moduly vrátane AI, príloh, notifikácií a cache musia zachovať rovnakú izoláciu.
+- Žiadna požiadavka automaticky nepredpisuje samostatnú databázu pre každého používateľa; konkrétne riešenie musí preukázať izoláciu a obnoviteľnosť.
+
+24.20.2 Nezávislosť od značky a adresy
+
+- Identifikátory používateľov, tenantov, úloh a projektov nezávisia od názvu produktu, loga alebo URL.
+- Názov, logo, farby, reportové šablóny a základné URL sú konfigurácia oddelená od pracovnej logiky.
+- Pred zmenou adresy sa overí postup pre DNS, HTTPS, povolené adresy, OAuth návraty, cookies/relácie, webhooky, notifikačné odkazy a prípadné presmerovania podľa použitých technológií.
+- Test zmeny konfigurácie musí potvrdiť zachovanie účtov, identifikátorov, väzieb a pracovných dát; nové prihlásenie môže byť potrebné.
+- Rebranding a zmena subdomény/domény nesmú samy vyžadovať prepis dátového modelu alebo obchodnej logiky. Migrácia hostingu alebo databázy je samostatná testovaná operácia.
+
+
+24.21 PROSTREDIA A NASADENIE
+
+- vývojové, testovacie a produkčné prostredie majú byť oddelené,
+- nasadenie sa robí z verzovaného a skontrolovaného kódu,
+- pred nasadením sa spustí zostavenie, testy a relevantné bezpečnostné kontroly,
+- databázové migrácie majú bezpečný postup,
+- musí existovať možnosť návratu na poslednú stabilnú verziu,
+- produkčné zmeny sa nemajú robiť ručne bez záznamu v repozitári,
+- doména, HTTPS a prístupové nastavenia sa overia pred spustením.
+
+Prvé nasadenie prebehne na subdoméne. Kúpa samostatnej domény ani finálny názov nesmú byť podmienkou pilotu. Presná subdoména, poskytovateľ a prístupové nastavenia sa určia pred nasadením; tieto dokumenty samy osebe neznamenajú, že nasadenie už prebehlo.
+
+
+24.22 DEFINITION OF DONE – KEDY JE FUNKCIA HOTOVÁ
+
+Funkcia je hotová až vtedy, keď:
+
+- má potvrdený účel a user flow,
+- je implementovaný hlavný aj chybový scenár,
+- funguje na desktope aj mobile,
+- dá sa ovládať požadovanými vstupmi,
+- spĺňa základnú prístupnosť,
+- rešpektuje oprávnenia a ochranu dát,
+- má potrebné automatizované testy,
+- neporušila existujúce funkcie,
+- bola manuálne overená v reálnom scenári,
+- má zaznamenané významné rozhodnutia,
+- prešla kontrolou pred nasadením,
+- používateľ vie zmenu pochopiť a používať bez nejasností.
+
+Pri funkcii, ktorá pracuje s časom, rutinami, AI, integráciami, reportmi alebo zdieľanými dátami, musí byť navyše overené príslušné špecializované pravidlo z tohto dokumentu.
+
+
+24.23 KONTROLNÁ BRÁNA PRED VYDANÍM
+
+Pred každou stabilnou verziou sa overí:
+
+1. Produkt – rieši verzia dohodnutý problém?
+2. UX – je ovládanie zrozumiteľné a konzistentné?
+3. Mobil – fungujú hlavné toky na malom displeji a dotykom?
+4. Dáta – nehrozí strata alebo poškodenie existujúcich údajov?
+5. Bezpečnosť – prešli oprávnenia, vstupy, závislosti a konfigurácia?
+6. Prístupnosť – sú hlavné úlohy zvládnuteľné bez bariér?
+7. Testy – prešli automatizované a manuálne kontroly?
+8. Obnova – vieme sa v prípade problému vrátiť?
+9. Monitoring – vieme rozpoznať a diagnostikovať zlyhanie?
+10. Dokumentácia – je zaznamenané, čo sa zmenilo a prečo?
+11. Integrácie – je jasný zdroj pravdy a správanie pri konflikte alebo výpadku?
+12. AI – zostáva rozhodnutie na používateľovi a funguje jadro aj bez providera?
+13. Čas – zostali plánované, skutočné a spätne upravené údaje konzistentné?
+14. Exporty – rešpektujú filtre, oprávnenia a správne formáty údajov?
+15. SaaS – prešli negatívne testy prístupu medzi účtami a pracovnými priestormi?
+16. Adresa a značka – sú konfigurovateľné bez zmeny pracovných dát a logiky?
+17. Dôvera – zostali individuálne časové záznamy neprístupné tímovým a manažérskym rolám vo všetkých rozhraniach a exportoch?
+
+Ak niektorá kontrolná brána zlyhá, vydanie sa opraví alebo sa vedome odloží. Výnimka musí byť zaznamenaná spolu s rizikom a plánom nápravy.
+
+
+25. STRUČNÝ ZÁZNAM ZMIEN
+
+1. 9. 2026 – Strategické rozhodnutia STR-001 až STR-005: implementačná fáza, dve vetvy dokumentácie, subdoména, SaaS základ a nezávislosť adresy a značky.
+1. 9. 2026 – Konsolidácia podľa DOC-001 v Konštitúcii: dva aktívne súbory, stabilný názov Masteru, presun celého rámca kvality do kapitoly 24, odstránenie duplikovaných pravidiel spolupráce. Funkčný rozsah sa touto úpravou nemení. Aktualizovaná bola dokumentácia; kód ani nasadenie týmto krokom nevznikli.
+6. 9. 2026 – STR-006: time tracking patrí používateľovi a reporting tímu. Doplnené hranice osobných a tímových reportov, zákaz automatického manažérskeho prístupu k individuálnym časom a kontrola proti obchádzaniu cez API, export alebo AI.

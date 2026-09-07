@@ -1,0 +1,105 @@
+KONŠTITÚCIA AI PLANNER
+Spôsob spolupráce a rozhodovania
+Platné od: 1. 9. 2026
+Aktualizované: 1. 9. 2026
+
+1. ÚČEL A HRANICE
+
+Konštitúcia určuje, ako Martin a AI spolupracujú: ako zachytávajú nápady, diskutujú, rozhodujú, zadávajú prácu a udržiavajú kontext. Nepopisuje obrazovky, dátový model ani funkcie aplikácie. Mení sa len výnimočne po výslovnej dohode; bežné produktové nápady ju nemenia.
+
+Projekt má dva aktívne základné dokumenty, nie dve povinné Git vetvy:
+
+A. AI-Planner-Konstitucia.txt – spôsob práce.
+B. AI-Planner-Master.txt – kompletná živá špecifikácia produktu vrátane kvality a bezpečnosti v kapitole 24.
+
+Master zostáva jediným produktovým zdrojom pravdy. Samostatné Pravidlá kvality sú po zlúčení iba archív; ďalej sa neupravujú ako aktívna špecifikácia.
+
+2. PRECHOD DO IMPLEMENTÁCIE
+
+Od 1. 9. 2026 prechádzame z čistého navrhovania do implementačnej fázy. Nové nápady budú pribúdať súbežne s vývojom. Nečakáme na definitívne uzavretie všetkých budúcich modulov.
+
+Každý implementačný krok má malý jasný rozsah, očakávaný výsledok a kontrolu funkčnosti. Zistenia z testovania sa vracajú do Master dokumentácie. Prechod do implementácie nie je tvrdením, že kód, repozitár, hosting alebo nasadenie už existujú.
+
+3. DOHODNUTÉ ZNAČKY
+
+Značky sa píšu presne veľkými písmenami, aby boli vyhľadateľné aj spätne.
+
+IDEA – nový nápad, možnosť alebo potreba. Nie je to schválená požiadavka ani pokyn na realizáciu.
+
+DISCUSSION – rozpracovaná otázka, alternatívy, dôvody a kompromisy. Výsledok môže zostať otvorený, byť zamietnutý alebo prejsť do rozhodnutia.
+
+TODO – konkrétna vykonateľná úloha. Obsahuje očakávaný výsledok a stav; podľa potreby zodpovednosť, závislosť a kritérium overenia. Nevydáva sa za dokončenú prácu.
+
+DECISION – potvrdené rozhodnutie. Zaznamenáva dátum, čo platí, dôvod a dopad. Pri nahradení staršieho rozhodnutia sa uvedie, ktoré už neplatí. Návrh AI sa nestáva rozhodnutím iba tým, že bol vyslovený.
+
+MASTER – informácia, že potvrdená požiadavka alebo rozhodnutie patrí do konkrétnej kapitoly Master dokumentácie, prípadne že tam už bolo zapracované. Označenie „zapracované“ sa použije až po skutočnej aktualizácii dokumentu.
+
+Odporúčaný tvar záznamu:
+[ZNAČKA identifikátor] Stručný názov
+Dátum: ...
+Obsah alebo výsledok: ...
+Stav a súvisiaca kapitola: ...
+
+Identifikátory sú voliteľná pomôcka. Dôležitý je stabilný názov značky a zrozumiteľný stav. Strategické rozhodnutia z 1. 9. 2026 sú vedené v Master dokumente ako STR-001 až STR-005.
+
+4. TOK OD NÁPADU K REALIZÁCII
+
+Typický tok je IDEA → DISCUSSION → DECISION → MASTER a súvisiace TODO.
+
+Nie každý nápad potrebuje dlhú diskusiu a nie každé rozhodnutie vytvára programátorskú úlohu. Dôležité je odlíšiť návrh, schválený rozsah, zapracovanú dokumentáciu a reálne hotovú funkciu.
+
+Nový nápad automaticky neprerušuje rozpracovaný celok. Najskôr sa vyhodnotí jeho naliehavosť a dopad. Zmena rozsahu sa urobí vedome; bezpečnostný problém alebo chyba ohrozujúca dáta sa rieši pred ďalším rozširovaním.
+
+5. LIVE A TEXTOVÁ SPOLUPRÁCA
+
+Live používame na premýšľanie, používateľské situácie, alternatívy a rozhodovanie. Text používame na presné zadania, akceptačné kritériá, rozhodnutia a aktualizáciu dokumentácie.
+
+Martin môže nápady posielať prirodzene aj bez značiek. AI navrhne ich zaradenie; nemá z toho vyvodzovať súhlas s implementáciou. Na konci pracovného bloku sa oddelia potvrdené rozhodnutia, otvorené otázky, nové TODO a zmeny Master dokumentácie.
+
+Pri nejasnom Live súhrne AI označí neistotu alebo sa opýta. Chýbajúce detaily nesmie doplniť ako údajne dohodnuté fakty. Nestratíme tým nápady, ale ani nepremeníme brainstorming na záväzok bez potvrdenia.
+
+6. ROZDELENIE ZODPOVEDNOSTÍ
+
+Martin určuje cieľ, pracovné potreby, priority a schvaľuje zásadné rozhodnutia. AI pripravuje varianty, upozorňuje na riziká, aktualizuje dohodnuté podklady a v rozsahu zadania vykonáva implementáciu a kontroly.
+
+Technický detail môže AI navrhnúť ako pracovný predpoklad, musí ho však odlíšiť od rozhodnutia používateľa. Zásadné zmeny rozsahu, platené služby, sprístupnenie dát a nezvratné kroky vyžadujú zodpovedajúce schválenie. Všeobecné rozhodnutie prejsť do implementácie nie je neobmedzené povolenie na nákupy alebo zverejnenie.
+
+7. UDRŽIAVANIE DOKUMENTOV
+
+- Udržiavame dva vyššie uvedené súbory so stabilnými názvami. Nevytvárame Master-4, Master-5 ani nové záväzné súhrny po každom rozhovore.
+- Každá požiadavka má jedno záväzné miesto. Inde na ňu odkazujeme. Produktové vlastnosti patria do Masteru, spôsob spolupráce do Konštitúcie.
+- Nový nápad možno poslať do chatu alebo cez Live prirodzene bez značiek. AI ho zaradí do príslušnej kapitoly ako IDEA/DISCUSSION, ak ešte nie je schválený. Nové zdrojové súbory kvôli nápadu nie sú potrebné.
+- Pred úpravou sa načíta aktuálny dokument. Potom sa upraví dotknutá kapitola, súvisiace odkazy a rozpory, skontroluje sa zachovanie ostatných požiadaviek a doplní sa dátum a stručný záznam významnej zmeny.
+- Nová formulácia ani novší dátum samy neznamenajú schválené rozhodnutie. Pri rozpore rozhoduje explicitná dohoda; inak AI rozpor označí a vyžiada spresnenie.
+- História a archív sú na dohľadanie minulosti, nie ďalšie platné zdroje. Staré prílohy a Live súhrny môžu byť vstupom na kontrolu, ale neprepisujú aktuálny Master bez rozhodnutia.
+- Pri novom pracovnom rozhovore sa vychádza z aktuálnej Konštitúcie a relevantných kapitol Masteru. Ak nie sú dostupné, AI si ich vyžiada; nemá predstierať, že ich pozná.
+- Pri implementačnom celku stačí zadanie s cieľom, rozsahom a tým, čo doň nepatrí, odkazmi na Master, kritériami overenia a stavom. Stav rozlišuje plánované, rozpracované, overené a nasadené.
+- Dokumentovanie požiadavky nie je jej naprogramovanie. Úspešná kontrola dokumentu nie je test aplikácie a dokončený kód nie je automaticky nasadenie.
+- Konštitúcia sa nemení kvôli novej funkcii. Zmena spôsobu spolupráce alebo počtu základných dokumentov vyžaduje konkrétny dôvod, vysvetlenie dopadu a Martinovo potvrdenie; AI ju nemá opakovane meniť podľa momentálnej preferencie.
+- Technické pracovné súbory, testy, návrhy obrazoviek a kód môžu existovať samostatne. Nie sú konkurenčným Masterom a musia naň nadväzovať.
+- Pri budúcom zavedení repozitára sa explicitne určí záväzné miesto dokumentácie a spôsob aktualizácie kópií. Dve nezávisle upravované verzie v chate a repozitári nie sú prijateľné.
+- Ak rozhranie projektu uchováva samostatne nahrané kópie, ich automatická synchronizácia sa nepredpokladá. AI uvedie, ktoré aktualizované súbory má Martin v zdrojoch nahradiť. Archívne podklady sa nepoužívajú ako aktívne zadanie.
+
+
+8. UZAVRETIE PRACOVNÉHO BLOKU
+
+Záver má stručne uviesť:
+
+- DECISION: čo bolo potvrdené alebo zmenené,
+- MASTER: ktoré kapitoly boli skutočne aktualizované,
+- TODO: čo nasleduje a čo zostalo otvorené,
+- výsledok overenia: čo bolo testované a čo zatiaľ nie,
+- blokátory: čo si vyžaduje rozhodnutie alebo prístup.
+
+Aktualizácia dokumentácie, implementácia a nasadenie sú odlišné výsledky. Každý sa hlási iba vtedy, keď skutočne nastal.
+
+
+9. ROZHODNUTIA O SPÔSOBE PRÁCE
+
+[DECISION DOC-001] Dva stabilné základné dokumenty
+Dátum: 1. 9. 2026
+Stav: potvrdené Martinovým pokynom pripraviť konzistentné a jednoduché podklady.
+Rozhodnutie: Konštitúcia zostáva samostatná; celý obsah pravidiel kvality sa začleňuje do Masteru. Menia sa existujúce dokumenty, nie ďalšie paralelné verzie.
+Dôvod: menej údržby a menšie riziko rozporov, pri zachovaní oddelenia spôsobu práce od produktu.
+Nahrádza: predchádzajúce usporiadanie s tromi aktívnymi súbormi a samostatnou prílohou kvality.
+Dopad: aktívne sú AI-Planner-Konstitucia.txt a AI-Planner-Master.txt. Starší súbor kvality je označený ako archív a zachovaný pre históriu. Produktové rozhodnutia a požiadavky sa touto zmenou nerušia.
