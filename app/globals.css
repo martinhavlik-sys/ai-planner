@@ -120,7 +120,7 @@ h2, p { margin-top: 0; }
 .toolbar {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 190px;
+  grid-template-columns: 1fr 190px 180px;
   margin-bottom: 14px;
 }
 
@@ -136,10 +136,31 @@ h2, p { margin-top: 0; }
 
 .board { overflow: hidden; }
 
+.viewSwitch {
+  background: #e9eef2;
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+}
+
+.viewSwitch button {
+  background: transparent;
+  color: #586571;
+  padding: 8px 10px;
+}
+
+.viewSwitch button.selected {
+  background: white;
+  color: #17202a;
+}
+
 .tableHeader, .taskRow {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(260px, 2fr) 1fr 0.8fr 150px 120px 110px;
+  grid-template-columns: minmax(260px, 2fr) 1fr 0.8fr 150px 120px 110px 88px;
   padding: 14px 16px;
 }
 
@@ -163,6 +184,20 @@ h2, p { margin-top: 0; }
   padding: 0 8px;
 }
 
+.taskName {
+  background: transparent;
+  color: #17202a;
+  font-weight: 800;
+  padding: 0;
+  text-align: left;
+}
+
+.danger {
+  background: #fff0ee;
+  color: #ad2f1e;
+  padding: 9px 10px;
+}
+
 .priority {
   border-radius: 999px;
   display: inline-flex;
@@ -175,6 +210,45 @@ h2, p { margin-top: 0; }
 .priority.nizka { background: #e8f3ec; color: #1f7a5a; }
 .priority.stredna { background: #fff4d8; color: #8a5d00; }
 .priority.vysoka { background: #ffe4e0; color: #ad2f1e; }
+
+.kanban {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  overflow-x: auto;
+}
+
+.column {
+  background: #edf1f4;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  min-height: 420px;
+  padding: 12px;
+}
+
+.column h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.card {
+  background: white;
+  border: 1px solid #dfe5ea;
+  color: #17202a;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.card span,
+.card em {
+  color: #64707c;
+  font-size: 13px;
+  font-style: normal;
+}
 
 .modalBackdrop {
   background: rgba(17, 24, 32, 0.48);
@@ -216,6 +290,47 @@ h2, p { margin-top: 0; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.detailPanel {
+  background: white;
+  border-left: 1px solid #dfe5ea;
+  box-shadow: -18px 0 44px rgba(17, 24, 32, 0.12);
+  display: grid;
+  gap: 18px;
+  grid-template-rows: auto auto auto 1fr auto;
+  height: 100vh;
+  padding: 24px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: min(420px, 100vw);
+  z-index: 2;
+}
+
+.detailPanel dl {
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: 120px 1fr;
+  margin: 0;
+}
+
+.detailPanel dt {
+  color: #64707c;
+  font-weight: 700;
+}
+
+.detailPanel dd {
+  margin: 0;
+}
+
+.detailPanel p {
+  color: #3f4a54;
+  line-height: 1.5;
+}
+
+.wide {
+  width: 100%;
+}
+
 @media (max-width: 980px) {
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
@@ -223,5 +338,6 @@ h2, p { margin-top: 0; }
   .stats, .toolbar, .formGrid { grid-template-columns: 1fr; }
   .header { align-items: stretch; display: grid; }
   .board { overflow-x: auto; }
-  .tableHeader, .taskRow { min-width: 920px; }
+  .tableHeader, .taskRow { min-width: 1020px; }
+  .kanban { grid-template-columns: repeat(5, 240px); }
 }
