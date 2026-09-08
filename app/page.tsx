@@ -4,7 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "re
 
 type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 type Priority = "Nizka" | "Stredna" | "Vysoka";
-type View = "Tabulka" | "Kanban";
+type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
 
 type Task = {
@@ -42,6 +42,7 @@ export default function Home() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "Vsetko">("Vsetko");
+  const [projectFilter, setProjectFilter] = useState("Vsetko");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("Vsetko");
   const [view, setView] = useState<View>("Tabulka");
   const importRef = useRef<HTMLInputElement>(null);
@@ -62,15 +63,20 @@ export default function Home() {
       const haystack = `${task.name} ${task.project} ${task.owner} ${task.note}`.toLowerCase();
       const matchesQuery = haystack.includes(query.toLowerCase());
       const matchesStatus = statusFilter === "Vsetko" || task.status === statusFilter;
+      const matchesProject = projectFilter === "Vsetko" || task.project === projectFilter;
       const matchesQuick =
         quickFilter === "Vsetko" ||
         (quickFilter === "Dnes" && (task.status === "Dnes" || task.due.toLowerCase().includes("dnes"))) ||
         (quickFilter === "Vysoka" && task.priority === "Vysoka") ||
         (quickFilter === "Moje" && task.owner.toLowerCase().includes("martin")) ||
         (quickFilter === "Hotovo" && task.status === "Hotovo");
-      return matchesQuery && matchesStatus && matchesQuick;
+      return matchesQuery && matchesStatus && matchesProject && matchesQuick;
     });
-  }, [query, quickFilter, statusFilter, tasks]);
+  }, [projectFilter, query, quickFilter, statusFilter, tasks]);
+
+  const focusTasks = useMemo(() => {
+    return tasks.filter((task) => task.status === "Dnes" || task.due.toLowerCase().includes("dnes")).slice(0, 4);
+  }, [tasks]);
 
   function openNewTask() {
     setDraft(blankTask());
@@ -107,6 +113,10 @@ export default function Home() {
   function deleteTask(id: number) {
     setTasks((current) => current.filter((task) => task.id !== id));
     setSelectedTask(null);
+  }
+
+  function duplicateTask(task: Task) {
+    setTasks((current) => [{ ...task, id: Date.now(), name: `${task.name} kopia`, status: "Backlog" }, ...current]);
   }
 
   function exportData() {
@@ -166,9 +176,14 @@ export default function Home() {
             <option>Vsetko</option>
             {statuses.map((status) => <option key={status}>{status}</option>)}
           </select>
+          <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
+            <option>Vsetko</option>
+            {projects.map((project) => <option key={project}>{project}</option>)}
+          </select>
           <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
             <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
             <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}>Kanban</button>
+            <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}>Tyžden</button>
           </div>
         </section>
 
@@ -176,6 +191,11 @@ export default function Home() {
           {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
             <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
           ))}
+        </section>
+
+        <section className="focusStrip">
+          <div><p className="eyebrow">Dnesny fokus</p><h2>{focusTasks.length ? focusTasks[0].name : "Ziadna uloha na dnes"}</h2></div>
+          <span>{focusTasks.length} ulohy vo fokuse</span>
         </section>
 
         {view === "Tabulka" ? (
@@ -188,13 +208,16 @@ export default function Home() {
                 <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
-                <span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span><span>{task.due}</span>
-                <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
+                <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority })}>
+                  {priorities.map((priority) => <option key={priority}>{priority}</option>)}
+                </select>
+                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value })} />
+                <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
               </article>
             ))}
             {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
           </section>
-        ) : (
+        ) : view === "Kanban" ? (
           <section className="kanban">
             {statuses.map((status) => {
               const columnTasks = visibleTasks.filter((task) => task.status === status);
@@ -209,6 +232,25 @@ export default function Home() {
                     </button>
                   ))}
                   {columnTasks.length === 0 ? <p className="columnEmpty">Zatial prazdne</p> : null}
+                </article>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="weekPlan">
+            {["Dnes", "Utorok", "Streda", "Stvrtok", "Piatok", "Neskor"].map((day) => {
+              const dayTasks = visibleTasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || task.status === day);
+              return (
+                <article className="dayPlan" key={day}>
+                  <h2>{day}<span>{dayTasks.length}</span></h2>
+                  {dayTasks.map((task) => (
+                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
+                      <strong>{task.name}</strong>
+                      <span>{task.project} · {task.owner}</span>
+                      <em>{task.status} · {task.priority}</em>
+                    </button>
+                  ))}
+                  {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
                 </article>
               );
             })}
