@@ -137,6 +137,7 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [newGoal, setNewGoal] = useState({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
   const [inboxText, setInboxText] = useState("");
+  const [activityNote, setActivityNote] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -292,6 +293,13 @@ export default function Home() {
   function updateTask(id: number, patch: Partial<Task>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
     setSelectedTask((current) => (current?.id === id ? { ...current, ...patch } : current));
+  }
+
+  function addActivityNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTask || !activityNote.trim()) return;
+    updateTask(selectedTask.id, { activity: [`${new Date().toLocaleDateString("sk-SK")}: ${activityNote.trim()}`, ...selectedTask.activity] });
+    setActivityNote("");
   }
 
   function updateDraftChecklist(value: string) {
@@ -718,6 +726,14 @@ export default function Home() {
             <dt>Termin</dt><dd>{selectedTask.due}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
+          <section className="detailActions">
+            <h3>Rychla zmena statusu</h3>
+            <div>
+              {statuses.map((status) => (
+                <button key={status} className={selectedTask.status === status ? "selected" : "ghost"} onClick={() => updateTask(selectedTask.id, { status, activity: [`Status zmeneny na ${status}`, ...selectedTask.activity] })}>{status}</button>
+              ))}
+            </div>
+          </section>
           <section className="checklist">
             <h3>Kontrolny zoznam</h3>
             {selectedTask.checklist.length ? selectedTask.checklist.map((item) => (
@@ -729,6 +745,10 @@ export default function Home() {
           </section>
           <section className="activity">
             <h3>Aktivita</h3>
+            <form className="activityForm" onSubmit={addActivityNote}>
+              <input value={activityNote} onChange={(event) => setActivityNote(event.target.value)} placeholder="Pridat poznamku k ulohe" />
+              <button type="submit">Pridat</button>
+            </form>
             {(selectedTask.activity.length ? selectedTask.activity : ["Zatial bez aktivity."]).slice(0, 5).map((item) => <p key={item}>{item}</p>)}
           </section>
           <button className="ghost wide" onClick={() => openEditTask(selectedTask)}>Upravit ulohu</button>

@@ -1029,6 +1029,7 @@ h2, p { margin-top: 0; }
 }
 
 .checklist,
+.detailActions,
 .activity {
   border-top: 1px solid #e6ebef;
   display: grid;
@@ -1037,11 +1038,27 @@ h2, p { margin-top: 0; }
 }
 
 .checklist h3,
+.detailActions h3,
 .activity h3 {
   font-size: 14px;
   letter-spacing: 0;
   margin: 0;
   text-transform: uppercase;
+}
+
+.detailActions div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detailActions button {
+  padding: 9px 10px;
+}
+
+.detailActions button.selected {
+  background: #17202a;
+  color: white;
 }
 
 .checklist label {
@@ -1072,6 +1089,24 @@ h2, p { margin-top: 0; }
   padding: 10px;
 }
 
+.activityForm {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.activityForm input {
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.activityForm button {
+  padding: 9px 12px;
+}
+
 .wide {
   width: 100%;
 }
@@ -1089,4 +1124,5 @@ h2, p { margin-top: 0; }
   .tableHeader, .taskRow { min-width: 1200px; }
   .kanban { grid-template-columns: repeat(5, 240px); }
   .weekPlan { grid-template-columns: 1fr; }
+  .activityForm { grid-template-columns: 1fr; }
 }
