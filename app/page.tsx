@@ -6,7 +6,7 @@ type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
-type Screen = "Pracovna plocha" | "Projekty" | "Kalendar" | "Kapacity" | "Reporty";
+type Screen = "Pracovna plocha" | "Projekty" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
 
 type Task = {
   id: number;
@@ -28,16 +28,29 @@ type ChecklistItem = {
 };
 
 const storageKey = "ai-planner-tasks-v2";
+const teamStorageKey = "ai-planner-team-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screens: Screen[] = ["Pracovna plocha", "Projekty", "Kalendar", "Kapacity", "Reporty"];
+const screens: Screen[] = ["Pracovna plocha", "Projekty", "Tim", "Kalendar", "Kapacity", "Reporty"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
+
+type TeamMember = {
+  id: number;
+  name: string;
+  role: string;
+  capacity: number;
+};
 
 const initialTasks: Task[] = [
   { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
   { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
   { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
   { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
+];
+
+const initialTeam: TeamMember[] = [
+  { id: 1, name: "Martin", role: "Founder / Produkt", capacity: 80 },
+  { id: 2, name: "AI", role: "Asistent planovania", capacity: 65 }
 ];
 
 function blankTask(): Task {
@@ -71,16 +84,24 @@ export default function Home() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("Vsetko");
   const [view, setView] = useState<View>("Tabulka");
   const [activeScreen, setActiveScreen] = useState<Screen>("Pracovna plocha");
+  const [team, setTeam] = useState<TeamMember[]>(initialTeam);
+  const [newMember, setNewMember] = useState({ name: "", role: "", capacity: 60 });
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
     if (saved) setTasks(JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)));
+    const savedTeam = window.localStorage.getItem(teamStorageKey);
+    if (savedTeam) setTeam(JSON.parse(savedTeam));
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    window.localStorage.setItem(teamStorageKey, JSON.stringify(team));
+  }, [team]);
 
   const projects = useMemo(() => Array.from(new Set(tasks.map((task) => task.project))), [tasks]);
   const owners = useMemo(() => Array.from(new Set(tasks.map((task) => task.owner))), [tasks]);
@@ -107,6 +128,23 @@ export default function Home() {
   const focusTasks = useMemo(() => {
     return tasks.filter((task) => task.status === "Dnes" || task.due.toLowerCase().includes("dnes")).slice(0, 4);
   }, [tasks]);
+
+  const projectHealth = useMemo(() => {
+    return projects.map((project, index) => {
+      const projectTasks = tasks.filter((task) => task.project === project);
+      const done = projectTasks.filter((task) => task.status === "Hotovo").length;
+      const highOpen = projectTasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length;
+      const progress = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
+      return {
+        name: project,
+        color: projectColors[index % projectColors.length],
+        tasks: projectTasks,
+        progress,
+        highOpen,
+        next: projectTasks.find((task) => task.status !== "Hotovo")?.name || "Projekt je cisty"
+      };
+    });
+  }, [projects, tasks]);
 
   function chooseProject(project: string) {
     setProjectFilter(project);
@@ -155,6 +193,17 @@ export default function Home() {
   function toggleChecklist(task: Task, item: ChecklistItem) {
     const checklist = task.checklist.map((current) => (current.id === item.id ? { ...current, done: !current.done } : current));
     updateTask(task.id, { checklist, activity: [`Checklist upraveny ${new Date().toLocaleDateString("sk-SK")}`, ...task.activity] });
+  }
+
+  function addMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newMember.name.trim()) return;
+    setTeam((current) => [{ id: Date.now(), ...newMember }, ...current]);
+    setNewMember({ name: "", role: "", capacity: 60 });
+  }
+
+  function removeMember(id: number) {
+    setTeam((current) => current.filter((member) => member.id !== id));
   }
 
   function deleteTask(id: number) {
@@ -314,20 +363,45 @@ export default function Home() {
 
         {activeScreen === "Projekty" ? (
           <section className="screenGrid">
-            {projects.map((project, index) => {
-              const projectTasks = tasks.filter((task) => task.project === project);
-              const done = projectTasks.filter((task) => task.status === "Hotovo").length;
-              const progress = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
+            {projectHealth.map((project) => {
               return (
-                <article className="projectSummary" key={project}>
-                  <span className="projectMark" style={{ background: projectColors[index % projectColors.length] }} />
-                  <h2>{project}</h2>
-                  <p>{projectTasks.length} uloh · {progress}% hotovo</p>
-                  <div className="progressTrack"><span style={{ width: `${progress}%` }} /></div>
-                  <button className="ghost wide" onClick={() => chooseProject(project)}>Otvorit ulohy</button>
+                <article className="projectSummary" key={project.name}>
+                  <span className="projectMark" style={{ background: project.color }} />
+                  <h2>{project.name}</h2>
+                  <p>{project.tasks.length} uloh · {project.progress}% hotovo · {project.highOpen} rizik</p>
+                  <div className="progressTrack"><span style={{ width: `${project.progress}%` }} /></div>
+                  <div className="nextStep"><span>Dalsi krok</span><strong>{project.next}</strong></div>
+                  <button className="ghost wide" onClick={() => chooseProject(project.name)}>Otvorit ulohy</button>
                 </article>
               );
             })}
+          </section>
+        ) : null}
+
+        {activeScreen === "Tim" ? (
+          <section className="teamLayout">
+            <form className="teamForm" onSubmit={addMember}>
+              <h2>Pridat clena</h2>
+              <input value={newMember.name} onChange={(event) => setNewMember({ ...newMember, name: event.target.value })} placeholder="Meno" />
+              <input value={newMember.role} onChange={(event) => setNewMember({ ...newMember, role: event.target.value })} placeholder="Rola" />
+              <label>Kapacita {newMember.capacity}%<input type="range" min="10" max="100" step="5" value={newMember.capacity} onChange={(event) => setNewMember({ ...newMember, capacity: Number(event.target.value) })} /></label>
+              <button type="submit">Pridat do timu</button>
+            </form>
+            <section className="memberList">
+              {team.map((member) => {
+                const memberTasks = tasks.filter((task) => task.owner.toLowerCase() === member.name.toLowerCase());
+                const active = memberTasks.filter((task) => task.status !== "Hotovo").length;
+                return (
+                  <article className="memberCard" key={member.id}>
+                    <div className="avatar">{member.name.slice(0, 2).toUpperCase()}</div>
+                    <div><h2>{member.name}</h2><p>{member.role || "Bez roly"}</p></div>
+                    <div className="capacityMeter"><span style={{ width: `${member.capacity}%` }} /></div>
+                    <p>{active} aktivne ulohy</p>
+                    <button className="ghost" onClick={() => removeMember(member.id)}>Odstranit</button>
+                  </article>
+                );
+              })}
+            </section>
           </section>
         ) : null}
 

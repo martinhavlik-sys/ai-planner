@@ -259,6 +259,26 @@ h2, p { margin-top: 0; }
   margin: 0;
 }
 
+.nextStep {
+  background: #f4f6f8;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.nextStep span {
+  color: #64707c;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.nextStep strong {
+  color: #17202a;
+  line-height: 1.35;
+}
+
 .projectMark {
   border-radius: 999px;
   display: block;
@@ -315,6 +335,87 @@ h2, p { margin-top: 0; }
   color: #1f7a5a;
   font-size: 34px;
   font-weight: 800;
+}
+
+.teamLayout {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+.teamForm,
+.memberCard {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+}
+
+.teamForm {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.teamForm h2 {
+  margin: 0;
+}
+
+.teamForm input {
+  background: white;
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  color: #17202a;
+  min-height: 44px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.teamForm input[type="range"] {
+  accent-color: #1f7a5a;
+  padding: 0;
+}
+
+.teamForm label {
+  color: #586571;
+  display: grid;
+  font-size: 14px;
+  font-weight: 800;
+  gap: 8px;
+}
+
+.memberList {
+  display: grid;
+  gap: 12px;
+}
+
+.memberCard {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 52px minmax(160px, 1fr) minmax(160px, 1fr) 120px 110px;
+  padding: 16px;
+}
+
+.memberCard h2,
+.memberCard p {
+  margin: 0;
+}
+
+.memberCard p {
+  color: #64707c;
+}
+
+.avatar {
+  align-items: center;
+  background: #17202a;
+  border-radius: 8px;
+  color: white;
+  display: grid;
+  font-weight: 800;
+  height: 48px;
+  place-items: center;
+  width: 48px;
 }
 
 .board { overflow: hidden; }
@@ -647,7 +748,7 @@ h2, p { margin-top: 0; }
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .content { padding: 18px; }
-  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow { grid-template-columns: 1fr; }
+  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard { grid-template-columns: 1fr; }
   .capacityRow strong { text-align: left; }
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }
