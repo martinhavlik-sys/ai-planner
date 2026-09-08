@@ -7,6 +7,15 @@ type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
 type Screen = "Pracovna plocha" | "Inbox" | "Projekty" | "Roadmapa" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
+type SavedView = {
+  name: string;
+  description: string;
+  status: Status | "Vsetko";
+  project: string;
+  quick: QuickFilter;
+  view: View;
+  query: string;
+};
 
 type Task = {
   id: number;
@@ -82,6 +91,14 @@ const taskTemplates: TaskTemplate[] = [
   { title: "Chyba na opravu", project: "Technologia", priority: "Vysoka", note: "Zachytit co sa pokazilo, kde sa to prejavuje a ako overime opravu.", checklist: ["Popisat kroky chyby", "Opravit pricinu", "Otestovat nasadenie"] },
   { title: "Produktove rozhodnutie", project: "Planovanie", priority: "Stredna", note: "Zapisat moznosti, odporucanie a dovod rozhodnutia.", checklist: ["Spisat moznosti", "Vybrat odporucanie", "Zapisat dalsi krok"] },
   { title: "Stretnutie / follow-up", project: "Planovanie", priority: "Stredna", note: "Pripravit agendu a vysledky, ktore maju po stretnuti existovat.", checklist: ["Agenda", "Otvorene otazky", "Dohodnute ulohy"] }
+];
+
+const savedViews: SavedView[] = [
+  { name: "Dnesny fokus", description: "Len praca, ktoru treba riesit teraz.", status: "Vsetko", project: "Vsetko", quick: "Dnes", view: "Tabulka", query: "" },
+  { name: "Moja praca", description: "Ulohy priradene Martinovi.", status: "Vsetko", project: "Vsetko", quick: "Moje", view: "Tabulka", query: "" },
+  { name: "Vysoka priorita", description: "Otvorene veci s najvyssou prioritou.", status: "Vsetko", project: "Vsetko", quick: "Vysoka", view: "Tabulka", query: "" },
+  { name: "Kanban aktivne", description: "Stav prace v stlpcoch.", status: "Vsetko", project: "Vsetko", quick: "Vsetko", view: "Kanban", query: "" },
+  { name: "Hotovo", description: "Dokoncene ulohy a vysledky.", status: "Hotovo", project: "Vsetko", quick: "Vsetko", view: "Tabulka", query: "" }
 ];
 
 function blankTask(): Task {
@@ -191,6 +208,23 @@ export default function Home() {
     setProjectFilter(project);
     setQuickFilter("Vsetko");
     setActiveScreen("Pracovna plocha");
+  }
+
+  function applySavedView(savedView: SavedView) {
+    setQuery(savedView.query);
+    setStatusFilter(savedView.status);
+    setProjectFilter(savedView.project);
+    setQuickFilter(savedView.quick);
+    setView(savedView.view);
+    setActiveScreen("Pracovna plocha");
+  }
+
+  function clearFilters() {
+    setQuery("");
+    setStatusFilter("Vsetko");
+    setProjectFilter("Vsetko");
+    setQuickFilter("Vsetko");
+    setView("Tabulka");
   }
 
   function openNewTask() {
@@ -382,6 +416,23 @@ export default function Home() {
             {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
               <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
             ))}
+          </section>
+
+          <section className="savedViews">
+            <div><p className="eyebrow">Ulozene pohlady</p><h2>Rychle prepnutie</h2></div>
+            <div>
+              {savedViews.map((savedView) => (
+                <button key={savedView.name} className="savedViewButton" onClick={() => applySavedView(savedView)}>
+                  <strong>{savedView.name}</strong>
+                  <span>{savedView.description}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="filterSummary">
+            <span>Zobrazene: {visibleTasks.length} z {tasks.length} uloh</span>
+            <button className="ghost" onClick={clearFilters}>Vymazat filtre</button>
           </section>
 
           <section className="focusStrip">

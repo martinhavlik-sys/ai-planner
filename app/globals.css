@@ -264,6 +264,63 @@ h2, p { margin-top: 0; }
   font-size: 13px;
 }
 
+.savedViews {
+  align-items: center;
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  margin-bottom: 14px;
+  padding: 16px;
+}
+
+.savedViews h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.savedViews > div:last-child {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.savedViewButton {
+  background: #f4f6f8;
+  border: 1px solid #dfe5ea;
+  color: #17202a;
+  display: grid;
+  gap: 6px;
+  min-height: 82px;
+  padding: 12px;
+  text-align: left;
+}
+
+.savedViewButton span {
+  color: #64707c;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.filterSummary {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.filterSummary span {
+  color: #586571;
+  font-weight: 800;
+}
+
+.filterSummary button {
+  padding: 9px 12px;
+}
+
 .inboxLayout {
   display: grid;
   gap: 18px;
@@ -1023,8 +1080,9 @@ h2, p { margin-top: 0; }
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .content { padding: 18px; }
-  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .insightGrid, .inboxLayout { grid-template-columns: 1fr; }
+  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .savedViews, .savedViews > div:last-child, .insightGrid, .inboxLayout { grid-template-columns: 1fr; }
   .capacityRow strong { text-align: left; }
+  .filterSummary { align-items: stretch; display: grid; }
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }
   .board { overflow-x: auto; }
