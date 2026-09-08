@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban";
+type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
 
 type Task = {
   id: number;
@@ -17,9 +18,10 @@ type Task = {
   note: string;
 };
 
-const storageKey = "ai-planner-tasks-v1";
+const storageKey = "ai-planner-tasks-v2";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
+const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 const initialTasks: Task[] = [
   { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", note: "Prvy verejny deploy uz bezi na Verceli." },
@@ -28,13 +30,21 @@ const initialTasks: Task[] = [
   { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", note: "Dalsia etapa po lokalnom ukladani." }
 ];
 
+function blankTask(): Task {
+  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Tento tyzden", note: "" };
+}
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [draft, setDraft] = useState<Task>(blankTask());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "Vsetko">("Vsetko");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("Vsetko");
   const [view, setView] = useState<View>("Tabulka");
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
@@ -45,40 +55,53 @@ export default function Home() {
     window.localStorage.setItem(storageKey, JSON.stringify(tasks));
   }, [tasks]);
 
+  const projects = useMemo(() => Array.from(new Set(tasks.map((task) => task.project))), [tasks]);
+
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
       const haystack = `${task.name} ${task.project} ${task.owner} ${task.note}`.toLowerCase();
       const matchesQuery = haystack.includes(query.toLowerCase());
       const matchesStatus = statusFilter === "Vsetko" || task.status === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesQuick =
+        quickFilter === "Vsetko" ||
+        (quickFilter === "Dnes" && (task.status === "Dnes" || task.due.toLowerCase().includes("dnes"))) ||
+        (quickFilter === "Vysoka" && task.priority === "Vysoka") ||
+        (quickFilter === "Moje" && task.owner.toLowerCase().includes("martin")) ||
+        (quickFilter === "Hotovo" && task.status === "Hotovo");
+      return matchesQuery && matchesStatus && matchesQuick;
     });
-  }, [query, statusFilter, tasks]);
+  }, [query, quickFilter, statusFilter, tasks]);
 
-  function addTask(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("name") || "").trim();
-    if (!name) return;
-
-    setTasks((current) => [
-      {
-        id: Date.now(),
-        name,
-        project: String(form.get("project") || "Produkt"),
-        owner: String(form.get("owner") || "Martin"),
-        status: String(form.get("status") || "Backlog") as Status,
-        priority: String(form.get("priority") || "Stredna") as Priority,
-        due: String(form.get("due") || "Tento tyzden"),
-        note: String(form.get("note") || "")
-      },
-      ...current
-    ]);
-    setIsFormOpen(false);
-    event.currentTarget.reset();
+  function openNewTask() {
+    setDraft(blankTask());
+    setEditingTask(null);
+    setIsFormOpen(true);
   }
 
-  function updateStatus(id: number, status: Status) {
-    setTasks((current) => current.map((task) => (task.id === id ? { ...task, status } : task)));
+  function openEditTask(task: Task) {
+    setDraft(task);
+    setEditingTask(task);
+    setSelectedTask(null);
+    setIsFormOpen(true);
+  }
+
+  function saveTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draft.name.trim()) return;
+
+    if (editingTask) {
+      setTasks((current) => current.map((task) => (task.id === editingTask.id ? draft : task)));
+    } else {
+      setTasks((current) => [{ ...draft, id: Date.now() }, ...current]);
+    }
+
+    setIsFormOpen(false);
+    setEditingTask(null);
+    setDraft(blankTask());
+  }
+
+  function updateTask(id: number, patch: Partial<Task>) {
+    setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
   }
 
   function deleteTask(id: number) {
@@ -86,17 +109,49 @@ export default function Home() {
     setSelectedTask(null);
   }
 
+  function exportData() {
+    const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "ai-planner-data.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = JSON.parse(String(reader.result));
+      if (Array.isArray(parsed)) setTasks(parsed);
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  }
+
   return (
     <main className="appShell">
       <aside className="sidebar">
         <div className="brand"><span>AP</span><strong>AI Planner</strong></div>
         <nav><a className="active">Pracovna plocha</a><a>Projekty</a><a>Kalendar</a><a>Kapacity</a><a>Reporty</a></nav>
+        <section className="projectList">
+          <p>Projekty</p>
+          {projects.map((project, index) => <span key={project} style={{ borderLeftColor: projectColors[index % projectColors.length] }}>{project}</span>)}
+        </section>
       </aside>
 
       <section className="content">
         <header className="header">
           <div><p className="eyebrow">Produktovy workspace</p><h1>AI Planner Hub</h1></div>
-          <button onClick={() => setIsFormOpen(true)}>Nova uloha</button>
+          <div className="headerActions">
+            <button className="ghost" onClick={exportData}>Export</button>
+            <button className="ghost" onClick={() => importRef.current?.click()}>Import</button>
+            <input ref={importRef} className="hiddenInput" type="file" accept="application/json" onChange={importData} />
+            <button onClick={openNewTask}>Nova uloha</button>
+          </div>
         </header>
 
         <section className="stats" aria-label="Prehlad">
@@ -117,53 +172,64 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="quickFilters">
+          {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
+            <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
+          ))}
+        </section>
+
         {view === "Tabulka" ? (
           <section className="board">
-            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span></span></div>
+            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Akcie</span></div>
             {visibleTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
                 <span>{task.project}</span><span>{task.owner}</span>
-                <select value={task.status} onChange={(event) => updateStatus(task.id, event.target.value as Status)}>
+                <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
                 <span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span><span>{task.due}</span>
-                <button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button>
+                <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
               </article>
             ))}
+            {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
           </section>
         ) : (
           <section className="kanban">
-            {statuses.map((status) => (
-              <article className="column" key={status}>
-                <h2>{status}</h2>
-                {visibleTasks.filter((task) => task.status === status).map((task) => (
-                  <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
-                    <strong>{task.name}</strong>
-                    <span>{task.project} · {task.owner}</span>
-                    <em>{task.priority} · {task.due}</em>
-                  </button>
-                ))}
-              </article>
-            ))}
+            {statuses.map((status) => {
+              const columnTasks = visibleTasks.filter((task) => task.status === status);
+              return (
+                <article className="column" key={status}>
+                  <h2>{status}<span>{columnTasks.length}</span></h2>
+                  {columnTasks.map((task) => (
+                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
+                      <strong>{task.name}</strong>
+                      <span>{task.project} · {task.owner}</span>
+                      <em>{task.priority} · {task.due}</em>
+                    </button>
+                  ))}
+                  {columnTasks.length === 0 ? <p className="columnEmpty">Zatial prazdne</p> : null}
+                </article>
+              );
+            })}
           </section>
         )}
       </section>
 
       {isFormOpen ? (
         <div className="modalBackdrop" role="presentation">
-          <form className="modal" onSubmit={addTask}>
-            <div className="modalHeader"><h2>Nova uloha</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
-            <label>Nazov ulohy<input name="name" placeholder="Napriklad: pripravit prihlasenie" required /></label>
+          <form className="modal" onSubmit={saveTask}>
+            <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
+            <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <label>Projekt<input name="project" defaultValue="Produkt" /></label>
-              <label>Vlastnik<input name="owner" defaultValue="Martin" /></label>
-              <label>Status<select name="status" defaultValue="Backlog">{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
-              <label>Priorita<select name="priority" defaultValue="Stredna">{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
+              <label>Projekt<input value={draft.project} onChange={(event) => setDraft({ ...draft, project: event.target.value })} /></label>
+              <label>Vlastnik<input value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} /></label>
+              <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+              <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
             </div>
-            <label>Termin<input name="due" defaultValue="Tento tyzden" /></label>
-            <label>Poznamka<input name="note" placeholder="Volitelny kontext k ulohe" /></label>
-            <button type="submit">Pridat ulohu</button>
+            <label>Termin<input value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
+            <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
+            <button type="submit">{editingTask ? "Ulozit zmeny" : "Pridat ulohu"}</button>
           </form>
         </div>
       ) : null}
@@ -180,6 +246,7 @@ export default function Home() {
             <dt>Termin</dt><dd>{selectedTask.due}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
+          <button className="ghost wide" onClick={() => openEditTask(selectedTask)}>Upravit ulohu</button>
           <button className="danger wide" onClick={() => deleteTask(selectedTask.id)}>Zmazat ulohu</button>
         </aside>
       ) : null}
