@@ -363,9 +363,20 @@ h2, p { margin-top: 0; }
 .taskRow select {
   border: 1px solid #d8e0e7;
   border-radius: 8px;
+  font-weight: 800;
   min-height: 36px;
   padding: 0 8px;
 }
+
+.statusSelect.backlog { background: #eef2f5; color: #3f4a54; }
+.statusSelect.dnes { background: #fff4d8; color: #8a5d00; }
+.statusSelect.robi-sa { background: #e8f3ec; color: #1f7a5a; }
+.statusSelect.caka { background: #edf0ff; color: #3467d6; }
+.statusSelect.hotovo { background: #e7f6ef; color: #16704e; }
+
+.prioritySelect.nizka { background: #e8f3ec; color: #1f7a5a; }
+.prioritySelect.stredna { background: #fff4d8; color: #8a5d00; }
+.prioritySelect.vysoka { background: #ffe4e0; color: #ad2f1e; }
 
 .taskRow input {
   border: 1px solid #d8e0e7;
@@ -582,6 +593,50 @@ h2, p { margin-top: 0; }
 .detailPanel p {
   color: #3f4a54;
   line-height: 1.5;
+}
+
+.checklist,
+.activity {
+  border-top: 1px solid #e6ebef;
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.checklist h3,
+.activity h3 {
+  font-size: 14px;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.checklist label {
+  align-items: center;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.checklist input {
+  accent-color: #1f7a5a;
+  height: 18px;
+  width: 18px;
+}
+
+.checklist label.done span {
+  color: #7a8792;
+  text-decoration: line-through;
+}
+
+.activity p {
+  background: #f4f6f8;
+  border-radius: 8px;
+  color: #586571;
+  margin: 0;
+  padding: 10px;
 }
 
 .wide {

@@ -17,6 +17,14 @@ type Task = {
   priority: Priority;
   due: string;
   note: string;
+  checklist: ChecklistItem[];
+  activity: string[];
+};
+
+type ChecklistItem = {
+  id: number;
+  text: string;
+  done: boolean;
 };
 
 const storageKey = "ai-planner-tasks-v2";
@@ -26,14 +34,29 @@ const screens: Screen[] = ["Pracovna plocha", "Projekty", "Kalendar", "Kapacity"
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 const initialTasks: Task[] = [
-  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", note: "Prvy verejny deploy uz bezi na Verceli." },
-  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", note: "Zaklad pre timove kapacity a projekty." },
-  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", note: "Pridat pracovny dashboard, filtre a prehlady." },
-  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", note: "Dalsia etapa po lokalnom ukladani." }
+  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
+  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
+  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
+  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
 ];
 
 function blankTask(): Task {
-  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Tento tyzden", note: "" };
+  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Tento tyzden", note: "", checklist: [], activity: [] };
+}
+
+function normalizeTask(task: Partial<Task>): Task {
+  return {
+    id: typeof task.id === "number" ? task.id : Date.now(),
+    name: task.name || "Nova uloha",
+    project: task.project || "Produkt",
+    owner: task.owner || "Martin",
+    status: task.status || "Backlog",
+    priority: task.priority || "Stredna",
+    due: task.due || "Tento tyzden",
+    note: task.note || "",
+    checklist: Array.isArray(task.checklist) ? task.checklist : [],
+    activity: Array.isArray(task.activity) ? task.activity : []
+  };
 }
 
 export default function Home() {
@@ -52,7 +75,7 @@ export default function Home() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
-    if (saved) setTasks(JSON.parse(saved));
+    if (saved) setTasks(JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)));
   }, []);
 
   useEffect(() => {
@@ -109,9 +132,9 @@ export default function Home() {
     if (!draft.name.trim()) return;
 
     if (editingTask) {
-      setTasks((current) => current.map((task) => (task.id === editingTask.id ? draft : task)));
+      setTasks((current) => current.map((task) => (task.id === editingTask.id ? { ...draft, activity: [`Upravene ${new Date().toLocaleDateString("sk-SK")}`, ...draft.activity] } : task)));
     } else {
-      setTasks((current) => [{ ...draft, id: Date.now() }, ...current]);
+      setTasks((current) => [{ ...draft, id: Date.now(), activity: [`Vytvorene ${new Date().toLocaleDateString("sk-SK")}`] }, ...current]);
     }
 
     setIsFormOpen(false);
@@ -121,6 +144,17 @@ export default function Home() {
 
   function updateTask(id: number, patch: Partial<Task>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
+    setSelectedTask((current) => (current?.id === id ? { ...current, ...patch } : current));
+  }
+
+  function updateDraftChecklist(value: string) {
+    const checklist = value.split("\n").map((text, index) => ({ id: draft.checklist[index]?.id || Date.now() + index, text: text.trim(), done: draft.checklist[index]?.done || false })).filter((item) => item.text);
+    setDraft({ ...draft, checklist });
+  }
+
+  function toggleChecklist(task: Task, item: ChecklistItem) {
+    const checklist = task.checklist.map((current) => (current.id === item.id ? { ...current, done: !current.done } : current));
+    updateTask(task.id, { checklist, activity: [`Checklist upraveny ${new Date().toLocaleDateString("sk-SK")}`, ...task.activity] });
   }
 
   function deleteTask(id: number) {
@@ -149,7 +183,7 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = () => {
       const parsed = JSON.parse(String(reader.result));
-      if (Array.isArray(parsed)) setTasks(parsed);
+      if (Array.isArray(parsed)) setTasks(parsed.map((task: Partial<Task>) => normalizeTask(task)));
     };
     reader.readAsText(file);
     event.target.value = "";
@@ -224,13 +258,13 @@ export default function Home() {
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
                 <span>{task.project}</span><span>{task.owner}</span>
-                <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status })}>
+                <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
-                <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority })}>
+                <select className={`prioritySelect ${task.priority.toLowerCase()}`} value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority, activity: [`Priorita zmenena na ${event.target.value}`, ...task.activity] })}>
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
-                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value })} />
+                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, activity: [`Termin zmeneny`, ...task.activity] })} />
                 <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
               </article>
             ))}
@@ -358,6 +392,7 @@ export default function Home() {
             </div>
             <label>Termin<input value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
+            <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
             <button type="submit">{editingTask ? "Ulozit zmeny" : "Pridat ulohu"}</button>
           </form>
         </div>
@@ -375,6 +410,19 @@ export default function Home() {
             <dt>Termin</dt><dd>{selectedTask.due}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
+          <section className="checklist">
+            <h3>Kontrolny zoznam</h3>
+            {selectedTask.checklist.length ? selectedTask.checklist.map((item) => (
+              <label key={item.id} className={item.done ? "done" : ""}>
+                <input type="checkbox" checked={item.done} onChange={() => toggleChecklist(selectedTask, item)} />
+                <span>{item.text}</span>
+              </label>
+            )) : <p>Bez checklistu.</p>}
+          </section>
+          <section className="activity">
+            <h3>Aktivita</h3>
+            {(selectedTask.activity.length ? selectedTask.activity : ["Zatial bez aktivity."]).slice(0, 5).map((item) => <p key={item}>{item}</p>)}
+          </section>
           <button className="ghost wide" onClick={() => openEditTask(selectedTask)}>Upravit ulohu</button>
           <button className="danger wide" onClick={() => deleteTask(selectedTask.id)}>Zmazat ulohu</button>
         </aside>
