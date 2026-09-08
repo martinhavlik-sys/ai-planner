@@ -6,6 +6,7 @@ type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
+type Screen = "Pracovna plocha" | "Projekty" | "Kalendar" | "Kapacity" | "Reporty";
 
 type Task = {
   id: number;
@@ -21,6 +22,7 @@ type Task = {
 const storageKey = "ai-planner-tasks-v2";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
+const screens: Screen[] = ["Pracovna plocha", "Projekty", "Kalendar", "Kapacity", "Reporty"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 const initialTasks: Task[] = [
@@ -45,6 +47,7 @@ export default function Home() {
   const [projectFilter, setProjectFilter] = useState("Vsetko");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("Vsetko");
   const [view, setView] = useState<View>("Tabulka");
+  const [activeScreen, setActiveScreen] = useState<Screen>("Pracovna plocha");
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,6 +60,10 @@ export default function Home() {
   }, [tasks]);
 
   const projects = useMemo(() => Array.from(new Set(tasks.map((task) => task.project))), [tasks]);
+  const owners = useMemo(() => Array.from(new Set(tasks.map((task) => task.owner))), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter((task) => task.status === "Hotovo"), [tasks]);
+  const activeTasks = useMemo(() => tasks.filter((task) => task.status !== "Hotovo"), [tasks]);
+  const completionRate = tasks.length ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -77,6 +84,12 @@ export default function Home() {
   const focusTasks = useMemo(() => {
     return tasks.filter((task) => task.status === "Dnes" || task.due.toLowerCase().includes("dnes")).slice(0, 4);
   }, [tasks]);
+
+  function chooseProject(project: string) {
+    setProjectFilter(project);
+    setQuickFilter("Vsetko");
+    setActiveScreen("Pracovna plocha");
+  }
 
   function openNewTask() {
     setDraft(blankTask());
@@ -146,16 +159,20 @@ export default function Home() {
     <main className="appShell">
       <aside className="sidebar">
         <div className="brand"><span>AP</span><strong>AI Planner</strong></div>
-        <nav><a className="active">Pracovna plocha</a><a>Projekty</a><a>Kalendar</a><a>Kapacity</a><a>Reporty</a></nav>
+        <nav>
+          {screens.map((screen) => (
+            <button key={screen} className={activeScreen === screen ? "active" : ""} onClick={() => setActiveScreen(screen)}>{screen}</button>
+          ))}
+        </nav>
         <section className="projectList">
           <p>Projekty</p>
-          {projects.map((project, index) => <span key={project} style={{ borderLeftColor: projectColors[index % projectColors.length] }}>{project}</span>)}
+          {projects.map((project, index) => <button key={project} onClick={() => chooseProject(project)} style={{ borderLeftColor: projectColors[index % projectColors.length] }}>{project}</button>)}
         </section>
       </aside>
 
       <section className="content">
         <header className="header">
-          <div><p className="eyebrow">Produktovy workspace</p><h1>AI Planner Hub</h1></div>
+          <div><p className="eyebrow">Produktovy workspace</p><h1>{activeScreen}</h1></div>
           <div className="headerActions">
             <button className="ghost" onClick={exportData}>Export</button>
             <button className="ghost" onClick={() => importRef.current?.click()}>Import</button>
@@ -166,39 +183,41 @@ export default function Home() {
 
         <section className="stats" aria-label="Prehlad">
           <article><span>{tasks.length}</span><p>Uloh spolu</p></article>
-          <article><span>{tasks.filter((task) => task.status === "Robi sa").length}</span><p>Aktivne</p></article>
+          <article><span>{activeTasks.length}</span><p>Aktivne</p></article>
           <article><span>{tasks.filter((task) => task.priority === "Vysoka").length}</span><p>Vysoka priorita</p></article>
         </section>
 
-        <section className="toolbar">
-          <input aria-label="Hladat ulohy" onChange={(event) => setQuery(event.target.value)} placeholder="Hladat ulohu, projekt alebo osobu" value={query} />
-          <select aria-label="Filtrovat status" onChange={(event) => setStatusFilter(event.target.value as Status | "Vsetko")} value={statusFilter}>
-            <option>Vsetko</option>
-            {statuses.map((status) => <option key={status}>{status}</option>)}
-          </select>
-          <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
-            <option>Vsetko</option>
-            {projects.map((project) => <option key={project}>{project}</option>)}
-          </select>
-          <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
-            <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
-            <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}>Kanban</button>
-            <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}>Tyžden</button>
-          </div>
-        </section>
+        {activeScreen === "Pracovna plocha" ? (
+          <>
+          <section className="toolbar">
+            <input aria-label="Hladat ulohy" onChange={(event) => setQuery(event.target.value)} placeholder="Hladat ulohu, projekt alebo osobu" value={query} />
+            <select aria-label="Filtrovat status" onChange={(event) => setStatusFilter(event.target.value as Status | "Vsetko")} value={statusFilter}>
+              <option>Vsetko</option>
+              {statuses.map((status) => <option key={status}>{status}</option>)}
+            </select>
+            <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
+              <option>Vsetko</option>
+              {projects.map((project) => <option key={project}>{project}</option>)}
+            </select>
+            <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
+              <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
+              <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}>Kanban</button>
+              <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}>Tyžden</button>
+            </div>
+          </section>
 
-        <section className="quickFilters">
-          {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
-            <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
-          ))}
-        </section>
+          <section className="quickFilters">
+            {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
+              <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
+            ))}
+          </section>
 
-        <section className="focusStrip">
-          <div><p className="eyebrow">Dnesny fokus</p><h2>{focusTasks.length ? focusTasks[0].name : "Ziadna uloha na dnes"}</h2></div>
-          <span>{focusTasks.length} ulohy vo fokuse</span>
-        </section>
+          <section className="focusStrip">
+            <div><p className="eyebrow">Dnesny fokus</p><h2>{focusTasks.length ? focusTasks[0].name : "Ziadna uloha na dnes"}</h2></div>
+            <span>{focusTasks.length} ulohy vo fokuse</span>
+          </section>
 
-        {view === "Tabulka" ? (
+          {view === "Tabulka" ? (
           <section className="board">
             <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Akcie</span></div>
             {visibleTasks.map((task) => (
@@ -217,7 +236,7 @@ export default function Home() {
             ))}
             {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
           </section>
-        ) : view === "Kanban" ? (
+          ) : view === "Kanban" ? (
           <section className="kanban">
             {statuses.map((status) => {
               const columnTasks = visibleTasks.filter((task) => task.status === status);
@@ -236,10 +255,10 @@ export default function Home() {
               );
             })}
           </section>
-        ) : (
+          ) : (
           <section className="weekPlan">
             {["Dnes", "Utorok", "Streda", "Stvrtok", "Piatok", "Neskor"].map((day) => {
-              const dayTasks = visibleTasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || task.status === day);
+              const dayTasks = visibleTasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
               return (
                 <article className="dayPlan" key={day}>
                   <h2>{day}<span>{dayTasks.length}</span></h2>
@@ -255,7 +274,75 @@ export default function Home() {
               );
             })}
           </section>
-        )}
+          )}
+          </>
+        ) : null}
+
+        {activeScreen === "Projekty" ? (
+          <section className="screenGrid">
+            {projects.map((project, index) => {
+              const projectTasks = tasks.filter((task) => task.project === project);
+              const done = projectTasks.filter((task) => task.status === "Hotovo").length;
+              const progress = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
+              return (
+                <article className="projectSummary" key={project}>
+                  <span className="projectMark" style={{ background: projectColors[index % projectColors.length] }} />
+                  <h2>{project}</h2>
+                  <p>{projectTasks.length} uloh · {progress}% hotovo</p>
+                  <div className="progressTrack"><span style={{ width: `${progress}%` }} /></div>
+                  <button className="ghost wide" onClick={() => chooseProject(project)}>Otvorit ulohy</button>
+                </article>
+              );
+            })}
+          </section>
+        ) : null}
+
+        {activeScreen === "Kalendar" ? (
+          <section className="weekPlan">
+            {["Dnes", "Utorok", "Streda", "Stvrtok", "Piatok", "Neskor"].map((day) => {
+              const dayTasks = tasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
+              return (
+                <article className="dayPlan" key={day}>
+                  <h2>{day}<span>{dayTasks.length}</span></h2>
+                  {dayTasks.map((task) => (
+                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
+                      <strong>{task.name}</strong>
+                      <span>{task.project} · {task.owner}</span>
+                      <em>{task.status} · {task.priority}</em>
+                    </button>
+                  ))}
+                  {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
+                </article>
+              );
+            })}
+          </section>
+        ) : null}
+
+        {activeScreen === "Kapacity" ? (
+          <section className="capacityList">
+            {owners.map((owner) => {
+              const ownerTasks = tasks.filter((task) => task.owner === owner);
+              const active = ownerTasks.filter((task) => task.status !== "Hotovo").length;
+              const load = Math.min(100, active * 20);
+              return (
+                <article className="capacityRow" key={owner}>
+                  <div><h2>{owner}</h2><p>{active} aktivne · {ownerTasks.filter((task) => task.priority === "Vysoka").length} vysoka priorita</p></div>
+                  <div className="capacityMeter"><span style={{ width: `${load}%` }} /></div>
+                  <strong>{load}%</strong>
+                </article>
+              );
+            })}
+          </section>
+        ) : null}
+
+        {activeScreen === "Reporty" ? (
+          <section className="reportGrid">
+            <article><span>{completionRate}%</span><h2>Dokoncenie</h2><p>{completedTasks.length} z {tasks.length} uloh je hotovych.</p></article>
+            <article><span>{activeTasks.length}</span><h2>Otvorena praca</h2><p>Aktivne ulohy napriec projektmi.</p></article>
+            <article><span>{tasks.filter((task) => task.status === "Backlog").length}</span><h2>Backlog</h2><p>Napady a ulohy pripravene na zoradenie.</p></article>
+            <article><span>{tasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length}</span><h2>Rizika</h2><p>Vysoka priorita, ktora este nie je hotova.</p></article>
+          </section>
+        ) : null}
       </section>
 
       {isFormOpen ? (

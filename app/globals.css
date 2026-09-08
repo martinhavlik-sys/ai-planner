@@ -66,10 +66,13 @@ button {
   text-transform: uppercase;
 }
 
-.projectList span {
+.projectList button {
+  background: transparent;
   border-left: 4px solid #1f7a5a;
   color: #e8edf2;
+  font-weight: 700;
   padding: 8px 0 8px 10px;
+  text-align: left;
 }
 
 .brand span {
@@ -86,13 +89,16 @@ button {
 
 nav { display: grid; gap: 8px; }
 
-nav a {
+nav button {
+  background: transparent;
   border-radius: 8px;
   color: #c7d0d9;
+  font-weight: 700;
   padding: 12px;
+  text-align: left;
 }
 
-nav a.active {
+nav button.active {
   background: #23303c;
   color: white;
 }
@@ -217,6 +223,98 @@ h2, p { margin-top: 0; }
   font-weight: 800;
   padding: 8px 12px;
   white-space: nowrap;
+}
+
+.screenGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.projectSummary,
+.capacityRow,
+.reportGrid article {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+}
+
+.projectSummary {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.projectSummary h2,
+.capacityRow h2,
+.reportGrid h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.projectSummary p,
+.capacityRow p,
+.reportGrid p {
+  color: #64707c;
+  margin: 0;
+}
+
+.projectMark {
+  border-radius: 999px;
+  display: block;
+  height: 12px;
+  width: 52px;
+}
+
+.progressTrack,
+.capacityMeter {
+  background: #edf1f4;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.progressTrack span,
+.capacityMeter span {
+  background: #1f7a5a;
+  display: block;
+  height: 100%;
+}
+
+.capacityList {
+  display: grid;
+  gap: 12px;
+}
+
+.capacityRow {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 2fr) 70px;
+  padding: 18px;
+}
+
+.capacityRow strong {
+  color: #1f7a5a;
+  text-align: right;
+}
+
+.reportGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reportGrid article {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.reportGrid span {
+  color: #1f7a5a;
+  font-size: 34px;
+  font-weight: 800;
 }
 
 .board { overflow: hidden; }
@@ -494,7 +592,8 @@ h2, p { margin-top: 0; }
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .content { padding: 18px; }
-  .stats, .toolbar, .formGrid { grid-template-columns: 1fr; }
+  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow { grid-template-columns: 1fr; }
+  .capacityRow strong { text-align: left; }
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }
   .board { overflow-x: auto; }
