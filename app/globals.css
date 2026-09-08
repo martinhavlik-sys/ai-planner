@@ -264,6 +264,81 @@ h2, p { margin-top: 0; }
   font-size: 13px;
 }
 
+.inboxLayout {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 360px minmax(0, 1fr);
+}
+
+.inboxCapture,
+.inboxList,
+.inboxItem {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+}
+
+.inboxCapture {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.inboxCapture h2,
+.inboxHeader h2 {
+  margin: 0;
+}
+
+.inboxCapture textarea {
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  min-height: 180px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.inboxList {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.inboxHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.inboxHeader span {
+  background: #17202a;
+  border-radius: 999px;
+  color: white;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.inboxItem {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.inboxItem p {
+  color: #64707c;
+  margin: 0;
+}
+
+.triageActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.triageActions button {
+  padding: 9px 12px;
+}
+
 .screenGrid {
   display: grid;
   gap: 14px;
@@ -948,7 +1023,7 @@ h2, p { margin-top: 0; }
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .content { padding: 18px; }
-  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .insightGrid { grid-template-columns: 1fr; }
+  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .insightGrid, .inboxLayout { grid-template-columns: 1fr; }
   .capacityRow strong { text-align: left; }
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }

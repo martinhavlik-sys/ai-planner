@@ -6,7 +6,7 @@ type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
-type Screen = "Pracovna plocha" | "Projekty" | "Roadmapa" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
+type Screen = "Pracovna plocha" | "Inbox" | "Projekty" | "Roadmapa" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
 
 type Task = {
   id: number;
@@ -32,7 +32,7 @@ const teamStorageKey = "ai-planner-team-v1";
 const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screens: Screen[] = ["Pracovna plocha", "Projekty", "Roadmapa", "Tim", "Kalendar", "Kapacity", "Reporty"];
+const screens: Screen[] = ["Pracovna plocha", "Inbox", "Projekty", "Roadmapa", "Tim", "Kalendar", "Kapacity", "Reporty"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 type TeamMember = {
@@ -119,6 +119,7 @@ export default function Home() {
   const [newMember, setNewMember] = useState({ name: "", role: "", capacity: 60 });
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [newGoal, setNewGoal] = useState({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
+  const [inboxText, setInboxText] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -146,6 +147,7 @@ export default function Home() {
   const owners = useMemo(() => Array.from(new Set(tasks.map((task) => task.owner))), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((task) => task.status === "Hotovo"), [tasks]);
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== "Hotovo"), [tasks]);
+  const inboxTasks = useMemo(() => tasks.filter((task) => task.project === "Inbox"), [tasks]);
   const completionRate = tasks.length ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
   const visibleTasks = useMemo(() => {
@@ -208,6 +210,27 @@ export default function Home() {
     });
     setEditingTask(null);
     setIsFormOpen(true);
+  }
+
+  function captureInbox(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const items = inboxText.split("\n").map((item) => item.trim()).filter(Boolean);
+    if (!items.length) return;
+    const captured = items.map((name, index) => ({
+      ...blankTask(),
+      id: Date.now() + index,
+      name,
+      project: "Inbox",
+      status: "Backlog" as Status,
+      note: "Rychlo zachytene v inboxe.",
+      activity: [`Zachytene ${new Date().toLocaleDateString("sk-SK")}`]
+    }));
+    setTasks((current) => [...captured, ...current]);
+    setInboxText("");
+  }
+
+  function triageTask(task: Task, status: Status, project = task.project === "Inbox" ? "Planovanie" : task.project) {
+    updateTask(task.id, { status, project, activity: [`Roztriedene do ${project} / ${status}`, ...task.activity] });
   }
 
   function openEditTask(task: Task) {
@@ -333,7 +356,7 @@ export default function Home() {
         <section className="stats" aria-label="Prehlad">
           <article><span>{tasks.length}</span><p>Uloh spolu</p></article>
           <article><span>{activeTasks.length}</span><p>Aktivne</p></article>
-          <article><span>{tasks.filter((task) => task.priority === "Vysoka").length}</span><p>Vysoka priorita</p></article>
+          <article><span>{inboxTasks.length}</span><p>V inboxe</p></article>
         </section>
 
         {activeScreen === "Pracovna plocha" ? (
@@ -437,6 +460,32 @@ export default function Home() {
           </section>
           )}
           </>
+        ) : null}
+
+        {activeScreen === "Inbox" ? (
+          <section className="inboxLayout">
+            <form className="inboxCapture" onSubmit={captureInbox}>
+              <h2>Rychly zachyt</h2>
+              <textarea value={inboxText} onChange={(event) => setInboxText(event.target.value)} placeholder="Kazdy napad alebo ulohu daj na novy riadok" />
+              <button type="submit">Zachytit</button>
+            </form>
+            <section className="inboxList">
+              <div className="inboxHeader"><h2>Na roztriedenie</h2><span>{inboxTasks.length}</span></div>
+              {inboxTasks.map((task) => (
+                <article className="inboxItem" key={task.id}>
+                  <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
+                  <p>{task.note}</p>
+                  <div className="triageActions">
+                    <button onClick={() => triageTask(task, "Dnes")}>Dnes</button>
+                    <button className="ghost" onClick={() => triageTask(task, "Backlog")}>Backlog</button>
+                    <button className="ghost" onClick={() => openEditTask(task)}>Doplnit</button>
+                    <button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button>
+                  </div>
+                </article>
+              ))}
+              {inboxTasks.length === 0 ? <p className="emptyState">Inbox je prazdny.</p> : null}
+            </section>
+          </section>
         ) : null}
 
         {activeScreen === "Projekty" ? (
