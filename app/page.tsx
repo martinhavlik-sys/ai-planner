@@ -51,6 +51,14 @@ type Goal = {
   outcome: string;
 };
 
+type TaskTemplate = {
+  title: string;
+  project: string;
+  priority: Priority;
+  note: string;
+  checklist: string[];
+};
+
 const initialTasks: Task[] = [
   { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
   { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
@@ -67,6 +75,13 @@ const initialGoals: Goal[] = [
   { id: 1, title: "Pouzitelny pracovny dashboard", project: "Produkt", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
   { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "Planovanie", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky projektov." },
   { id: 3, title: "Technicky zaklad pre realne pouzitie", project: "Technologia", quarter: "Neskor", confidence: 35, outcome: "Prihlasenie, databaza a zdielanie medzi ludmi." }
+];
+
+const taskTemplates: TaskTemplate[] = [
+  { title: "Nova funkcia", project: "Produkt", priority: "Vysoka", note: "Popisat hodnotu pre pouzivatela a minimalny rozsah prvej verzie.", checklist: ["Definovat problem", "Navrhnut prve riesenie", "Overit v rozhrani"] },
+  { title: "Chyba na opravu", project: "Technologia", priority: "Vysoka", note: "Zachytit co sa pokazilo, kde sa to prejavuje a ako overime opravu.", checklist: ["Popisat kroky chyby", "Opravit pricinu", "Otestovat nasadenie"] },
+  { title: "Produktove rozhodnutie", project: "Planovanie", priority: "Stredna", note: "Zapisat moznosti, odporucanie a dovod rozhodnutia.", checklist: ["Spisat moznosti", "Vybrat odporucanie", "Zapisat dalsi krok"] },
+  { title: "Stretnutie / follow-up", project: "Planovanie", priority: "Stredna", note: "Pripravit agendu a vysledky, ktore maju po stretnuti existovat.", checklist: ["Agenda", "Otvorene otazky", "Dohodnute ulohy"] }
 ];
 
 function blankTask(): Task {
@@ -178,6 +193,19 @@ export default function Home() {
 
   function openNewTask() {
     setDraft(blankTask());
+    setEditingTask(null);
+    setIsFormOpen(true);
+  }
+
+  function openTemplate(template: TaskTemplate) {
+    setDraft({
+      ...blankTask(),
+      name: template.title,
+      project: template.project,
+      priority: template.priority,
+      note: template.note,
+      checklist: template.checklist.map((text, index) => ({ id: Date.now() + index, text, done: false }))
+    });
     setEditingTask(null);
     setIsFormOpen(true);
   }
@@ -336,6 +364,18 @@ export default function Home() {
           <section className="focusStrip">
             <div><p className="eyebrow">Dnesny fokus</p><h2>{focusTasks.length ? focusTasks[0].name : "Ziadna uloha na dnes"}</h2></div>
             <span>{focusTasks.length} ulohy vo fokuse</span>
+          </section>
+
+          <section className="templateStrip">
+            <div><p className="eyebrow">Rychle zalozenie</p><h2>Sablony uloh</h2></div>
+            <div>
+              {taskTemplates.map((template) => (
+                <button key={template.title} className="templateButton" onClick={() => openTemplate(template)}>
+                  <strong>{template.title}</strong>
+                  <span>{template.project} · {template.priority}</span>
+                </button>
+              ))}
+            </div>
           </section>
 
           {view === "Tabulka" ? (
@@ -522,12 +562,28 @@ export default function Home() {
         ) : null}
 
         {activeScreen === "Reporty" ? (
-          <section className="reportGrid">
-            <article><span>{completionRate}%</span><h2>Dokoncenie</h2><p>{completedTasks.length} z {tasks.length} uloh je hotovych.</p></article>
-            <article><span>{activeTasks.length}</span><h2>Otvorena praca</h2><p>Aktivne ulohy napriec projektmi.</p></article>
-            <article><span>{tasks.filter((task) => task.status === "Backlog").length}</span><h2>Backlog</h2><p>Napady a ulohy pripravene na zoradenie.</p></article>
-            <article><span>{tasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length}</span><h2>Rizika</h2><p>Vysoka priorita, ktora este nie je hotova.</p></article>
-          </section>
+          <>
+            <section className="reportGrid">
+              <article><span>{completionRate}%</span><h2>Dokoncenie</h2><p>{completedTasks.length} z {tasks.length} uloh je hotovych.</p></article>
+              <article><span>{activeTasks.length}</span><h2>Otvorena praca</h2><p>Aktivne ulohy napriec projektmi.</p></article>
+              <article><span>{tasks.filter((task) => task.status === "Backlog").length}</span><h2>Backlog</h2><p>Napady a ulohy pripravene na zoradenie.</p></article>
+              <article><span>{tasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length}</span><h2>Rizika</h2><p>Vysoka priorita, ktora este nie je hotova.</p></article>
+            </section>
+            <section className="insightGrid">
+              <article>
+                <h2>Najblizsie rizika</h2>
+                {tasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").slice(0, 4).map((task) => (
+                  <button key={task.id} onClick={() => setSelectedTask(task)}><strong>{task.name}</strong><span>{task.project} · {task.status}</span></button>
+                ))}
+              </article>
+              <article>
+                <h2>Navrhnuty dalsi krok</h2>
+                {projectHealth.slice(0, 4).map((project) => (
+                  <button key={project.name} onClick={() => chooseProject(project.name)}><strong>{project.name}</strong><span>{project.next}</span></button>
+                ))}
+              </article>
+            </section>
+          </>
         ) : null}
       </section>
 
