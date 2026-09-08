@@ -418,6 +418,131 @@ h2, p { margin-top: 0; }
   width: 48px;
 }
 
+.roadmapLayout {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+.goalForm,
+.roadmapLane,
+.goalCard {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+}
+
+.goalForm {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.goalForm h2 {
+  margin: 0;
+}
+
+.goalForm input,
+.goalForm select,
+.goalForm textarea {
+  background: white;
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  color: #17202a;
+  min-height: 44px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.goalForm textarea {
+  min-height: 92px;
+  padding-top: 12px;
+  resize: vertical;
+}
+
+.goalForm input[type="range"] {
+  accent-color: #1f7a5a;
+  padding: 0;
+}
+
+.goalForm label {
+  color: #586571;
+  display: grid;
+  font-size: 14px;
+  font-weight: 800;
+  gap: 8px;
+}
+
+.roadmap {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.roadmapLane {
+  align-self: start;
+  background: #edf1f4;
+  display: grid;
+  gap: 12px;
+  min-height: 420px;
+  padding: 12px;
+}
+
+.roadmapLane h2 {
+  align-items: center;
+  display: flex;
+  font-size: 16px;
+  justify-content: space-between;
+  margin: 0;
+}
+
+.roadmapLane h2 span {
+  background: white;
+  border-radius: 999px;
+  color: #64707c;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.goalCard {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.goalCard p,
+.goalCard span {
+  color: #64707c;
+  margin: 0;
+}
+
+.goalCard p {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.goalCard h3 {
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.goalMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.goalMeta strong {
+  background: #f4f6f8;
+  border-radius: 999px;
+  color: #3f4a54;
+  font-size: 12px;
+  padding: 7px 10px;
+}
+
 .board { overflow: hidden; }
 
 .viewSwitch {
@@ -748,7 +873,7 @@ h2, p { margin-top: 0; }
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .content { padding: 18px; }
-  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard { grid-template-columns: 1fr; }
+  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap { grid-template-columns: 1fr; }
   .capacityRow strong { text-align: left; }
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }

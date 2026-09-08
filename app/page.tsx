@@ -6,7 +6,7 @@ type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
-type Screen = "Pracovna plocha" | "Projekty" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
+type Screen = "Pracovna plocha" | "Projekty" | "Roadmapa" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
 
 type Task = {
   id: number;
@@ -29,9 +29,10 @@ type ChecklistItem = {
 
 const storageKey = "ai-planner-tasks-v2";
 const teamStorageKey = "ai-planner-team-v1";
+const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screens: Screen[] = ["Pracovna plocha", "Projekty", "Tim", "Kalendar", "Kapacity", "Reporty"];
+const screens: Screen[] = ["Pracovna plocha", "Projekty", "Roadmapa", "Tim", "Kalendar", "Kapacity", "Reporty"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 type TeamMember = {
@@ -39,6 +40,15 @@ type TeamMember = {
   name: string;
   role: string;
   capacity: number;
+};
+
+type Goal = {
+  id: number;
+  title: string;
+  project: string;
+  quarter: string;
+  confidence: number;
+  outcome: string;
 };
 
 const initialTasks: Task[] = [
@@ -51,6 +61,12 @@ const initialTasks: Task[] = [
 const initialTeam: TeamMember[] = [
   { id: 1, name: "Martin", role: "Founder / Produkt", capacity: 80 },
   { id: 2, name: "AI", role: "Asistent planovania", capacity: 65 }
+];
+
+const initialGoals: Goal[] = [
+  { id: 1, title: "Pouzitelny pracovny dashboard", project: "Produkt", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
+  { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "Planovanie", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky projektov." },
+  { id: 3, title: "Technicky zaklad pre realne pouzitie", project: "Technologia", quarter: "Neskor", confidence: 35, outcome: "Prihlasenie, databaza a zdielanie medzi ludmi." }
 ];
 
 function blankTask(): Task {
@@ -86,6 +102,8 @@ export default function Home() {
   const [activeScreen, setActiveScreen] = useState<Screen>("Pracovna plocha");
   const [team, setTeam] = useState<TeamMember[]>(initialTeam);
   const [newMember, setNewMember] = useState({ name: "", role: "", capacity: 60 });
+  const [goals, setGoals] = useState<Goal[]>(initialGoals);
+  const [newGoal, setNewGoal] = useState({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -93,6 +111,8 @@ export default function Home() {
     if (saved) setTasks(JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)));
     const savedTeam = window.localStorage.getItem(teamStorageKey);
     if (savedTeam) setTeam(JSON.parse(savedTeam));
+    const savedGoals = window.localStorage.getItem(goalsStorageKey);
+    if (savedGoals) setGoals(JSON.parse(savedGoals));
   }, []);
 
   useEffect(() => {
@@ -102,6 +122,10 @@ export default function Home() {
   useEffect(() => {
     window.localStorage.setItem(teamStorageKey, JSON.stringify(team));
   }, [team]);
+
+  useEffect(() => {
+    window.localStorage.setItem(goalsStorageKey, JSON.stringify(goals));
+  }, [goals]);
 
   const projects = useMemo(() => Array.from(new Set(tasks.map((task) => task.project))), [tasks]);
   const owners = useMemo(() => Array.from(new Set(tasks.map((task) => task.owner))), [tasks]);
@@ -206,6 +230,17 @@ export default function Home() {
     setTeam((current) => current.filter((member) => member.id !== id));
   }
 
+  function addGoal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newGoal.title.trim()) return;
+    setGoals((current) => [{ id: Date.now(), ...newGoal }, ...current]);
+    setNewGoal({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
+  }
+
+  function removeGoal(id: number) {
+    setGoals((current) => current.filter((goal) => goal.id !== id));
+  }
+
   function deleteTask(id: number) {
     setTasks((current) => current.filter((task) => task.id !== id));
     setSelectedTask(null);
@@ -216,11 +251,11 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ tasks, team, goals }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "ai-planner-data.json";
+    link.download = "ai-planner-workspace.json";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -233,6 +268,9 @@ export default function Home() {
     reader.onload = () => {
       const parsed = JSON.parse(String(reader.result));
       if (Array.isArray(parsed)) setTasks(parsed.map((task: Partial<Task>) => normalizeTask(task)));
+      if (!Array.isArray(parsed) && Array.isArray(parsed.tasks)) setTasks(parsed.tasks.map((task: Partial<Task>) => normalizeTask(task)));
+      if (!Array.isArray(parsed) && Array.isArray(parsed.team)) setTeam(parsed.team);
+      if (!Array.isArray(parsed) && Array.isArray(parsed.goals)) setGoals(parsed.goals);
     };
     reader.readAsText(file);
     event.target.value = "";
@@ -375,6 +413,46 @@ export default function Home() {
                 </article>
               );
             })}
+          </section>
+        ) : null}
+
+        {activeScreen === "Roadmapa" ? (
+          <section className="roadmapLayout">
+            <form className="goalForm" onSubmit={addGoal}>
+              <h2>Pridat ciel</h2>
+              <input value={newGoal.title} onChange={(event) => setNewGoal({ ...newGoal, title: event.target.value })} placeholder="Nazov ciela" />
+              <select value={newGoal.project} onChange={(event) => setNewGoal({ ...newGoal, project: event.target.value })}>
+                {projects.map((project) => <option key={project}>{project}</option>)}
+              </select>
+              <select value={newGoal.quarter} onChange={(event) => setNewGoal({ ...newGoal, quarter: event.target.value })}>
+                <option>Teraz</option><option>Dalsi krok</option><option>Neskor</option>
+              </select>
+              <label>Istota {newGoal.confidence}%<input type="range" min="10" max="100" step="5" value={newGoal.confidence} onChange={(event) => setNewGoal({ ...newGoal, confidence: Number(event.target.value) })} /></label>
+              <textarea value={newGoal.outcome} onChange={(event) => setNewGoal({ ...newGoal, outcome: event.target.value })} placeholder="Aky vysledok ma byt hotovy?" />
+              <button type="submit">Pridat ciel</button>
+            </form>
+            <section className="roadmap">
+              {["Teraz", "Dalsi krok", "Neskor"].map((lane) => (
+                <article className="roadmapLane" key={lane}>
+                  <h2>{lane}<span>{goals.filter((goal) => goal.quarter === lane).length}</span></h2>
+                  {goals.filter((goal) => goal.quarter === lane).map((goal) => {
+                    const linkedTasks = tasks.filter((task) => task.project === goal.project);
+                    const done = linkedTasks.filter((task) => task.status === "Hotovo").length;
+                    const taskProgress = linkedTasks.length ? Math.round((done / linkedTasks.length) * 100) : 0;
+                    return (
+                      <div className="goalCard" key={goal.id}>
+                        <p>{goal.project}</p>
+                        <h3>{goal.title}</h3>
+                        <span>{goal.outcome || "Vysledok este nie je doplneny."}</span>
+                        <div className="goalMeta"><strong>{goal.confidence}% istota</strong><strong>{taskProgress}% uloh</strong></div>
+                        <div className="progressTrack"><span style={{ width: `${Math.max(goal.confidence, taskProgress)}%` }} /></div>
+                        <button className="ghost" onClick={() => removeGoal(goal.id)}>Odstranit</button>
+                      </div>
+                    );
+                  })}
+                </article>
+              ))}
+            </section>
           </section>
         ) : null}
 
