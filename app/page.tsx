@@ -532,49 +532,92 @@ export default function Home() {
 
         {activeScreen === "Pracovna plocha" ? (
           <>
-          <section className="plannerHero">
-            <div><p className="eyebrow">Zakladna logika</p><h2>Sklad uloh a tyzdenny plan</h2></div>
-            <button onClick={openNewTask}>Pridat ulohu do skladu</button>
+          <section className="toolbar">
+            <input aria-label="Hladat ulohy" onChange={(event) => setQuery(event.target.value)} placeholder="Hladat ulohu, projekt alebo osobu" value={query} />
+            <select aria-label="Filtrovat status" onChange={(event) => setStatusFilter(event.target.value as Status | "Vsetko")} value={statusFilter}>
+              <option>Vsetko</option>
+              {statuses.map((status) => <option key={status}>{status}</option>)}
+            </select>
+            <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
+              <option>Vsetko</option>
+              {projectNames.map((project) => <option key={project}>{project}</option>)}
+            </select>
+            <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
+              <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
+              <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}>Kanban</button>
+              <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}>Tyzden</button>
+            </div>
           </section>
 
-          <section className="corePlanner">
-            <aside className="warehouse">
-              <div className="plannerSectionHeader"><h2>Sklad uloh</h2><span>{warehouseTasks.length}</span></div>
-              {warehouseTasks.map((task) => (
-                <article className="plannerTask" key={task.id}>
-                  <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                  <p>{task.project} · {task.priority} · {task.owner}</p>
-                  <div className="dayButtons">
-                    {weekDays.slice(0, 7).map((day) => <button key={day} className="ghost" onClick={() => planTask(task, day)}>{day}</button>)}
-                  </div>
+          <section className="quickFilters">
+            {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
+              <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
+            ))}
+          </section>
+
+          <section className="filterSummary">
+            <span>Zobrazene: {visibleTasks.length} z {tasks.length} uloh</span>
+            <button className="ghost" onClick={clearFilters}>Vymazat filtre</button>
+          </section>
+
+          {view === "Tabulka" ? (
+          <section className="board">
+            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Akcie</span></div>
+            {visibleTasks.map((task) => (
+              <article className="taskRow" key={task.id}>
+                <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
+                <span>{task.project}</span><span>{task.owner}</span>
+                <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
+                  {statuses.map((status) => <option key={status}>{status}</option>)}
+                </select>
+                <select className={`prioritySelect ${task.priority.toLowerCase()}`} value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority, activity: [`Priorita zmenena na ${event.target.value}`, ...task.activity] })}>
+                  {priorities.map((priority) => <option key={priority}>{priority}</option>)}
+                </select>
+                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
+                <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
+              </article>
+            ))}
+            {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
+          </section>
+          ) : view === "Kanban" ? (
+          <section className="kanban">
+            {statuses.map((status) => {
+              const columnTasks = visibleTasks.filter((task) => task.status === status);
+              return (
+                <article className="column" key={status}>
+                  <h2>{status}<span>{columnTasks.length}</span></h2>
+                  {columnTasks.map((task) => (
+                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
+                      <strong>{task.name}</strong>
+                      <span>{task.project} · {task.owner}</span>
+                      <em>{task.priority} · {task.due}</em>
+                    </button>
+                  ))}
+                  {columnTasks.length === 0 ? <p className="columnEmpty">Zatial prazdne</p> : null}
                 </article>
-              ))}
-              {warehouseTasks.length === 0 ? <p className="emptyState">Sklad je prazdny. Nova uloha sa sem vie vratit cez Neskor.</p> : null}
-            </aside>
-
-            <section className="calendarBoard">
-              {weekDays.map((day) => {
-                const dayTasks = tasks.filter((task) => task.status !== "Hotovo" && task.due.toLowerCase().includes(day.toLowerCase()));
-                return (
-                  <article className="plannerDay" key={day}>
-                    <h2>{day}<span>{dayTasks.length}</span></h2>
-                    {dayTasks.map((task) => (
-                      <article className="plannerTask" key={task.id}>
-                        <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                        <p>{task.project} · {task.priority}</p>
-                        <div className="plannerTaskActions">
-                          <button className="ghost" onClick={() => setSelectedTask(task)}>Detail</button>
-                          <button className="ghost" onClick={() => sendTaskToWarehouse(task)}>Do skladu</button>
-                          <button onClick={() => updateTask(task.id, { status: "Hotovo", activity: ["Oznacene ako hotove", ...task.activity] })}>Hotovo</button>
-                        </div>
-                      </article>
-                    ))}
-                    {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
-                  </article>
-                );
-              })}
-            </section>
+              );
+            })}
           </section>
+          ) : (
+          <section className="weekPlan">
+            {weekDays.map((day) => {
+              const dayTasks = visibleTasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
+              return (
+                <article className="dayPlan" key={day}>
+                  <h2>{day}<span>{dayTasks.length}</span></h2>
+                  {dayTasks.map((task) => (
+                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
+                      <strong>{task.name}</strong>
+                      <span>{task.project} · {task.owner}</span>
+                      <em>{task.status} · {task.priority}</em>
+                    </button>
+                  ))}
+                  {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
+                </article>
+              );
+            })}
+          </section>
+          )}
           </>
         ) : null}
 
