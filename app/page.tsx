@@ -25,6 +25,9 @@ type Task = {
   status: Status;
   priority: Priority;
   due: string;
+  day: string;
+  startHour: number;
+  duration: number;
   note: string;
   checklist: ChecklistItem[];
   activity: string[];
@@ -54,6 +57,9 @@ const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
 const screens: Screen[] = ["Pracovna plocha", "Inbox", "Projekty", "Roadmapa", "Tim", "Kalendar", "Kapacity", "Reporty"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 const weekDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok", "Vikend", "Neskor"];
+const calendarDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok"];
+const calendarHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+const durationOptions = [0.5, 1, 1.5, 2, 3, 4, 6, 8];
 
 type TeamMember = {
   id: number;
@@ -80,10 +86,10 @@ type TaskTemplate = {
 };
 
 const initialTasks: Task[] = [
-  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
-  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
-  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
-  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
+  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
+  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
+  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
+  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
 ];
 
 const initialTeam: TeamMember[] = [
@@ -121,10 +127,11 @@ const savedViews: SavedView[] = [
 ];
 
 function blankTask(): Task {
-  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Tento tyzden", note: "", checklist: [], activity: [] };
+  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, note: "", checklist: [], activity: [] };
 }
 
 function normalizeTask(task: Partial<Task>): Task {
+  const plannedDay = task.day || task.due || "Neskor";
   return {
     id: typeof task.id === "number" ? task.id : Date.now(),
     name: task.name || "Nova uloha",
@@ -133,6 +140,9 @@ function normalizeTask(task: Partial<Task>): Task {
     status: task.status || "Backlog",
     priority: task.priority || "Stredna",
     due: task.due || "Tento tyzden",
+    day: plannedDay,
+    startHour: typeof task.startHour === "number" ? task.startHour : 9,
+    duration: typeof task.duration === "number" ? task.duration : 1,
     note: task.note || "",
     checklist: Array.isArray(task.checklist) ? task.checklist : [],
     activity: Array.isArray(task.activity) ? task.activity : []
@@ -364,6 +374,7 @@ export default function Home() {
   function planTask(task: Task, day: string) {
     updateTask(task.id, {
       due: day,
+      day,
       status: day === "Neskor" ? "Backlog" : "Robi sa",
       project: task.project === "Inbox" ? "Planovanie" : task.project,
       activity: [`Naplanovane na ${day}`, ...task.activity]
@@ -371,7 +382,24 @@ export default function Home() {
   }
 
   function sendTaskToWarehouse(task: Task) {
-    updateTask(task.id, { due: "Neskor", status: "Backlog", activity: ["Vratene do skladu uloh", ...task.activity] });
+    updateTask(task.id, { due: "Neskor", day: "Neskor", status: "Backlog", activity: ["Vratene do skladu uloh", ...task.activity] });
+  }
+
+  function scheduleTask(task: Task, day: string, startHour: number) {
+    updateTask(task.id, {
+      day,
+      due: day,
+      startHour,
+      status: task.status === "Hotovo" ? "Hotovo" : "Robi sa",
+      activity: [`Presunute na ${day} o ${startHour}:00`, ...task.activity]
+    });
+  }
+
+  function resizeTask(task: Task, duration: number) {
+    updateTask(task.id, {
+      duration,
+      activity: [`Odhad zmeneny na ${duration} h`, ...task.activity]
+    });
   }
 
   function applySuggestedFocus() {
@@ -562,7 +590,7 @@ export default function Home() {
 
           {view === "Tabulka" ? (
           <section className="board">
-            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Akcie</span></div>
+            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Cas</span><span>Akcie</span></div>
             {visibleTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
@@ -573,7 +601,8 @@ export default function Home() {
                 <select className={`prioritySelect ${task.priority.toLowerCase()}`} value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority, activity: [`Priorita zmenena na ${event.target.value}`, ...task.activity] })}>
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
-                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
+                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, day: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
+                <span>{task.duration} h</span>
                 <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
               </article>
             ))}
@@ -599,19 +628,39 @@ export default function Home() {
             })}
           </section>
           ) : (
-          <section className="weekPlan">
-            {weekDays.map((day) => {
-              const dayTasks = visibleTasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
+          <section className="timeCalendar">
+            {calendarDays.map((day) => {
+              const dayTasks = visibleTasks.filter((task) => task.day.toLowerCase().includes(day.toLowerCase()) || task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
               return (
-                <article className="dayPlan" key={day}>
+                <article className="calendarDay" key={day}>
                   <h2>{day}<span>{dayTasks.length}</span></h2>
-                  {dayTasks.map((task) => (
-                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
-                      <strong>{task.name}</strong>
-                      <span>{task.project} · {task.owner}</span>
-                      <em>{task.status} · {task.priority}</em>
-                    </button>
-                  ))}
+                  {calendarHours.map((hour) => {
+                    const hourTasks = dayTasks.filter((task) => task.startHour === hour);
+                    return (
+                      <div className="timeSlot" key={`${day}-${hour}`}>
+                        <span className="timeLabel">{hour}:00</span>
+                        <div className="timeSlotContent">
+                          {hourTasks.map((task) => (
+                            <article className="calendarEvent" key={task.id} style={{ minHeight: `${Math.max(0.5, task.duration) * 58}px` }}>
+                              <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
+                              <p>{task.project} · {task.priority} · {task.duration} h</p>
+                              <div className="eventControls">
+                                <select value={task.day} onChange={(event) => scheduleTask(task, event.target.value, task.startHour)}>
+                                  {calendarDays.map((option) => <option key={option}>{option}</option>)}
+                                </select>
+                                <select value={task.startHour} onChange={(event) => scheduleTask(task, task.day, Number(event.target.value))}>
+                                  {calendarHours.map((option) => <option key={option} value={option}>{option}:00</option>)}
+                                </select>
+                                <select value={task.duration} onChange={(event) => resizeTask(task, Number(event.target.value))}>
+                                  {durationOptions.map((option) => <option key={option} value={option}>{option} h</option>)}
+                                </select>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                   {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
                 </article>
               );
@@ -829,6 +878,9 @@ export default function Home() {
               <label>Vlastnik<input value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} /></label>
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
+              <label>Den<select value={draft.day} onChange={(event) => setDraft({ ...draft, day: event.target.value, due: event.target.value })}>{weekDays.map((day) => <option key={day}>{day}</option>)}</select></label>
+              <label>Zaciatok<select value={draft.startHour} onChange={(event) => setDraft({ ...draft, startHour: Number(event.target.value) })}>{calendarHours.map((hour) => <option key={hour} value={hour}>{hour}:00</option>)}</select></label>
+              <label>Odhad hodin<input type="number" min="0.5" max="12" step="0.5" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) || 1 })} /></label>
             </div>
             <label>Termin<input value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
@@ -848,6 +900,7 @@ export default function Home() {
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
             <dt>Termin</dt><dd>{selectedTask.due}</dd>
+            <dt>Cas</dt><dd>{selectedTask.day}, {selectedTask.startHour}:00 · {selectedTask.duration} h</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
           <section className="detailActions">

@@ -1015,7 +1015,7 @@ button:disabled {
 .tableHeader, .taskRow {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(260px, 2fr) 1fr 0.8fr 150px 120px 140px 190px;
+  grid-template-columns: minmax(260px, 2fr) 1fr 0.8fr 150px 120px 140px 70px 190px;
   padding: 14px 16px;
 }
 
@@ -1112,6 +1112,86 @@ button:disabled {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.timeCalendar {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+}
+
+.calendarDay {
+  background: #edf1f4;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  min-height: 520px;
+  padding: 12px;
+}
+
+.calendarDay h2 {
+  align-items: center;
+  display: flex;
+  font-size: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendarDay h2 span {
+  background: white;
+  border-radius: 999px;
+  color: #64707c;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.timeSlot {
+  border-top: 1px solid #d8e0e7;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  min-height: 62px;
+  padding: 8px 0;
+}
+
+.timeLabel {
+  color: #7a8792;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.timeSlotContent {
+  display: grid;
+  gap: 8px;
+}
+
+.calendarEvent {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-left: 4px solid #1f7a5a;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.calendarEvent p {
+  color: #64707c;
+  font-size: 13px;
+  margin: 0;
+}
+
+.eventControls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 92px 76px;
+}
+
+.eventControls select {
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  min-height: 34px;
+  padding: 0 8px;
+  width: 100%;
 }
 
 .dayPlan {
@@ -1364,8 +1444,8 @@ button:disabled {
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }
   .board { overflow-x: auto; }
-  .tableHeader, .taskRow { min-width: 1200px; }
+  .tableHeader, .taskRow { min-width: 1300px; }
   .kanban { grid-template-columns: repeat(5, 240px); }
-  .weekPlan { grid-template-columns: 1fr; }
+  .weekPlan, .timeCalendar { grid-template-columns: 1fr; }
   .activityForm { grid-template-columns: 1fr; }
 }
