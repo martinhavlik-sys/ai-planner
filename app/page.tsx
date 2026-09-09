@@ -188,6 +188,19 @@ export default function Home() {
     return tasks.filter((task) => task.status === "Dnes" || task.due.toLowerCase().includes("dnes")).slice(0, 4);
   }, [tasks]);
 
+  const suggestedFocus = useMemo(() => {
+    const priorityWeight: Record<Priority, number> = { Vysoka: 3, Stredna: 2, Nizka: 1 };
+    const statusWeight: Record<Status, number> = { Dnes: 5, "Robi sa": 4, Caka: 2, Backlog: 1, Hotovo: 0 };
+    return tasks
+      .filter((task) => task.status !== "Hotovo")
+      .sort((a, b) => {
+        const scoreA = priorityWeight[a.priority] + statusWeight[a.status] + (a.due.toLowerCase().includes("dnes") ? 3 : 0);
+        const scoreB = priorityWeight[b.priority] + statusWeight[b.status] + (b.due.toLowerCase().includes("dnes") ? 3 : 0);
+        return scoreB - scoreA;
+      })
+      .slice(0, 3);
+  }, [tasks]);
+
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
       const projectTasks = tasks.filter((task) => task.project === project);
@@ -293,6 +306,17 @@ export default function Home() {
   function updateTask(id: number, patch: Partial<Task>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
     setSelectedTask((current) => (current?.id === id ? { ...current, ...patch } : current));
+  }
+
+  function applySuggestedFocus() {
+    setTasks((current) => current.map((task) => {
+      if (!suggestedFocus.some((focus) => focus.id === task.id)) return task;
+      return { ...task, status: "Dnes", due: "Dnes", activity: [`Pridane do dnesneho fokusu ${new Date().toLocaleDateString("sk-SK")}`, ...task.activity] };
+    }));
+    setQuickFilter("Dnes");
+    setStatusFilter("Vsetko");
+    setProjectFilter("Vsetko");
+    setView("Tabulka");
   }
 
   function addActivityNote(event: FormEvent<HTMLFormElement>) {
@@ -446,6 +470,23 @@ export default function Home() {
           <section className="focusStrip">
             <div><p className="eyebrow">Dnesny fokus</p><h2>{focusTasks.length ? focusTasks[0].name : "Ziadna uloha na dnes"}</h2></div>
             <span>{focusTasks.length} ulohy vo fokuse</span>
+          </section>
+
+          <section className="focusPlanner">
+            <div className="focusPlannerHeader">
+              <div><p className="eyebrow">Navrh fokusu</p><h2>Co ma dnes najvacsi zmysel riesit</h2></div>
+              <button onClick={applySuggestedFocus} disabled={suggestedFocus.length === 0}>Nastavit ako dnesny fokus</button>
+            </div>
+            <div className="focusCards">
+              {suggestedFocus.map((task, index) => (
+                <button key={task.id} className="focusCard" onClick={() => setSelectedTask(task)}>
+                  <span>#{index + 1}</span>
+                  <strong>{task.name}</strong>
+                  <em>{task.project} · {task.priority} · {task.status}</em>
+                </button>
+              ))}
+              {suggestedFocus.length === 0 ? <p className="emptyState">Nie je co navrhnut, vsetko je hotove.</p> : null}
+            </div>
           </section>
 
           <section className="templateStrip">
