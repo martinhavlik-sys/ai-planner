@@ -30,6 +30,15 @@ type Task = {
   activity: string[];
 };
 
+type Project = {
+  id: number;
+  name: string;
+  owner: string;
+  status: "Aktivny" | "Pozastaveny" | "Hotovy";
+  goal: string;
+  color: string;
+};
+
 type ChecklistItem = {
   id: number;
   text: string;
@@ -37,6 +46,7 @@ type ChecklistItem = {
 };
 
 const storageKey = "ai-planner-tasks-v2";
+const projectsStorageKey = "ai-planner-projects-v1";
 const teamStorageKey = "ai-planner-team-v1";
 const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
@@ -80,6 +90,14 @@ const initialTeam: TeamMember[] = [
   { id: 2, name: "AI", role: "Asistent planovania", capacity: 65 }
 ];
 
+const initialProjects: Project[] = [
+  { id: 1, name: "Produkt", owner: "Martin", status: "Aktivny", goal: "Dostat AI Planner do pouzitelnej prvej verzie.", color: "#1f7a5a" },
+  { id: 2, name: "Planovanie", owner: "Martin", status: "Aktivny", goal: "Udrzat jasny plan bez mikromanazmentu.", color: "#3467d6" },
+  { id: 3, name: "UX", owner: "AI", status: "Aktivny", goal: "Priblizit rozhranie pracovnym nastrojom typu Monday.", color: "#8a5d00" },
+  { id: 4, name: "Technologia", owner: "AI", status: "Pozastaveny", goal: "Pripravit zaklad pre databazu, prihlasenie a zdielanie.", color: "#6b4bb8" },
+  { id: 5, name: "Inbox", owner: "Martin", status: "Aktivny", goal: "Zachytavat napady pred roztriedenim.", color: "#ad2f1e" }
+];
+
 const initialGoals: Goal[] = [
   { id: 1, title: "Pouzitelny pracovny dashboard", project: "Produkt", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
   { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "Planovanie", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky projektov." },
@@ -120,6 +138,21 @@ function normalizeTask(task: Partial<Task>): Task {
   };
 }
 
+function normalizeProject(project: Partial<Project>, index = 0): Project {
+  return {
+    id: typeof project.id === "number" ? project.id : Date.now() + index,
+    name: project.name || "Novy projekt",
+    owner: project.owner || "Martin",
+    status: project.status || "Aktivny",
+    goal: project.goal || "",
+    color: project.color || projectColors[index % projectColors.length]
+  };
+}
+
+function blankProject(): Project {
+  return { id: Date.now(), name: "", owner: "Martin", status: "Aktivny", goal: "", color: projectColors[0] };
+}
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [draft, setDraft] = useState<Task>(blankTask());
@@ -132,6 +165,9 @@ export default function Home() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("Vsetko");
   const [view, setView] = useState<View>("Tabulka");
   const [activeScreen, setActiveScreen] = useState<Screen>("Pracovna plocha");
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [projectDraft, setProjectDraft] = useState<Project>(blankProject());
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [team, setTeam] = useState<TeamMember[]>(initialTeam);
   const [newMember, setNewMember] = useState({ name: "", role: "", capacity: 60 });
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
@@ -142,7 +178,15 @@ export default function Home() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
-    if (saved) setTasks(JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)));
+    const loadedTasks = saved ? JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)) : initialTasks;
+    setTasks(loadedTasks);
+    const savedProjects = window.localStorage.getItem(projectsStorageKey);
+    if (savedProjects) {
+      setProjects(JSON.parse(savedProjects).map((project: Partial<Project>, index: number) => normalizeProject(project, index)));
+    } else {
+      const taskProjects = Array.from(new Set(loadedTasks.map((task: Task) => task.project)));
+      setProjects(taskProjects.map((name: string, index: number) => normalizeProject(initialProjects.find((project) => project.name === name) || { name }, index)));
+    }
     const savedTeam = window.localStorage.getItem(teamStorageKey);
     if (savedTeam) setTeam(JSON.parse(savedTeam));
     const savedGoals = window.localStorage.getItem(goalsStorageKey);
@@ -154,6 +198,10 @@ export default function Home() {
   }, [tasks]);
 
   useEffect(() => {
+    window.localStorage.setItem(projectsStorageKey, JSON.stringify(projects));
+  }, [projects]);
+
+  useEffect(() => {
     window.localStorage.setItem(teamStorageKey, JSON.stringify(team));
   }, [team]);
 
@@ -161,7 +209,7 @@ export default function Home() {
     window.localStorage.setItem(goalsStorageKey, JSON.stringify(goals));
   }, [goals]);
 
-  const projects = useMemo(() => Array.from(new Set(tasks.map((task) => task.project))), [tasks]);
+  const projectNames = useMemo(() => projects.map((project) => project.name), [projects]);
   const owners = useMemo(() => Array.from(new Set(tasks.map((task) => task.owner))), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((task) => task.status === "Hotovo"), [tasks]);
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== "Hotovo"), [tasks]);
@@ -203,13 +251,13 @@ export default function Home() {
 
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
-      const projectTasks = tasks.filter((task) => task.project === project);
+      const projectTasks = tasks.filter((task) => task.project === project.name);
       const done = projectTasks.filter((task) => task.status === "Hotovo").length;
       const highOpen = projectTasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length;
       const progress = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
       return {
-        name: project,
-        color: projectColors[index % projectColors.length],
+        ...project,
+        color: project.color || projectColors[index % projectColors.length],
         tasks: projectTasks,
         progress,
         highOpen,
@@ -358,6 +406,44 @@ export default function Home() {
     setGoals((current) => current.filter((goal) => goal.id !== id));
   }
 
+  function saveProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = projectDraft.name.trim();
+    if (!nextName) return;
+    const duplicateName = projects.some((project) => project.name.toLowerCase() === nextName.toLowerCase() && project.id !== editingProject?.id);
+    if (duplicateName) return;
+
+    if (editingProject) {
+      const previousName = editingProject.name;
+      const nextProject = { ...projectDraft, name: nextName };
+      setProjects((current) => current.map((project) => (project.id === editingProject.id ? nextProject : project)));
+      setTasks((current) => current.map((task) => (task.project === previousName ? { ...task, project: nextName, activity: [`Projekt zmeneny na ${nextName}`, ...task.activity] } : task)));
+      setGoals((current) => current.map((goal) => (goal.project === previousName ? { ...goal, project: nextName } : goal)));
+      if (projectFilter === previousName) setProjectFilter(nextName);
+    } else {
+      setProjects((current) => [{ ...projectDraft, id: Date.now(), name: nextName }, ...current]);
+    }
+
+    setProjectDraft(blankProject());
+    setEditingProject(null);
+  }
+
+  function editProject(project: Project) {
+    setProjectDraft(project);
+    setEditingProject(project);
+  }
+
+  function cancelProjectEdit() {
+    setProjectDraft(blankProject());
+    setEditingProject(null);
+  }
+
+  function deleteProject(project: Project) {
+    const hasLinkedWork = tasks.some((task) => task.project === project.name) || goals.some((goal) => goal.project === project.name);
+    if (hasLinkedWork) return;
+    setProjects((current) => current.filter((currentProject) => currentProject.id !== project.id));
+  }
+
   function deleteTask(id: number) {
     setTasks((current) => current.filter((task) => task.id !== id));
     setSelectedTask(null);
@@ -368,7 +454,7 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify({ tasks, team, goals }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ tasks, projects, team, goals }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -386,6 +472,7 @@ export default function Home() {
       const parsed = JSON.parse(String(reader.result));
       if (Array.isArray(parsed)) setTasks(parsed.map((task: Partial<Task>) => normalizeTask(task)));
       if (!Array.isArray(parsed) && Array.isArray(parsed.tasks)) setTasks(parsed.tasks.map((task: Partial<Task>) => normalizeTask(task)));
+      if (!Array.isArray(parsed) && Array.isArray(parsed.projects)) setProjects(parsed.projects.map((project: Partial<Project>, index: number) => normalizeProject(project, index)));
       if (!Array.isArray(parsed) && Array.isArray(parsed.team)) setTeam(parsed.team);
       if (!Array.isArray(parsed) && Array.isArray(parsed.goals)) setGoals(parsed.goals);
     };
@@ -404,7 +491,7 @@ export default function Home() {
         </nav>
         <section className="projectList">
           <p>Projekty</p>
-          {projects.map((project, index) => <button key={project} onClick={() => chooseProject(project)} style={{ borderLeftColor: projectColors[index % projectColors.length] }}>{project}</button>)}
+          {projects.map((project) => <button key={project.id} onClick={() => chooseProject(project.name)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
         </section>
       </aside>
 
@@ -435,7 +522,7 @@ export default function Home() {
             </select>
             <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
               <option>Vsetko</option>
-              {projects.map((project) => <option key={project}>{project}</option>)}
+              {projectNames.map((project) => <option key={project}>{project}</option>)}
             </select>
             <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
               <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
@@ -589,19 +676,43 @@ export default function Home() {
         ) : null}
 
         {activeScreen === "Projekty" ? (
-          <section className="screenGrid">
-            {projectHealth.map((project) => {
-              return (
-                <article className="projectSummary" key={project.name}>
-                  <span className="projectMark" style={{ background: project.color }} />
-                  <h2>{project.name}</h2>
-                  <p>{project.tasks.length} uloh · {project.progress}% hotovo · {project.highOpen} rizik</p>
-                  <div className="progressTrack"><span style={{ width: `${project.progress}%` }} /></div>
-                  <div className="nextStep"><span>Dalsi krok</span><strong>{project.next}</strong></div>
-                  <button className="ghost wide" onClick={() => chooseProject(project.name)}>Otvorit ulohy</button>
-                </article>
-              );
-            })}
+          <section className="projectManager">
+            <form className="projectForm" onSubmit={saveProject}>
+              <h2>{editingProject ? "Upravit projekt" : "Novy projekt"}</h2>
+              <input value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} placeholder="Nazov projektu" />
+              <input value={projectDraft.owner} onChange={(event) => setProjectDraft({ ...projectDraft, owner: event.target.value })} placeholder="Vlastnik" />
+              <select value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as Project["status"] })}>
+                <option>Aktivny</option><option>Pozastaveny</option><option>Hotovy</option>
+              </select>
+              <textarea value={projectDraft.goal} onChange={(event) => setProjectDraft({ ...projectDraft, goal: event.target.value })} placeholder="Hlavny ciel projektu" />
+              <div className="colorChoices">
+                {projectColors.map((color) => (
+                  <button key={color} type="button" className={projectDraft.color === color ? "selected" : ""} style={{ background: color }} aria-label={`Farba ${color}`} onClick={() => setProjectDraft({ ...projectDraft, color })} />
+                ))}
+              </div>
+              <button type="submit">{editingProject ? "Ulozit projekt" : "Pridat projekt"}</button>
+              {editingProject ? <button type="button" className="ghost" onClick={cancelProjectEdit}>Zrusit upravu</button> : null}
+            </form>
+            <section className="screenGrid">
+              {projectHealth.map((project) => {
+                const canDelete = project.tasks.length === 0 && !goals.some((goal) => goal.project === project.name);
+                return (
+                  <article className="projectSummary" key={project.id}>
+                    <span className="projectMark" style={{ background: project.color }} />
+                    <div className="projectTitle"><h2>{project.name}</h2><span>{project.status}</span></div>
+                    <p>{project.goal || "Ciel projektu este nie je doplneny."}</p>
+                    <p>{project.tasks.length} uloh · {project.progress}% hotovo · {project.highOpen} rizik · vlastnik {project.owner}</p>
+                    <div className="progressTrack"><span style={{ width: `${project.progress}%` }} /></div>
+                    <div className="nextStep"><span>Dalsi krok</span><strong>{project.next}</strong></div>
+                    <div className="projectActions">
+                      <button className="ghost" onClick={() => chooseProject(project.name)}>Otvorit ulohy</button>
+                      <button className="ghost" onClick={() => editProject(project)}>Upravit</button>
+                      <button className="danger" disabled={!canDelete} onClick={() => deleteProject(project)}>Zmazat</button>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
           </section>
         ) : null}
 
@@ -611,7 +722,7 @@ export default function Home() {
               <h2>Pridat ciel</h2>
               <input value={newGoal.title} onChange={(event) => setNewGoal({ ...newGoal, title: event.target.value })} placeholder="Nazov ciela" />
               <select value={newGoal.project} onChange={(event) => setNewGoal({ ...newGoal, project: event.target.value })}>
-                {projects.map((project) => <option key={project}>{project}</option>)}
+                {projectNames.map((project) => <option key={project}>{project}</option>)}
               </select>
               <select value={newGoal.quarter} onChange={(event) => setNewGoal({ ...newGoal, quarter: event.target.value })}>
                 <option>Teraz</option><option>Dalsi krok</option><option>Neskor</option>
@@ -742,7 +853,7 @@ export default function Home() {
             <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
             <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <label>Projekt<input value={draft.project} onChange={(event) => setDraft({ ...draft, project: event.target.value })} /></label>
+              <label>Projekt<select value={draft.project} onChange={(event) => setDraft({ ...draft, project: event.target.value })}>{projectNames.map((project) => <option key={project}>{project}</option>)}</select></label>
               <label>Vlastnik<input value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} /></label>
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>

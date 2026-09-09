@@ -462,6 +462,63 @@ h2, p { margin-top: 0; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.projectManager {
+  display: grid;
+  gap: 18px;
+}
+
+.projectForm {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.8fr) 150px minmax(220px, 1.4fr) auto auto auto;
+  padding: 16px;
+}
+
+.projectForm h2 {
+  font-size: 18px;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.projectForm input,
+.projectForm select,
+.projectForm textarea {
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  color: #17202a;
+  min-height: 44px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.projectForm textarea {
+  min-height: 44px;
+  padding-top: 12px;
+  resize: vertical;
+}
+
+.colorChoices {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.colorChoices button {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  height: 30px;
+  padding: 0;
+  width: 30px;
+}
+
+.colorChoices button.selected {
+  border-color: #17202a;
+  box-shadow: 0 0 0 2px white inset;
+}
+
 .projectSummary,
 .capacityRow,
 .reportGrid article {
@@ -481,6 +538,23 @@ h2, p { margin-top: 0; }
 .reportGrid h2 {
   font-size: 20px;
   margin: 0;
+}
+
+.projectTitle {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.projectTitle span {
+  background: #eef2f5;
+  border-radius: 999px;
+  color: #3f4a54;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 9px;
+  white-space: nowrap;
 }
 
 .projectSummary p,
@@ -515,6 +589,21 @@ h2, p { margin-top: 0; }
   display: block;
   height: 12px;
   width: 52px;
+}
+
+.projectActions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.projectActions button {
+  padding: 9px 10px;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .progressTrack,
@@ -1175,7 +1264,7 @@ h2, p { margin-top: 0; }
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .content { padding: 18px; }
-  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .savedViews, .savedViews > div:last-child, .insightGrid, .inboxLayout { grid-template-columns: 1fr; }
+  .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .savedViews, .savedViews > div:last-child, .insightGrid, .inboxLayout, .projectForm, .projectActions { grid-template-columns: 1fr; }
   .capacityRow strong { text-align: left; }
   .filterSummary { align-items: stretch; display: grid; }
   .focusPlannerHeader { align-items: stretch; display: grid; }
