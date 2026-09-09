@@ -1153,6 +1153,11 @@ button:disabled {
   padding: 8px 0;
 }
 
+.timeSlot.dropReady {
+  background: #f7fbf9;
+  border-radius: 8px;
+}
+
 .timeLabel {
   color: #7a8792;
   font-size: 12px;
@@ -1169,29 +1174,39 @@ button:disabled {
   border: 1px solid #dfe5ea;
   border-left: 4px solid #1f7a5a;
   border-radius: 8px;
-  display: grid;
+  cursor: grab;
+  display: flex;
   gap: 8px;
+  justify-content: space-between;
   padding: 10px;
 }
 
-.calendarEvent p {
-  color: #64707c;
-  font-size: 13px;
-  margin: 0;
+.calendarEvent:active {
+  cursor: grabbing;
 }
 
-.eventControls {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 92px 76px;
+.calendarEvent strong {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
-.eventControls select {
+.eventIcons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.eventIcons button {
+  align-items: center;
+  background: #f4f6f8;
   border: 1px solid #d8e0e7;
   border-radius: 8px;
-  min-height: 34px;
-  padding: 0 8px;
-  width: 100%;
+  color: #17202a;
+  display: grid;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  width: 30px;
 }
 
 .dayPlan {

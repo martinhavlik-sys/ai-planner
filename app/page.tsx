@@ -59,7 +59,6 @@ const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 const weekDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok", "Vikend", "Neskor"];
 const calendarDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok"];
 const calendarHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
-const durationOptions = [0.5, 1, 1.5, 2, 3, 4, 6, 8];
 
 type TeamMember = {
   id: number;
@@ -185,6 +184,7 @@ export default function Home() {
   const [newGoal, setNewGoal] = useState({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
   const [inboxText, setInboxText] = useState("");
   const [activityNote, setActivityNote] = useState("");
+  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -395,13 +395,6 @@ export default function Home() {
     });
   }
 
-  function resizeTask(task: Task, duration: number) {
-    updateTask(task.id, {
-      duration,
-      activity: [`Odhad zmeneny na ${duration} h`, ...task.activity]
-    });
-  }
-
   function applySuggestedFocus() {
     setTasks((current) => current.map((task) => {
       if (!suggestedFocus.some((focus) => focus.id === task.id)) return task;
@@ -497,6 +490,37 @@ export default function Home() {
 
   function duplicateTask(task: Task) {
     setTasks((current) => [{ ...task, id: Date.now(), name: `${task.name} kopia`, status: "Backlog" }, ...current]);
+  }
+
+  function duplicateCalendarTask(task: Task) {
+    const answer = window.prompt("Kam presunut kopiu? Napis napriklad: Utorok 14. Ak nechas prazdne, ostane v rovnakom case.");
+    const trimmed = answer?.trim();
+    let nextDay = task.day;
+    let nextHour = task.startHour;
+
+    if (trimmed) {
+      const matchedDay = calendarDays.find((day) => trimmed.toLowerCase().includes(day.toLowerCase()));
+      const matchedHour = Number(trimmed.match(/\d{1,2}/)?.[0]);
+      if (matchedDay) nextDay = matchedDay;
+      if (calendarHours.includes(matchedHour)) nextHour = matchedHour;
+    }
+
+    setTasks((current) => [{
+      ...task,
+      id: Date.now(),
+      name: `${task.name} kopia`,
+      day: nextDay,
+      due: nextDay,
+      startHour: nextHour,
+      activity: [`Kopia vytvorena na ${nextDay} o ${nextHour}:00`, ...task.activity]
+    }, ...current]);
+  }
+
+  function dropTaskToCalendar(day: string, startHour: number) {
+    const task = tasks.find((current) => current.id === draggedTaskId);
+    if (!task) return;
+    scheduleTask(task, day, startHour);
+    setDraggedTaskId(null);
   }
 
   function exportData() {
@@ -637,23 +661,28 @@ export default function Home() {
                   {calendarHours.map((hour) => {
                     const hourTasks = dayTasks.filter((task) => task.startHour === hour);
                     return (
-                      <div className="timeSlot" key={`${day}-${hour}`}>
+                      <div
+                        className={`timeSlot ${draggedTaskId ? "dropReady" : ""}`}
+                        key={`${day}-${hour}`}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => dropTaskToCalendar(day, hour)}
+                      >
                         <span className="timeLabel">{hour}:00</span>
                         <div className="timeSlotContent">
                           {hourTasks.map((task) => (
-                            <article className="calendarEvent" key={task.id} style={{ minHeight: `${Math.max(0.5, task.duration) * 58}px` }}>
-                              <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                              <p>{task.project} · {task.priority} · {task.duration} h</p>
-                              <div className="eventControls">
-                                <select value={task.day} onChange={(event) => scheduleTask(task, event.target.value, task.startHour)}>
-                                  {calendarDays.map((option) => <option key={option}>{option}</option>)}
-                                </select>
-                                <select value={task.startHour} onChange={(event) => scheduleTask(task, task.day, Number(event.target.value))}>
-                                  {calendarHours.map((option) => <option key={option} value={option}>{option}:00</option>)}
-                                </select>
-                                <select value={task.duration} onChange={(event) => resizeTask(task, Number(event.target.value))}>
-                                  {durationOptions.map((option) => <option key={option} value={option}>{option} h</option>)}
-                                </select>
+                            <article
+                              className="calendarEvent"
+                              draggable
+                              key={task.id}
+                              onClick={() => setSelectedTask(task)}
+                              onDragEnd={() => setDraggedTaskId(null)}
+                              onDragStart={() => setDraggedTaskId(task.id)}
+                              style={{ minHeight: `${Math.max(0.5, task.duration) * 58}px` }}
+                            >
+                              <strong>{task.name}</strong>
+                              <div className="eventIcons">
+                                <button aria-label="Upravit ulohu" title="Upravit ulohu" type="button" onClick={(event) => { event.stopPropagation(); openEditTask(task); }}>✎</button>
+                                <button aria-label="Duplikovat ulohu" title="Duplikovat ulohu" type="button" onClick={(event) => { event.stopPropagation(); duplicateCalendarTask(task); }}>⧉</button>
                               </div>
                             </article>
                           ))}
