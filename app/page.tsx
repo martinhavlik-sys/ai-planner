@@ -178,13 +178,13 @@ export default function Home() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
-    const loadedTasks = saved ? JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)) : initialTasks;
+    const loadedTasks: Task[] = saved ? JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)) : initialTasks;
     setTasks(loadedTasks);
     const savedProjects = window.localStorage.getItem(projectsStorageKey);
     if (savedProjects) {
       setProjects(JSON.parse(savedProjects).map((project: Partial<Project>, index: number) => normalizeProject(project, index)));
     } else {
-      const taskProjects = Array.from(new Set(loadedTasks.map((task: Task) => task.project)));
+      const taskProjects: string[] = Array.from(new Set(loadedTasks.map((task) => task.project)));
       setProjects(taskProjects.map((name: string, index: number) => normalizeProject(initialProjects.find((project) => project.name === name) || { name }, index)));
     }
     const savedTeam = window.localStorage.getItem(teamStorageKey);
