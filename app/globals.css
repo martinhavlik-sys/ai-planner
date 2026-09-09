@@ -285,6 +285,96 @@ h2, p { margin-top: 0; }
   font-style: normal;
 }
 
+.plannerHero {
+  align-items: center;
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 18px;
+}
+
+.plannerHero h2 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.corePlanner {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+.warehouse,
+.plannerDay {
+  background: #edf1f4;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  align-self: start;
+  padding: 12px;
+}
+
+.warehouse {
+  min-height: 520px;
+}
+
+.plannerSectionHeader,
+.plannerDay h2 {
+  align-items: center;
+  display: flex;
+  font-size: 16px;
+  justify-content: space-between;
+  margin: 0;
+}
+
+.plannerSectionHeader span,
+.plannerDay h2 span {
+  background: white;
+  border-radius: 999px;
+  color: #64707c;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.calendarBoard {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(190px, 1fr));
+}
+
+.plannerTask {
+  background: white;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.plannerTask p {
+  color: #64707c;
+  font-size: 13px;
+  margin: 0;
+}
+
+.dayButtons,
+.plannerTaskActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.dayButtons button,
+.plannerTaskActions button {
+  padding: 8px 9px;
+}
+
 .templateStrip {
   align-items: center;
   background: white;
@@ -1267,6 +1357,8 @@ button:disabled {
   .stats, .toolbar, .formGrid, .screenGrid, .reportGrid, .capacityRow, .teamLayout, .memberCard, .roadmapLayout, .roadmap, .templateStrip, .templateStrip > div:last-child, .savedViews, .savedViews > div:last-child, .insightGrid, .inboxLayout, .projectForm, .projectActions { grid-template-columns: 1fr; }
   .capacityRow strong { text-align: left; }
   .filterSummary { align-items: stretch; display: grid; }
+  .plannerHero { align-items: stretch; display: grid; }
+  .corePlanner, .calendarBoard { grid-template-columns: 1fr; }
   .focusPlannerHeader { align-items: stretch; display: grid; }
   .focusCards { grid-template-columns: 1fr; }
   .focusStrip { align-items: stretch; display: grid; }

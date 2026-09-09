@@ -53,6 +53,7 @@ const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
 const screens: Screen[] = ["Pracovna plocha", "Inbox", "Projekty", "Roadmapa", "Tim", "Kalendar", "Kapacity", "Reporty"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
+const weekDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok", "Vikend", "Neskor"];
 
 type TeamMember = {
   id: number;
@@ -236,6 +237,10 @@ export default function Home() {
     return tasks.filter((task) => task.status === "Dnes" || task.due.toLowerCase().includes("dnes")).slice(0, 4);
   }, [tasks]);
 
+  const warehouseTasks = useMemo(() => {
+    return tasks.filter((task) => task.status !== "Hotovo" && (task.status === "Backlog" || task.due.toLowerCase().includes("neskor") || task.project === "Inbox"));
+  }, [tasks]);
+
   const suggestedFocus = useMemo(() => {
     const priorityWeight: Record<Priority, number> = { Vysoka: 3, Stredna: 2, Nizka: 1 };
     const statusWeight: Record<Status, number> = { Dnes: 5, "Robi sa": 4, Caka: 2, Backlog: 1, Hotovo: 0 };
@@ -354,6 +359,19 @@ export default function Home() {
   function updateTask(id: number, patch: Partial<Task>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
     setSelectedTask((current) => (current?.id === id ? { ...current, ...patch } : current));
+  }
+
+  function planTask(task: Task, day: string) {
+    updateTask(task.id, {
+      due: day,
+      status: day === "Neskor" ? "Backlog" : "Robi sa",
+      project: task.project === "Inbox" ? "Planovanie" : task.project,
+      activity: [`Naplanovane na ${day}`, ...task.activity]
+    });
+  }
+
+  function sendTaskToWarehouse(task: Task) {
+    updateTask(task.id, { due: "Neskor", status: "Backlog", activity: ["Vratene do skladu uloh", ...task.activity] });
   }
 
   function applySuggestedFocus() {
@@ -514,138 +532,49 @@ export default function Home() {
 
         {activeScreen === "Pracovna plocha" ? (
           <>
-          <section className="toolbar">
-            <input aria-label="Hladat ulohy" onChange={(event) => setQuery(event.target.value)} placeholder="Hladat ulohu, projekt alebo osobu" value={query} />
-            <select aria-label="Filtrovat status" onChange={(event) => setStatusFilter(event.target.value as Status | "Vsetko")} value={statusFilter}>
-              <option>Vsetko</option>
-              {statuses.map((status) => <option key={status}>{status}</option>)}
-            </select>
-            <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
-              <option>Vsetko</option>
-              {projectNames.map((project) => <option key={project}>{project}</option>)}
-            </select>
-            <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
-              <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
-              <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}>Kanban</button>
-              <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}>Tyžden</button>
-            </div>
+          <section className="plannerHero">
+            <div><p className="eyebrow">Zakladna logika</p><h2>Sklad uloh a tyzdenny plan</h2></div>
+            <button onClick={openNewTask}>Pridat ulohu do skladu</button>
           </section>
 
-          <section className="quickFilters">
-            {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
-              <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
-            ))}
-          </section>
-
-          <section className="savedViews">
-            <div><p className="eyebrow">Ulozene pohlady</p><h2>Rychle prepnutie</h2></div>
-            <div>
-              {savedViews.map((savedView) => (
-                <button key={savedView.name} className="savedViewButton" onClick={() => applySavedView(savedView)}>
-                  <strong>{savedView.name}</strong>
-                  <span>{savedView.description}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="filterSummary">
-            <span>Zobrazene: {visibleTasks.length} z {tasks.length} uloh</span>
-            <button className="ghost" onClick={clearFilters}>Vymazat filtre</button>
-          </section>
-
-          <section className="focusStrip">
-            <div><p className="eyebrow">Dnesny fokus</p><h2>{focusTasks.length ? focusTasks[0].name : "Ziadna uloha na dnes"}</h2></div>
-            <span>{focusTasks.length} ulohy vo fokuse</span>
-          </section>
-
-          <section className="focusPlanner">
-            <div className="focusPlannerHeader">
-              <div><p className="eyebrow">Navrh fokusu</p><h2>Co ma dnes najvacsi zmysel riesit</h2></div>
-              <button onClick={applySuggestedFocus} disabled={suggestedFocus.length === 0}>Nastavit ako dnesny fokus</button>
-            </div>
-            <div className="focusCards">
-              {suggestedFocus.map((task, index) => (
-                <button key={task.id} className="focusCard" onClick={() => setSelectedTask(task)}>
-                  <span>#{index + 1}</span>
-                  <strong>{task.name}</strong>
-                  <em>{task.project} · {task.priority} · {task.status}</em>
-                </button>
-              ))}
-              {suggestedFocus.length === 0 ? <p className="emptyState">Nie je co navrhnut, vsetko je hotove.</p> : null}
-            </div>
-          </section>
-
-          <section className="templateStrip">
-            <div><p className="eyebrow">Rychle zalozenie</p><h2>Sablony uloh</h2></div>
-            <div>
-              {taskTemplates.map((template) => (
-                <button key={template.title} className="templateButton" onClick={() => openTemplate(template)}>
-                  <strong>{template.title}</strong>
-                  <span>{template.project} · {template.priority}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {view === "Tabulka" ? (
-          <section className="board">
-            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Akcie</span></div>
-            {visibleTasks.map((task) => (
-              <article className="taskRow" key={task.id}>
-                <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                <span>{task.project}</span><span>{task.owner}</span>
-                <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
-                  {statuses.map((status) => <option key={status}>{status}</option>)}
-                </select>
-                <select className={`prioritySelect ${task.priority.toLowerCase()}`} value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority, activity: [`Priorita zmenena na ${event.target.value}`, ...task.activity] })}>
-                  {priorities.map((priority) => <option key={priority}>{priority}</option>)}
-                </select>
-                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, activity: [`Termin zmeneny`, ...task.activity] })} />
-                <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
-              </article>
-            ))}
-            {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
-          </section>
-          ) : view === "Kanban" ? (
-          <section className="kanban">
-            {statuses.map((status) => {
-              const columnTasks = visibleTasks.filter((task) => task.status === status);
-              return (
-                <article className="column" key={status}>
-                  <h2>{status}<span>{columnTasks.length}</span></h2>
-                  {columnTasks.map((task) => (
-                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
-                      <strong>{task.name}</strong>
-                      <span>{task.project} · {task.owner}</span>
-                      <em>{task.priority} · {task.due}</em>
-                    </button>
-                  ))}
-                  {columnTasks.length === 0 ? <p className="columnEmpty">Zatial prazdne</p> : null}
+          <section className="corePlanner">
+            <aside className="warehouse">
+              <div className="plannerSectionHeader"><h2>Sklad uloh</h2><span>{warehouseTasks.length}</span></div>
+              {warehouseTasks.map((task) => (
+                <article className="plannerTask" key={task.id}>
+                  <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
+                  <p>{task.project} · {task.priority} · {task.owner}</p>
+                  <div className="dayButtons">
+                    {weekDays.slice(0, 7).map((day) => <button key={day} className="ghost" onClick={() => planTask(task, day)}>{day}</button>)}
+                  </div>
                 </article>
-              );
-            })}
+              ))}
+              {warehouseTasks.length === 0 ? <p className="emptyState">Sklad je prazdny. Nova uloha sa sem vie vratit cez Neskor.</p> : null}
+            </aside>
+
+            <section className="calendarBoard">
+              {weekDays.map((day) => {
+                const dayTasks = tasks.filter((task) => task.status !== "Hotovo" && task.due.toLowerCase().includes(day.toLowerCase()));
+                return (
+                  <article className="plannerDay" key={day}>
+                    <h2>{day}<span>{dayTasks.length}</span></h2>
+                    {dayTasks.map((task) => (
+                      <article className="plannerTask" key={task.id}>
+                        <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
+                        <p>{task.project} · {task.priority}</p>
+                        <div className="plannerTaskActions">
+                          <button className="ghost" onClick={() => setSelectedTask(task)}>Detail</button>
+                          <button className="ghost" onClick={() => sendTaskToWarehouse(task)}>Do skladu</button>
+                          <button onClick={() => updateTask(task.id, { status: "Hotovo", activity: ["Oznacene ako hotove", ...task.activity] })}>Hotovo</button>
+                        </div>
+                      </article>
+                    ))}
+                    {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
+                  </article>
+                );
+              })}
+            </section>
           </section>
-          ) : (
-          <section className="weekPlan">
-            {["Dnes", "Utorok", "Streda", "Stvrtok", "Piatok", "Neskor"].map((day) => {
-              const dayTasks = visibleTasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
-              return (
-                <article className="dayPlan" key={day}>
-                  <h2>{day}<span>{dayTasks.length}</span></h2>
-                  {dayTasks.map((task) => (
-                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
-                      <strong>{task.name}</strong>
-                      <span>{task.project} · {task.owner}</span>
-                      <em>{task.status} · {task.priority}</em>
-                    </button>
-                  ))}
-                  {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
-                </article>
-              );
-            })}
-          </section>
-          )}
           </>
         ) : null}
 
