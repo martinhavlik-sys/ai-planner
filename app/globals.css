@@ -3,40 +3,43 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f4f6f8;
-  color: #17202a;
+  background: #f7f8fb;
+  color: #252b36;
   font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
 }
 
 button, input, select, textarea { font: inherit; }
 
 button {
   border: 0;
-  border-radius: 8px;
-  background: #1f7a5a;
+  border-radius: 6px;
+  background: #2f6fed;
   color: white;
   cursor: pointer;
   font-weight: 700;
-  padding: 12px 18px;
+  padding: 9px 13px;
 }
 
 .appShell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 276px minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .sidebar {
-  background: #111820;
-  color: white;
-  padding: 22px;
+  background: #fff;
+  border-right: 1px solid #d9e0ea;
+  color: #252b36;
+  padding: 18px 14px;
 }
 
 .brand {
   align-items: center;
   display: flex;
   gap: 12px;
-  margin-bottom: 36px;
+  margin-bottom: 22px;
+  padding: 0 6px;
 }
 
 .headerActions {
@@ -51,16 +54,16 @@ button {
 }
 
 .projectList {
-  border-top: 1px solid #2b3946;
+  border-top: 1px solid #e4e8ef;
   display: grid;
-  gap: 10px;
-  margin-top: 28px;
-  padding-top: 22px;
+  gap: 4px;
+  margin-top: 18px;
+  padding-top: 14px;
 }
 
 .projectList p {
-  color: #8fa0af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 11px;
   font-weight: 800;
   margin: 0;
   text-transform: uppercase;
@@ -68,18 +71,18 @@ button {
 
 .projectList button {
   background: transparent;
-  border-left: 4px solid #1f7a5a;
-  color: #e8edf2;
-  font-weight: 700;
-  padding: 8px 0 8px 10px;
+  border-left: 3px solid #1f7a5a;
+  color: #4b5563;
+  font-weight: 600;
+  padding: 8px 8px 8px 10px;
   text-align: left;
 }
 
 .brand span {
   align-items: center;
-  background: #e3b341;
-  border-radius: 8px;
-  color: #111820;
+  background: #d8e6ff;
+  border-radius: 7px;
+  color: #2f6fed;
   display: grid;
   font-weight: 800;
   height: 36px;
@@ -87,43 +90,43 @@ button {
   width: 36px;
 }
 
-nav { display: grid; gap: 8px; }
+nav { display: grid; gap: 3px; }
 
 nav button {
   background: transparent;
-  border-radius: 8px;
-  color: #c7d0d9;
-  font-weight: 700;
-  padding: 12px;
+  border-radius: 6px;
+  color: #4b5563;
+  font-weight: 600;
+  padding: 9px 10px;
   text-align: left;
 }
 
 nav button.active {
-  background: #23303c;
-  color: white;
+  background: #dcebff;
+  color: #1f4fbf;
 }
 
-.content { padding: 28px; }
+.content { padding: 20px 24px 28px; }
 
 .header {
   align-items: center;
   display: flex;
   gap: 20px;
   justify-content: space-between;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .eyebrow {
-  color: #1f7a5a;
-  font-size: 13px;
+  color: #2f6fed;
+  font-size: 11px;
   font-weight: 800;
   margin: 0 0 6px;
   text-transform: uppercase;
 }
 
 h1 {
-  font-size: 40px;
-  line-height: 1.05;
+  font-size: 26px;
+  line-height: 1.15;
   margin: 0;
 }
 
@@ -131,9 +134,9 @@ h2, p { margin-top: 0; }
 
 .stats {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .stats article, .board, .modal {
@@ -142,11 +145,11 @@ h2, p { margin-top: 0; }
   border-radius: 8px;
 }
 
-.stats article { padding: 18px; }
+.stats article { padding: 12px 14px; }
 
 .stats span {
   display: block;
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 800;
   margin-bottom: 4px;
 }
@@ -158,18 +161,18 @@ h2, p { margin-top: 0; }
 
 .toolbar {
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(220px, 1fr) 160px 170px 260px;
-  margin-bottom: 14px;
+  gap: 8px;
+  grid-template-columns: minmax(220px, 1fr) 140px 160px 230px;
+  margin-bottom: 10px;
 }
 
 .toolbar input, .toolbar select, .modal input, .modal select, .modal textarea {
   background: white;
   border: 1px solid #d8e0e7;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #17202a;
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 0 10px;
   width: 100%;
 }
 
@@ -182,15 +185,15 @@ h2, p { margin-top: 0; }
 .quickFilters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .quickFilters button {
   background: white;
   border: 1px solid #d8e0e7;
   color: #3f4a54;
-  padding: 9px 12px;
+  padding: 7px 10px;
 }
 
 .quickFilters button.selected {
@@ -989,12 +992,15 @@ button:disabled {
   padding: 7px 10px;
 }
 
-.board { overflow: hidden; }
+.board {
+  border-radius: 6px;
+  overflow-x: auto;
+}
 
 .viewSwitch {
-  background: #e9eef2;
+  background: #eef2f7;
   border: 1px solid #d8e0e7;
-  border-radius: 8px;
+  border-radius: 6px;
   display: grid;
   gap: 4px;
   grid-template-columns: 1fr 1fr 1fr;
@@ -1004,7 +1010,7 @@ button:disabled {
 .viewSwitch button {
   background: transparent;
   color: #586571;
-  padding: 8px 10px;
+  padding: 7px 9px;
 }
 
 .viewSwitch button.selected {
@@ -1014,29 +1020,45 @@ button:disabled {
 
 .tableHeader, .taskRow {
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(260px, 2fr) 1fr 0.8fr 150px 120px 140px 70px 190px;
-  padding: 14px 16px;
+  gap: 0;
+  grid-template-columns: minmax(260px, 2fr) 140px 110px 132px 112px 132px 108px 172px;
+  min-width: 1180px;
 }
 
 .tableHeader {
-  background: #edf1f4;
-  color: #586571;
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
+  background: #f3f5f8;
+  border-bottom: 1px solid #cfd8e5;
+  color: #3f4752;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tableHeader span,
+.taskRow > span,
+.taskRow > input,
+.taskRow > select,
+.taskName,
+.rowActions {
+  border-right: 1px solid #d5deea;
+  min-height: 34px;
+  padding: 7px 10px;
 }
 
 .taskRow {
   align-items: center;
-  border-top: 1px solid #e6ebef;
+  border-bottom: 1px solid #e4e9f1;
+  font-size: 13px;
+}
+
+.taskRow:hover {
+  background: #f8fbff;
 }
 
 .taskRow select {
-  border: 1px solid #d8e0e7;
-  border-radius: 8px;
-  font-weight: 800;
-  min-height: 36px;
+  border: 0;
+  border-radius: 0;
+  font-weight: 700;
+  min-height: 34px;
   padding: 0 8px;
 }
 
@@ -1051,34 +1073,33 @@ button:disabled {
 .prioritySelect.vysoka { background: #ffe4e0; color: #ad2f1e; }
 
 .taskRow input {
-  border: 1px solid #d8e0e7;
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
   min-height: 36px;
-  padding: 0 8px;
   width: 100%;
 }
 
 .taskName {
   background: transparent;
   color: #17202a;
-  font-weight: 800;
-  padding: 0;
+  border-radius: 0;
+  font-weight: 600;
   text-align: left;
 }
 
 .danger {
   background: #fff0ee;
   color: #ad2f1e;
-  padding: 9px 10px;
+  padding: 7px 9px;
 }
 
 .rowActions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .rowActions button {
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .emptyState {
@@ -1103,7 +1124,7 @@ button:disabled {
 
 .kanban {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   grid-template-columns: repeat(5, minmax(180px, 1fr));
   overflow-x: auto;
 }
@@ -1116,24 +1137,24 @@ button:disabled {
 
 .timeCalendar {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(250px, 1fr));
 }
 
 .calendarDay {
-  background: #edf1f4;
+  background: #f1f4f8;
   border: 1px solid #dfe5ea;
-  border-radius: 8px;
-  min-height: 520px;
-  padding: 12px;
+  border-radius: 6px;
+  min-height: 500px;
+  padding: 8px;
 }
 
 .calendarDay h2 {
   align-items: center;
   display: flex;
-  font-size: 16px;
+  font-size: 14px;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .calendarDay h2 span {
@@ -1147,10 +1168,10 @@ button:disabled {
 .timeSlot {
   border-top: 1px solid #d8e0e7;
   display: grid;
-  gap: 10px;
-  grid-template-columns: 54px minmax(0, 1fr);
-  min-height: 62px;
-  padding: 8px 0;
+  gap: 6px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  min-height: 50px;
+  padding: 5px 0;
 }
 
 .timeSlot.dropReady {
@@ -1160,7 +1181,7 @@ button:disabled {
 
 .timeLabel {
   color: #7a8792;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1172,13 +1193,13 @@ button:disabled {
 .calendarEvent {
   background: white;
   border: 1px solid #dfe5ea;
-  border-left: 4px solid #1f7a5a;
-  border-radius: 8px;
+  border-left: 3px solid #2f6fed;
+  border-radius: 6px;
   cursor: grab;
   display: flex;
   gap: 8px;
   justify-content: space-between;
-  padding: 10px;
+  padding: 7px 8px;
 }
 
 .calendarEvent:active {
@@ -1186,6 +1207,7 @@ button:disabled {
 }
 
 .calendarEvent strong {
+  font-size: 12px;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -1200,13 +1222,13 @@ button:disabled {
   align-items: center;
   background: #f4f6f8;
   border: 1px solid #d8e0e7;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #17202a;
   display: grid;
-  height: 30px;
+  height: 25px;
   padding: 0;
   place-items: center;
-  width: 30px;
+  width: 25px;
 }
 
 .dayPlan {
@@ -1234,19 +1256,19 @@ button:disabled {
 }
 
 .column {
-  background: #edf1f4;
+  background: #f1f4f8;
   border: 1px solid #dfe5ea;
-  border-radius: 8px;
+  border-radius: 6px;
   min-height: 420px;
-  padding: 12px;
+  padding: 8px;
 }
 
 .column h2 {
   align-items: center;
   display: flex;
-  font-size: 16px;
+  font-size: 14px;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .column h2 span {
@@ -1262,9 +1284,9 @@ button:disabled {
   border: 1px solid #dfe5ea;
   color: #17202a;
   display: grid;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 12px;
+  gap: 5px;
+  margin-bottom: 8px;
+  padding: 9px;
   text-align: left;
   width: 100%;
 }
@@ -1272,7 +1294,7 @@ button:disabled {
 .card span,
 .card em {
   color: #64707c;
-  font-size: 13px;
+  font-size: 12px;
   font-style: normal;
 }
 

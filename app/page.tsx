@@ -28,9 +28,17 @@ type Task = {
   day: string;
   startHour: number;
   duration: number;
+  slots: CalendarSlot[];
   note: string;
   checklist: ChecklistItem[];
   activity: string[];
+};
+
+type CalendarSlot = {
+  id: number;
+  day: string;
+  startHour: number;
+  duration: number;
 };
 
 type Project = {
@@ -85,10 +93,10 @@ type TaskTemplate = {
 };
 
 const initialTasks: Task[] = [
-  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
-  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
-  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
-  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
+  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, slots: [{ id: 101, day: "Dnes", startHour: 9, duration: 1 }], note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
+  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
+  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, slots: [{ id: 301, day: "Streda", startHour: 13, duration: 2 }], note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
+  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, slots: [], note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
 ];
 
 const initialTeam: TeamMember[] = [
@@ -126,11 +134,14 @@ const savedViews: SavedView[] = [
 ];
 
 function blankTask(): Task {
-  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, note: "", checklist: [], activity: [] };
+  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
 }
 
 function normalizeTask(task: Partial<Task>): Task {
   const plannedDay = task.day || task.due || "Neskor";
+  const startHour = typeof task.startHour === "number" ? task.startHour : 9;
+  const duration = typeof task.duration === "number" ? task.duration : 1;
+  const slots = Array.isArray(task.slots) ? task.slots : plannedDay === "Neskor" ? [] : [{ id: Date.now(), day: plannedDay, startHour, duration }];
   return {
     id: typeof task.id === "number" ? task.id : Date.now(),
     name: task.name || "Nova uloha",
@@ -140,8 +151,9 @@ function normalizeTask(task: Partial<Task>): Task {
     priority: task.priority || "Stredna",
     due: task.due || "Tento tyzden",
     day: plannedDay,
-    startHour: typeof task.startHour === "number" ? task.startHour : 9,
-    duration: typeof task.duration === "number" ? task.duration : 1,
+    startHour,
+    duration,
+    slots,
     note: task.note || "",
     checklist: Array.isArray(task.checklist) ? task.checklist : [],
     activity: Array.isArray(task.activity) ? task.activity : []
@@ -184,7 +196,7 @@ export default function Home() {
   const [newGoal, setNewGoal] = useState({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
   const [inboxText, setInboxText] = useState("");
   const [activityNote, setActivityNote] = useState("");
-  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  const [draggedSlot, setDraggedSlot] = useState<{ taskId: number; slotId: number } | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -354,11 +366,17 @@ export default function Home() {
   function saveTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.name.trim()) return;
+    const slots = draft.day === "Neskor"
+      ? []
+      : draft.slots.length
+        ? draft.slots.map((slot, index) => (index === 0 ? { ...slot, day: draft.day, startHour: draft.startHour, duration: draft.duration } : slot))
+        : [{ id: Date.now() + 1, day: draft.day, startHour: draft.startHour, duration: draft.duration }];
+    const taskToSave = { ...draft, slots };
 
     if (editingTask) {
-      setTasks((current) => current.map((task) => (task.id === editingTask.id ? { ...draft, activity: [`Upravene ${new Date().toLocaleDateString("sk-SK")}`, ...draft.activity] } : task)));
+      setTasks((current) => current.map((task) => (task.id === editingTask.id ? { ...taskToSave, activity: [`Upravene ${new Date().toLocaleDateString("sk-SK")}`, ...draft.activity] } : task)));
     } else {
-      setTasks((current) => [{ ...draft, id: Date.now(), activity: [`Vytvorene ${new Date().toLocaleDateString("sk-SK")}`] }, ...current]);
+      setTasks((current) => [{ ...taskToSave, id: Date.now(), activity: [`Vytvorene ${new Date().toLocaleDateString("sk-SK")}`] }, ...current]);
     }
 
     setIsFormOpen(false);
@@ -372,9 +390,11 @@ export default function Home() {
   }
 
   function planTask(task: Task, day: string) {
+    const slot = task.slots[0] || { id: Date.now(), day, startHour: task.startHour, duration: task.duration };
     updateTask(task.id, {
       due: day,
       day,
+      slots: day === "Neskor" ? [] : [{ ...slot, day }],
       status: day === "Neskor" ? "Backlog" : "Robi sa",
       project: task.project === "Inbox" ? "Planovanie" : task.project,
       activity: [`Naplanovane na ${day}`, ...task.activity]
@@ -382,16 +402,31 @@ export default function Home() {
   }
 
   function sendTaskToWarehouse(task: Task) {
-    updateTask(task.id, { due: "Neskor", day: "Neskor", status: "Backlog", activity: ["Vratene do skladu uloh", ...task.activity] });
+    updateTask(task.id, { due: "Neskor", day: "Neskor", slots: [], status: "Backlog", activity: ["Vratene do skladu uloh", ...task.activity] });
   }
 
   function scheduleTask(task: Task, day: string, startHour: number) {
+    const slot = task.slots[0] || { id: Date.now(), day, startHour, duration: task.duration };
     updateTask(task.id, {
       day,
       due: day,
       startHour,
+      slots: [{ ...slot, day, startHour }],
       status: task.status === "Hotovo" ? "Hotovo" : "Robi sa",
       activity: [`Presunute na ${day} o ${startHour}:00`, ...task.activity]
+    });
+  }
+
+  function moveCalendarSlot(task: Task, slotId: number, day: string, startHour: number) {
+    const slots = task.slots.map((slot) => (slot.id === slotId ? { ...slot, day, startHour } : slot));
+    const firstSlot = slots[0];
+    updateTask(task.id, {
+      day: firstSlot?.day || day,
+      due: firstSlot?.day || day,
+      startHour: firstSlot?.startHour || startHour,
+      slots,
+      status: task.status === "Hotovo" ? "Hotovo" : "Robi sa",
+      activity: [`Casovy blok presunuty na ${day} o ${startHour}:00`, ...task.activity]
     });
   }
 
@@ -489,14 +524,15 @@ export default function Home() {
   }
 
   function duplicateTask(task: Task) {
-    setTasks((current) => [{ ...task, id: Date.now(), name: `${task.name} kopia`, status: "Backlog" }, ...current]);
+    setTasks((current) => [{ ...task, id: Date.now(), name: `${task.name} kopia`, status: "Backlog", due: "Neskor", day: "Neskor", slots: [] }, ...current]);
   }
 
-  function duplicateCalendarTask(task: Task) {
-    const answer = window.prompt("Kam presunut kopiu? Napis napriklad: Utorok 14. Ak nechas prazdne, ostane v rovnakom case.");
+  function duplicateCalendarSlot(task: Task, slot: CalendarSlot) {
+    const answer = window.prompt("Kam pridat dalsi casovy blok tej istej ulohy? Napis napriklad: Utorok 14. Ak nechas prazdne, ostane v rovnakom case.");
+    if (answer === null) return;
     const trimmed = answer?.trim();
-    let nextDay = task.day;
-    let nextHour = task.startHour;
+    let nextDay = slot.day;
+    let nextHour = slot.startHour;
 
     if (trimmed) {
       const matchedDay = calendarDays.find((day) => trimmed.toLowerCase().includes(day.toLowerCase()));
@@ -505,22 +541,17 @@ export default function Home() {
       if (calendarHours.includes(matchedHour)) nextHour = matchedHour;
     }
 
-    setTasks((current) => [{
-      ...task,
-      id: Date.now(),
-      name: `${task.name} kopia`,
-      day: nextDay,
-      due: nextDay,
-      startHour: nextHour,
-      activity: [`Kopia vytvorena na ${nextDay} o ${nextHour}:00`, ...task.activity]
-    }, ...current]);
+    updateTask(task.id, {
+      slots: [...task.slots, { id: Date.now(), day: nextDay, startHour: nextHour, duration: slot.duration }],
+      activity: [`Pridany dalsi casovy blok na ${nextDay} o ${nextHour}:00`, ...task.activity]
+    });
   }
 
   function dropTaskToCalendar(day: string, startHour: number) {
-    const task = tasks.find((current) => current.id === draggedTaskId);
-    if (!task) return;
-    scheduleTask(task, day, startHour);
-    setDraggedTaskId(null);
+    const task = tasks.find((current) => current.id === draggedSlot?.taskId);
+    if (!task || !draggedSlot) return;
+    moveCalendarSlot(task, draggedSlot.slotId, day, startHour);
+    setDraggedSlot(null);
   }
 
   function exportData() {
@@ -626,7 +657,7 @@ export default function Home() {
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
                 <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, day: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
-                <span>{task.duration} h</span>
+                <span>{task.slots.length ? `${task.slots.reduce((sum, slot) => sum + slot.duration, 0)} h / ${task.slots.length} blok` : `${task.duration} h`}</span>
                 <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
               </article>
             ))}
@@ -654,35 +685,35 @@ export default function Home() {
           ) : (
           <section className="timeCalendar">
             {calendarDays.map((day) => {
-              const dayTasks = visibleTasks.filter((task) => task.day.toLowerCase().includes(day.toLowerCase()) || task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
+              const dayEvents = visibleTasks.flatMap((task) => task.slots.filter((slot) => slot.day === day).map((slot) => ({ task, slot })));
               return (
                 <article className="calendarDay" key={day}>
-                  <h2>{day}<span>{dayTasks.length}</span></h2>
+                  <h2>{day}<span>{dayEvents.length}</span></h2>
                   {calendarHours.map((hour) => {
-                    const hourTasks = dayTasks.filter((task) => task.startHour === hour);
+                    const hourEvents = dayEvents.filter((event) => event.slot.startHour === hour);
                     return (
                       <div
-                        className={`timeSlot ${draggedTaskId ? "dropReady" : ""}`}
+                        className={`timeSlot ${draggedSlot ? "dropReady" : ""}`}
                         key={`${day}-${hour}`}
                         onDragOver={(event) => event.preventDefault()}
                         onDrop={() => dropTaskToCalendar(day, hour)}
                       >
                         <span className="timeLabel">{hour}:00</span>
                         <div className="timeSlotContent">
-                          {hourTasks.map((task) => (
+                          {hourEvents.map(({ task, slot }) => (
                             <article
                               className="calendarEvent"
                               draggable
-                              key={task.id}
+                              key={`${task.id}-${slot.id}`}
                               onClick={() => setSelectedTask(task)}
-                              onDragEnd={() => setDraggedTaskId(null)}
-                              onDragStart={() => setDraggedTaskId(task.id)}
-                              style={{ minHeight: `${Math.max(0.5, task.duration) * 58}px` }}
+                              onDragEnd={() => setDraggedSlot(null)}
+                              onDragStart={() => setDraggedSlot({ taskId: task.id, slotId: slot.id })}
+                              style={{ minHeight: `${Math.max(0.5, slot.duration) * 46}px` }}
                             >
                               <strong>{task.name}</strong>
                               <div className="eventIcons">
                                 <button aria-label="Upravit ulohu" title="Upravit ulohu" type="button" onClick={(event) => { event.stopPropagation(); openEditTask(task); }}>✎</button>
-                                <button aria-label="Duplikovat ulohu" title="Duplikovat ulohu" type="button" onClick={(event) => { event.stopPropagation(); duplicateCalendarTask(task); }}>⧉</button>
+                                <button aria-label="Pridat dalsi casovy blok" title="Pridat dalsi casovy blok" type="button" onClick={(event) => { event.stopPropagation(); duplicateCalendarSlot(task, slot); }}>⧉</button>
                               </div>
                             </article>
                           ))}
@@ -690,7 +721,7 @@ export default function Home() {
                       </div>
                     );
                   })}
-                  {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
+                  {dayEvents.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
                 </article>
               );
             })}
@@ -929,7 +960,7 @@ export default function Home() {
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
             <dt>Termin</dt><dd>{selectedTask.due}</dd>
-            <dt>Cas</dt><dd>{selectedTask.day}, {selectedTask.startHour}:00 · {selectedTask.duration} h</dd>
+            <dt>Cas</dt><dd>{selectedTask.slots.length ? selectedTask.slots.map((slot) => `${slot.day} ${slot.startHour}:00 (${slot.duration} h)`).join(", ") : `${selectedTask.day}, ${selectedTask.startHour}:00 · ${selectedTask.duration} h`}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
           <section className="detailActions">
