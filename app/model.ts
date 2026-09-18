@@ -96,15 +96,67 @@ function uniqueIds(items: Record<string, unknown>[]): (Record<string, unknown> &
     return { ...item, id };
   });
 }
-export function normalizeTask(value: Partial<Task>): Task {
+export function localDate(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+export function parseDate(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+export function addDays(value: string, days: number): string {
+  const date = parseDate(value); date.setDate(date.getDate() + days); return localDate(date);
+}
+export function monday(value: string): string { return addDays(value, -(parseDate(value).getDay() + 6) % 7); }
+export function calendarDate(value: string, anchor = localDate()): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) && localDate(parseDate(value)) === value) return value;
+  const name = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const index = ["pondelok", "utorok", "streda", "stvrtok", "piatok", "sobota", "nedela"].indexOf(name);
+  if (index >= 0) return addDays(monday(anchor), index);
+  if (name === "vikend") return addDays(monday(anchor), 5);
+  // Unknown legacy labels retain their block on the anchor date, never discard data.
+  return anchor;
+}
+export type CalendarRange = "3" | "5" | "work" | "week";
+export function rangeDays(anchor: string, range: CalendarRange): string[] {
+  const start = range === "work" || range === "week" ? monday(anchor) : anchor;
+  return Array.from({ length: range === "3" ? 3 : range === "week" ? 7 : 5 }, (_, i) => addDays(start, i));
+}
+export function timeLabel(hour: number): string {
+  const minutes = Math.round(hour * 60);
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+// Display an overnight block on both dates without changing its stored ID or duration.
+export function calendarSegments(slot: CalendarSlot): CalendarSlot[] {
+  const firstDuration = Math.min(slot.duration, 24 - slot.startHour);
+  return [{ ...slot, duration: firstDuration }, ...(slot.duration > firstDuration ? [{ ...slot, day: addDays(slot.day, 1), startHour: 0, duration: slot.duration - firstDuration }] : [])];
+}
+export function layoutSlots(slots: CalendarSlot[]): { slot: CalendarSlot; column: number; columns: number }[] {
+  const result: { slot: CalendarSlot; column: number; columns: number }[] = [];
+  for (const day of [...new Set(slots.map(s => s.day))].sort()) {
+    const sorted = slots.filter(s => s.day === day).sort((a, b) => a.startHour - b.startHour || b.duration - a.duration || a.taskId - b.taskId || a.id - b.id);
+    let group: typeof result = [], ends: number[] = [], end = -1;
+    const flush = () => { group.forEach(item => { item.columns = ends.length; }); result.push(...group); group = []; ends = []; };
+    for (const slot of sorted) {
+      if (slot.startHour >= end) flush();
+      let column = ends.findIndex(value => value <= slot.startHour);
+      if (column < 0) column = ends.length;
+      ends[column] = slot.startHour + slot.duration;
+      end = Math.max(...ends);
+      group.push({ slot, column, columns: 1 });
+    }
+    flush();
+  }
+  return result;
+}
+export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task {
   const id = value.id ?? newId();
   const day = text(value.day, text(value.due, "Neskor"));
   const legacy = day === "Neskor" ? [] : [{ id: newId(), day, startHour: value.startHour, duration: value.duration }];
-  const slots: CalendarSlot[] = uniqueIds(rows(value.slots ?? legacy)).map(slot => ({
-    id: slot.id, taskId: id, day: text(slot.day, "Dnes"),
-    startHour: Math.min(18, Math.max(8, num(slot.startHour, 9))),
-    duration: Math.min(12, Math.max(0.5, num(slot.duration, 1)))
-  }));
+  const slots: CalendarSlot[] = uniqueIds(rows(value.slots ?? legacy)).map(slot => {
+    const startHour = Math.min(23.75, Math.max(0, num(slot.startHour, 9)));
+    return { id: slot.id, taskId: id, day: calendarDate(text(slot.day, "Dnes"), anchor), startHour,
+      duration: Math.min(24, Math.max(0.25, num(slot.duration, 1))) };
+  });
   return {
     id, name: text(value.name, "Nova uloha"), project: text(value.project, "Produkt"), owner: text(value.owner, "Martin"),
     projectId: value.projectId ?? null, ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
@@ -123,7 +175,7 @@ export function normalizeProject(value: Partial<Project>, index = 0): Project {
     goal: text(value.goal), color: /^#[0-9a-f]{6}$/i.test(value.color ?? "") ? value.color! : ["#1f7a5a", "#3467d6", "#8a5d00"][index % 3] };
 }
 // ID links are authoritative. Name fields are compatibility labels for the existing UI.
-export function normalizeWorkspace(input: unknown): Workspace {
+export function normalizeWorkspace(input: unknown, anchor = localDate()): Workspace {
   const data = record(input);
   if (data.schemaVersion !== undefined && data.schemaVersion !== 1) throw new Error("Nepodporovana verzia zalohy.");
   // Reserve imported IDs before generating IDs for missing legacy records.
@@ -158,7 +210,7 @@ export function normalizeWorkspace(input: unknown): Workspace {
     return { ...project, ownerId: member?.id ?? null, owner: member?.name ?? "", clientId: clientId(project.clientId) };
   });
   const tasks = uniqueIds(rows(data.tasks)).map(raw => {
-    const task = normalizeTask(raw);
+    const task = normalizeTask(raw, anchor);
     const legacyProject = data.schemaVersion === undefined && raw.projectId == null;
     let project = legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
     if (!legacyProject && task.projectId !== null && !project) throw new Error("Projekt neexistuje.");

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizeWorkspace, normalizeTask, effectiveClientId, newId } from '../app/model.ts';
+import { normalizeWorkspace, normalizeTask, effectiveClientId, newId, calendarDate, localDate, addDays, monday, rangeDays, layoutSlots, timeLabel, calendarSegments } from '../app/model.ts';
 
 const legacy = () => ({
   tasks: [{ id: 10, name: 'Task', project: 'Project', owner: 'Owner', due: 'Piatok', day: 'Utorok', startHour: 10, duration: 2, note: 'Keep me', checklist: [{ id: 1, text: 'Done', done: true }], activity: ['Created'] }],
@@ -18,7 +18,7 @@ test('legacy migration preserves records and creates stable ID links', () => {
   assert.equal(data.tasks[0].ownerId, 30);
   assert.equal(data.projects[0].ownerId, 30);
   assert.equal(data.tasks[0].slots[0].taskId, 10);
-  assert.equal(data.tasks[0].slots[0].day, 'Utorok');
+  assert.equal(data.tasks[0].slots[0].day, calendarDate('Utorok'));
   assert.equal(data.tasks[0].due, 'Piatok');
   assert.equal(data.tasks[0].note, 'Keep me');
   assert.equal(data.tasks[0].checklist[0].done, true);
@@ -61,7 +61,7 @@ test('multiple blocks preserve IDs, timing and repair taskId', () => {
 test('removing one block preserves other blocks and final removal stays unscheduled', () => {
   const task = normalizeTask({ id: 10, slots: [{ id: 1, taskId: 10, day: 'Dnes', startHour: 9, duration: 1 }, { id: 2, taskId: 10, day: 'Streda', startHour: 11, duration: 2 }] });
   const remaining = normalizeTask({ ...task, slots: task.slots.slice(1) });
-  assert.equal(remaining.day, 'Streda'); assert.equal(remaining.slots[0].id, 2);
+  assert.equal(remaining.day, calendarDate('Streda')); assert.equal(remaining.slots[0].id, 2);
   assert.equal(normalizeTask({ ...remaining, slots: [] }).day, 'Neskor');
 });
 
@@ -105,4 +105,70 @@ test('empty workspace remains empty and generated IDs are unique safe integers',
   assert.deepEqual(data.tasks, []); assert.deepEqual(data.projects, []);
   const ids = Array.from({ length: 2000 }, newId);
   assert.equal(new Set(ids).size, ids.length); assert.ok(ids.every(Number.isSafeInteger));
+});
+
+test('legacy dates map into local current week and persist without rolling forward', () => {
+  const anchor = '2026-09-18';
+  for (const [label, expected] of [['Dnes', anchor], ['Pondelok', '2026-09-14'], ['Utorok', '2026-09-15'], ['Štvrtok', '2026-09-17'], ['Víkend', '2026-09-19'], ['Nedela', '2026-09-20'], ['custom', anchor]]) {
+    assert.equal(calendarDate(label, anchor), expected);
+  }
+  const data = normalizeWorkspace(legacy(), anchor);
+  assert.deepEqual(normalizeWorkspace(data, '2027-01-01'), data);
+  assert.equal(data.tasks[0].slots[0].day, '2026-09-15');
+  assert.equal(calendarDate('2024-02-29', anchor), '2024-02-29');
+  assert.equal(calendarDate('2026-02-30', anchor), anchor);
+});
+
+test('ranges cross month, year, weekend and daylight saving boundaries', () => {
+  assert.deepEqual(rangeDays('2026-12-31', '3'), ['2026-12-31', '2027-01-01', '2027-01-02']);
+  assert.deepEqual(rangeDays('2026-09-20', 'work'), ['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18']);
+  assert.equal(rangeDays('2026-09-20', 'week')[6], '2026-09-20');
+  assert.equal(rangeDays('2026-09-18', '5')[4], '2026-09-22');
+  assert.equal(addDays('2026-03-28', 2), '2026-03-30');
+  assert.equal(monday('2027-01-01'), '2026-12-28');
+  assert.equal(localDate(new Date(2026, 8, 18, 0, 1)), '2026-09-18');
+});
+
+test('full day timing supports midnight, quarter hours and preserves overnight duration', () => {
+  const task = normalizeTask({ id: 1, slots: [
+    { id: 1, day: '2026-09-18', startHour: 0, duration: 24 },
+    { id: 2, day: '2026-09-18', startHour: 23.75, duration: 2 }
+  ] });
+  assert.equal(task.slots[0].duration, 24);
+  assert.equal(task.slots[0].startHour, 0);
+  assert.equal(task.slots[1].duration, 2);
+  const segments = calendarSegments(task.slots[1]);
+  assert.equal(segments[0].duration, .25);
+  assert.equal(segments[1].day, '2026-09-19');
+  assert.equal(segments[1].duration, 1.75);
+  assert.equal(segments[1].id, task.slots[1].id);
+  assert.equal(timeLabel(23.75), '23:45');
+  assert.equal(timeLabel(24), '24:00');
+});
+
+test('interval layout handles chains, nesting, touching ends and separate days deterministically', () => {
+  const slots = [[1, 9, 3], [2, 9, 1], [3, 10, 1], [4, 10.5, 2], [5, 12.5, 1]].map(([id, startHour, duration]) => ({ id, taskId: id, day: '2026-09-18', startHour, duration }));
+  const placed = layoutSlots(slots);
+  assert.deepEqual(layoutSlots([...slots].reverse()), placed);
+  assert.deepEqual(placed.map(p => p.columns), [3, 3, 3, 3, 1]);
+  for (const a of placed) for (const b of placed) {
+    if (a === b) continue;
+    const overlap = a.slot.startHour < b.slot.startHour + b.slot.duration && b.slot.startHour < a.slot.startHour + a.slot.duration;
+    if (overlap) assert.notEqual(a.column, b.column);
+  }
+  assert.equal(layoutSlots([...slots, { ...slots[0], id: 6, day: '2026-09-19' }]).at(-1).columns, 1);
+  assert.deepEqual(layoutSlots([]), []);
+});
+
+test('moving one block preserves identity, other blocks and metadata', () => {
+  const task = normalizeTask({ id: 7, name: 'Same task', status: 'Backlog', due: 'Keep', slots: [
+    { id: 1, day: '2026-09-18', startHour: 9, duration: 2 },
+    { id: 2, day: '2026-09-19', startHour: 10, duration: 1 }
+  ] });
+  const moved = normalizeTask({ ...task, slots: task.slots.map(s => s.id === 2 ? { ...s, day: '2026-10-01', startHour: 0 } : s) });
+  assert.deepEqual(moved.slots[0], task.slots[0]);
+  assert.equal(moved.slots[1].id, 2);
+  assert.equal(moved.slots[1].taskId, 7);
+  assert.equal(moved.slots[1].startHour, 0);
+  assert.equal(moved.due, 'Keep'); assert.equal(moved.status, 'Backlog');
 });

@@ -2,6 +2,9 @@
 
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
+import Calendar from "./calendar";
+import { localDate, timeLabel } from "./model";
+
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "Tabulka" | "Kanban" | "Tyžden";
@@ -15,18 +18,15 @@ const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
 const screens: Screen[] = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Tim"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
-const weekDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok", "Vikend", "Neskor"];
-const calendarDays = weekDays.filter(day => day !== "Neskor");
-const calendarHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 
 
 
-const initialTasks: Task[] = [
+function initialTasks(): Task[] { return [
   { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, slots: [{ id: 101, day: "Dnes", startHour: 9, duration: 1 }], note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
   { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
   { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, slots: [{ id: 301, day: "Streda", startHour: 13, duration: 2 }], note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
   { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, slots: [], note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
-].map(task => normalizeTask(task as Partial<Task>));
+].map(task => normalizeTask(task as Partial<Task>)); }
 
 const initialTeam: TeamMember[] = [
   { id: 1, name: "Martin", role: "Founder / Produkt", capacity: 80 },
@@ -81,14 +81,13 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [inboxText, setInboxText] = useState("");
   const [activityNote, setActivityNote] = useState("");
-  const [draggedSlot, setDraggedSlot] = useState<{ taskId: number; slotId: number } | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   function applyWorkspace(data: ReturnType<typeof normalizeWorkspace>) {
     setTasks(data.tasks); setProjects(data.projects); setTeam(data.team); setClients(data.clients); setGoals(data.goals);
     setSelectedTask(null); setIsFormOpen(false); setEditingProject(null); setProjectDraft(blankProject());
     setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" });
-    setEditingTask(null); setDraggedSlot(null); setActivityNote("");
+    setEditingTask(null); setActivityNote("");
     setQuery(""); setStatusFilter("Vsetko"); setProjectFilter(null); setQuickFilter("Vsetko");
   }
 
@@ -100,7 +99,7 @@ export default function Home() {
         return value === null ? fallback : JSON.parse(value);
       };
       const data = saved !== null ? JSON.parse(saved) : {
-        tasks: legacy(storageKey, initialTasks), projects: legacy(projectsStorageKey, initialProjects),
+        tasks: legacy(storageKey, initialTasks()), projects: legacy(projectsStorageKey, initialProjects),
         team: legacy(teamStorageKey, initialTeam), goals: legacy(goalsStorageKey, initialGoals), clients: []
       };
       applyWorkspace(normalizeWorkspace(data));
@@ -130,7 +129,6 @@ export default function Home() {
     return normalizeTask({ ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerId: member?.id ?? null, owner: member?.name ?? "" });
   }
 
-  const displayedDays = useMemo(() => Array.from(new Set([...calendarDays, ...tasks.flatMap(task => task.slots.map(slot => slot.day))])), [tasks]);
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== "Hotovo"), [tasks]);
   const inboxTasks = useMemo(() => tasks.filter((task) => task.project === "Inbox"), [tasks]);
   const visibleTasks = useMemo(() => {
@@ -234,7 +232,7 @@ export default function Home() {
 
   function addDraftSlot() {
     setDraft(normalizeTask({ ...draft, slots: [...draftSlots(), {
-      id: newId(), taskId: draft.id, day: "Dnes", startHour: 9, duration: 1
+      id: newId(), taskId: draft.id, day: localDate(), startHour: 9, duration: 1
     }] }));
   }
 
@@ -271,10 +269,9 @@ export default function Home() {
     const firstSlot = slots[0];
     updateTask(task.id, {
       day: firstSlot?.day || day,
-      startHour: firstSlot?.startHour || startHour,
+      startHour: firstSlot?.startHour ?? startHour,
       slots,
-      status: task.status === "Hotovo" ? "Hotovo" : "Robi sa",
-      activity: [`Casovy blok presunuty na ${day} o ${startHour}:00`, ...task.activity]
+      activity: [`Casovy blok presunuty na ${day} o ${timeLabel(startHour)}`, ...task.activity]
     });
   }
 
@@ -358,30 +355,10 @@ export default function Home() {
   }
 
   function duplicateCalendarSlot(task: Task, slot: CalendarSlot) {
-    const answer = window.prompt("Kam pridat dalsi casovy blok tej istej ulohy? Napis napriklad: Utorok 14. Ak nechas prazdne, ostane v rovnakom case.");
-    if (answer === null) return;
-    const trimmed = answer?.trim();
-    let nextDay = slot.day;
-    let nextHour = slot.startHour;
-
-    if (trimmed) {
-      const matchedDay = calendarDays.find((day) => trimmed.toLowerCase().includes(day.toLowerCase()));
-      const matchedHour = Number(trimmed.match(/\d{1,2}/)?.[0]);
-      if (matchedDay) nextDay = matchedDay;
-      if (calendarHours.includes(matchedHour)) nextHour = matchedHour;
-    }
-
-    updateTask(task.id, {
-      slots: [...task.slots, { taskId: task.id, id: newId(), day: nextDay, startHour: nextHour, duration: 1 }],
-      activity: [`Pridany dalsi casovy blok na ${nextDay} o ${nextHour}:00`, ...task.activity]
-    });
-  }
-
-  function dropTaskToCalendar(day: string, startHour: number) {
-    const task = tasks.find((current) => current.id === draggedSlot?.taskId);
-    if (!task || !draggedSlot) return;
-    moveCalendarSlot(task, draggedSlot.slotId, day, startHour);
-    setDraggedSlot(null);
+    setDraft(normalizeTask({ ...task, slots: [...task.slots, { ...slot, id: newId() }] }));
+    setEditingTask(task);
+    setSelectedTask(null);
+    setIsFormOpen(true);
   }
 
   function exportData() {
@@ -551,50 +528,7 @@ export default function Home() {
             })}
           </section>
           ) : (
-          <section className="timeCalendar">
-            {displayedDays.map((day) => {
-              const dayEvents = visibleTasks.flatMap((task) => task.slots.filter((slot) => slot.day === day).map((slot) => ({ task, slot })));
-              return (
-                <article className="calendarDay" key={day}>
-                  <h2>{day}<span>{dayEvents.length}</span></h2>
-                  {calendarHours.map((hour) => {
-                    const hourEvents = dayEvents.filter((event) => Math.floor(event.slot.startHour) === hour);
-                    return (
-                      <div
-                        className={`timeSlot ${draggedSlot ? "dropReady" : ""}`}
-                        key={`${day}-${hour}`}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={() => dropTaskToCalendar(day, hour)}
-                      >
-                        <span className="timeLabel">{hour}:00</span>
-                        <div className="timeSlotContent">
-                          {hourEvents.map(({ task, slot }) => (
-                            <article
-                              className="calendarEvent"
-                              draggable
-                              key={`${task.id}-${slot.id}`}
-                              onClick={() => setSelectedTask(task)}
-                              onDragEnd={() => setDraggedSlot(null)}
-                              onDragStart={() => setDraggedSlot({ taskId: task.id, slotId: slot.id })}
-                              style={{ minHeight: `${Math.max(0.5, slot.duration) * 46}px` }}
-                            >
-                              <strong>{task.name}</strong>
-                              <small>{Math.floor(slot.startHour)}:{String(Math.round((slot.startHour % 1) * 60)).padStart(2, "0")} · {slot.duration} h</small>
-                              <div className="eventIcons">
-                                <button aria-label="Upravit ulohu" title="Upravit ulohu" type="button" onClick={(event) => { event.stopPropagation(); openEditTask(task); }}>✎</button>
-                                <button aria-label="Pridat dalsi casovy blok" title="Pridat dalsi casovy blok" type="button" onClick={(event) => { event.stopPropagation(); duplicateCalendarSlot(task, slot); }}>⧉</button>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {dayEvents.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
-                </article>
-              );
-            })}
-          </section>
+          <Calendar tasks={visibleTasks} onOpen={setSelectedTask} onEdit={openEditTask} onAdd={duplicateCalendarSlot} onMove={moveCalendarSlot} />
           )}
           </>
         ) : null}
@@ -730,15 +664,15 @@ export default function Home() {
               <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z projektu: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
-              <label>Prvy blok · den<select value={draft.day} onChange={(event) => setDraft({ ...draft, day: event.target.value })}>{Array.from(new Set([...weekDays, draft.day])).map((day) => <option key={day}>{day}</option>)}</select></label>
-              <label>Zaciatok<input type="number" min="8" max="18" step="any" value={draft.startHour} onChange={(event) => setDraft({ ...draft, startHour: Number(event.target.value) })} /></label>
-              <label>Dlzka prveho bloku (h)<input type="number" min="0.5" max="12" step="0.5" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) || 1 })} /></label>
+              <label>Prvý blok · dátum<input type="date" value={draft.day === "Neskor" ? "" : draft.day} onChange={event => setDraft({ ...draft, day: event.target.value || "Neskor" })} /></label>
+              <label>Zaciatok<input type="number" min="0" max="23.75" step="0.25" value={draft.startHour} onChange={(event) => setDraft({ ...draft, startHour: Number(event.target.value) })} /></label>
+              <label>Dlzka prveho bloku (h)<input type="number" min="0.25" max="24" step="0.25" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) || 1 })} /></label>
             </div>
             {draft.day !== "Neskor" ? <button type="button" className="ghost" onClick={() => removeDraftSlot(0)}>Odstranit prvy blok</button> : null}
             {draft.slots.slice(1).map((slot, index) => <div className="extraSlot" key={slot.id}>
-              <label>Dalsi blok<select value={slot.day} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, day: e.target.value } : s) })}>{Array.from(new Set([...calendarDays, slot.day])).map(day => <option key={day}>{day}</option>)}</select></label>
-              <label>Zaciatok<input type="number" min="8" max="18" step="any" value={slot.startHour} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, startHour: Number(e.target.value) } : s) })} /></label>
-              <label>Dlzka (h)<input type="number" min="0.5" max="12" step="0.5" value={slot.duration} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, duration: Number(e.target.value) || 1 } : s) })} /></label>
+              <label>Ďalší blok · dátum<input type="date" required value={slot.day} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, day: e.target.value } : s) })} /></label>
+              <label>Zaciatok<input type="number" min="0" max="23.75" step="0.25" value={slot.startHour} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, startHour: Number(e.target.value) } : s) })} /></label>
+              <label>Dlzka (h)<input type="number" min="0.25" max="24" step="0.25" value={slot.duration} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, duration: Number(e.target.value) || 1 } : s) })} /></label>
               <button type="button" className="ghost" onClick={() => removeDraftSlot(index + 1)}>Odstranit blok</button>
             </div>)}
             <button type="button" className="ghost" onClick={addDraftSlot}>Pridat casovy blok</button>
@@ -761,7 +695,7 @@ export default function Home() {
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
             <dt>Termin</dt><dd>{selectedTask.due}</dd>
-            <dt>Cas</dt><dd>{selectedTask.slots.length ? selectedTask.slots.map((slot) => `${slot.day} ${slot.startHour}:00 (${slot.duration} h)`).join(", ") : `${selectedTask.day}, ${selectedTask.startHour}:00 · ${selectedTask.duration} h`}</dd>
+            <dt>Cas</dt><dd>{selectedTask.slots.length ? selectedTask.slots.map((slot) => `${slot.day} ${timeLabel(slot.startHour)} (${slot.duration} h)`).join(", ") : `${selectedTask.day}, ${selectedTask.startHour}:00 · ${selectedTask.duration} h`}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
           <section className="detailActions">
