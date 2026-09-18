@@ -34,7 +34,7 @@ test('normalization and JSON roundtrip are idempotent', () => {
 
 test('migration creates missing legacy projects and owners only once', () => {
   const data = normalizeWorkspace({ tasks: [...legacy().tasks, { id: 11, project: 'Project', owner: 'Owner', day: 'Neskor' }] });
-  assert.equal(data.projects.length, 1); assert.equal(data.team.length, 1);
+  assert.equal(data.projects.length, 1); assert.equal(data.users.length, 2);
   assert.equal(data.tasks[0].projectId, data.tasks[1].projectId);
   assert.equal(data.tasks[0].ownerId, data.tasks[1].ownerId);
 });
@@ -68,7 +68,7 @@ test('removing one block preserves other blocks and final removal stays unschedu
 
 test('ID references survive stale names, rename and null assignments', () => {
   const data = normalizeWorkspace(legacy());
-  data.projects[0].name = 'Renamed'; data.team[0].name = 'Renamed owner';
+  data.projects[0].name = 'Renamed'; data.users[0].name = 'Renamed owner';
   let next = normalizeWorkspace(data);
   assert.equal(next.tasks[0].project, 'Renamed'); assert.equal(next.tasks[0].owner, 'Renamed owner');
   next.tasks[0].projectId = null; next.tasks[0].ownerId = null;
@@ -91,7 +91,7 @@ test('clients inherit through projects and task override takes precedence', () =
 });
 
 test('invalid schema, duplicate IDs and dangling links are rejected', () => {
-  assert.throws(() => normalizeWorkspace({ schemaVersion: 3, tasks: [] }));
+  assert.throws(() => normalizeWorkspace({ schemaVersion: 99, tasks: [] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: 1 }, { id: 1 }] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: '1' }] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: 1, slots: [{ id: 2 }, { id: 2 }] }] }));
@@ -107,7 +107,7 @@ test('schema 1 migrates tasks to no entity without losing existing data', () => 
   old.tasks.forEach(task => delete task.entityId);
   const before = JSON.stringify(old);
   const migrated = normalizeWorkspace(old, '2026-09-18');
-  assert.equal(migrated.schemaVersion, 2);
+  assert.equal(migrated.schemaVersion, 3);
   assert.deepEqual(migrated.entities, []);
   assert.equal(migrated.tasks[0].entityId, null);
   const restored = JSON.parse(JSON.stringify(migrated));

@@ -3,6 +3,8 @@
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
 import Calendar from "./calendar";
+import Users from "./users";
+import { User, removeClient } from "./model";
 import { Entity, matchesAssignments, removeEntity } from "./model";
 import { localDate, timeLabel } from "./model";
 
@@ -18,14 +20,14 @@ const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
 const screens: Screen[] = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Entity", "Tim"];
-const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Projekty / oddelenia", Tim: "Tím", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
+const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 
 
 function initialTasks(): Task[] { return [
   { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, slots: [{ id: 101, day: "Dnes", startHour: 9, duration: 1 }], note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
-  { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
+  { id: 2, name: "Navrhnut strukturu oddelení a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a oddelenia.", checklist: [{ id: 21, text: "Zoznam oddelení", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
   { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, slots: [{ id: 301, day: "Streda", startHour: 13, duration: 2 }], note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
   { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, slots: [], note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
 ].map(task => normalizeTask(task as Partial<Task>)); }
@@ -45,7 +47,7 @@ const initialProjects: Project[] = [
 
 const initialGoals: Goal[] = [
   { id: 1, title: "Pouzitelny pracovny dashboard", project: "Produkt", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
-  { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "Planovanie", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky projektov." },
+  { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "Planovanie", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky oddelení." },
   { id: 3, title: "Technicky zaklad pre realne pouzitie", project: "Technologia", quarter: "Neskor", confidence: 35, outcome: "Prihlasenie, databaza a zdielanie medzi ludmi." }
 ];
 
@@ -84,17 +86,18 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [projectDraft, setProjectDraft] = useState<Project>(blankProject);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [team, setTeam] = useState<TeamMember[]>(initialTeam);
-  const [newMember, setNewMember] = useState({ name: "", role: "", capacity: 60 });
+  const [team, setTeam] = useState<User[]>([]);
+  const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [inboxText, setInboxText] = useState("");
   const [activityNote, setActivityNote] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
   function applyWorkspace(data: ReturnType<typeof normalizeWorkspace>) {
+    setWorkspaceRevision(current => current + 1);
     setEntities(data.entities); setEntityFilter("all");
     setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
-    setTasks(data.tasks); setProjects(data.projects); setTeam(data.team); setClients(data.clients); setGoals(data.goals);
+    setTasks(data.tasks); setProjects(data.projects); setTeam(data.users); setClients(data.clients); setGoals(data.goals);
     setSelectedTask(null); setIsFormOpen(false); setEditingProject(null); setProjectDraft(blankProject());
     setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" });
     setEditingTask(null); setActivityNote("");
@@ -122,7 +125,7 @@ export default function Home() {
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 2, tasks, projects, entities, team, clients, goals })));
+      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 3, tasks, projects, entities, users: team, clients, goals })));
       setStorageError("");
     } catch {
       setStorageError("Zmeny sa nepodarilo ulozit. Stiahnite Export pred zatvorenim aplikacie.");
@@ -192,7 +195,7 @@ export default function Home() {
         tasks: projectTasks,
         progress,
         highOpen,
-        next: projectTasks.find((task) => task.status !== "Hotovo")?.name || "Projekt je cisty"
+        next: projectTasks.find((task) => task.status !== "Hotovo")?.name || "Oddelenie je čisté"
       };
     });
   }, [projects, tasks]);
@@ -326,31 +329,18 @@ export default function Home() {
     updateTask(task.id, { checklist, activity: [`Checklist upraveny ${new Date().toLocaleDateString("sk-SK")}`, ...task.activity] });
   }
 
-  function addMember(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!newMember.name.trim()) return;
-    if (team.some(m => m.name.toLowerCase() === newMember.name.trim().toLowerCase())) { setNotice("Tento vlastnik uz existuje."); return; }
-    setTeam((current) => [{ id: newId(), ...newMember, name: newMember.name.trim() }, ...current]);
-    setNewMember({ name: "", role: "", capacity: 60 });
-  }
-
-  function removeMember(id: number) {
-    if (tasks.some(t => t.ownerId === id) || projects.some(p => p.ownerId === id)) { setNotice("Vlastnik je priradeny k ulohe alebo projektu. Najprv zmente priradenie."); return; }
-    setTeam((current) => current.filter((member) => member.id !== id));
-  }
-
   function saveProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextName = projectDraft.name.trim();
     if (!nextName) return;
     const duplicateName = projects.some((project) => project.name.toLowerCase() === nextName.toLowerCase() && project.id !== editingProject?.id);
-    if (duplicateName) { setNotice("Projekt s tymto nazvom uz existuje."); return; }
+    if (duplicateName) { setNotice("Oddelenie s týmto názvom uz existuje."); return; }
 
     if (editingProject) {
       const previousName = editingProject.name;
       const nextProject = { ...projectDraft, name: nextName, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" };
       setProjects((current) => current.map((project) => (project.id === editingProject.id ? nextProject : project)));
-      setTasks((current) => current.map((task) => (task.projectId === editingProject.id ? { ...task, project: nextName, activity: [`Projekt zmeneny na ${nextName}`, ...task.activity] } : task)));
+      setTasks((current) => current.map((task) => (task.projectId === editingProject.id ? { ...task, project: nextName, activity: [`Oddelenie zmenené na ${nextName}`, ...task.activity] } : task)));
       setGoals((current) => current.map((goal) => (goal.project === previousName ? { ...goal, project: nextName } : goal)));
       setSelectedTask(current => current?.projectId === editingProject.id ? { ...current, project: nextName } : current);
     } else {
@@ -396,7 +386,7 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 2, tasks, projects, entities, team, clients, goals }), null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 3, tasks, projects, entities, users: team, clients, goals }), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -413,11 +403,11 @@ export default function Home() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        const input = Array.isArray(parsed) ? { tasks: parsed, projects, entities, team, clients, goals } : parsed;
+        const input = Array.isArray(parsed) ? { tasks: parsed, projects, entities, users: team, clients, goals } : parsed;
         const data = normalizeWorkspace(input);
         if (!window.confirm("Import nahradi aktualne data. Pred pokracovanim odporucame Export. Pokracovat?")) return;
         const previous = window.localStorage.getItem(workspaceKey);
-        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 2, tasks, projects, entities, team, clients, goals }));
+        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 3, tasks, projects, entities, users: team, clients, goals }));
         window.localStorage.setItem(workspaceKey, JSON.stringify(data));
         applyWorkspace(data); setLoaded(true); setNotice("Zaloha bola nacitana.");
       } catch {
@@ -436,16 +426,14 @@ export default function Home() {
     if (clients.some(c => c.id !== clientDraft.id && c.name.toLowerCase() === name.toLowerCase())) {
       setNotice("Klient s tymto nazvom uz existuje."); return;
     }
-    const client = { ...clientDraft, name, email: clientDraft.email.trim() };
+    const client = { ...clientDraft, name };
     setClients(current => editingClient ? current.map(c => c.id === client.id ? client : c) : [...current, client]);
     setClientDraft({ id: newId(), name: "", email: "", note: "" }); setEditingClient(false);
   }
 
   function deleteClient(client: Client) {
-    if (projects.some(p => p.clientId === client.id) || tasks.some(t => t.clientId === client.id)) {
-      setNotice("Klient je priradeny k projektu alebo ulohe. Najprv zmente priradenie."); return;
-    }
-    setClients(current => current.filter(c => c.id !== client.id));
+    try { setClients(removeClient(clients, tasks, projects, client.id)); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Klienta sa nepodarilo zmazať."); return; }
     if (clientDraft.id === client.id) { setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" }); }
   }
 
@@ -468,7 +456,7 @@ export default function Home() {
           ))}
         </nav>
         <section className="projectList">
-          <button aria-expanded={projectsOpen} aria-controls="departmentFilters" onClick={() => setProjectsOpen(!projectsOpen)}>{projectsOpen ? "▾" : "▸"} Projekty / oddelenia</button>
+          <button aria-expanded={projectsOpen} aria-controls="departmentFilters" onClick={() => setProjectsOpen(!projectsOpen)}>{projectsOpen ? "▾" : "▸"} Oddelenia</button>
           {projectsOpen ? <div id="departmentFilters" className="filterItems">
             <button aria-pressed={projectFilter === null} onClick={() => chooseProject(null)}>Všetky oddelenia</button>
             {projects.map(project => <button key={project.id} aria-pressed={projectFilter === project.id} onClick={() => chooseProject(project.id)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
@@ -507,12 +495,12 @@ export default function Home() {
         {activeScreen === "Pracovna plocha" ? (
           <>
           <section className="toolbar">
-            <input aria-label="Hladat ulohy" onChange={(event) => setQuery(event.target.value)} placeholder="Hladat ulohu, projekt alebo osobu" value={query} />
+            <input aria-label="Hladat ulohy" onChange={(event) => setQuery(event.target.value)} placeholder="Hladat ulohu, oddelenie alebo osobu" value={query} />
             <select aria-label="Filtrovat status" onChange={(event) => setStatusFilter(event.target.value as Status | "Vsetko")} value={statusFilter}>
               <option>Vsetko</option>
               {statuses.map((status) => <option key={status}>{status}</option>)}
             </select>
-            <select aria-label="Projekt / oddelenie" onChange={(event) => setProjectFilter(event.target.value ? Number(event.target.value) : null)} value={projectFilter ?? ""}>
+            <select aria-label="Oddelenie" onChange={(event) => setProjectFilter(event.target.value ? Number(event.target.value) : null)} value={projectFilter ?? ""}>
               <option value="">Všetky oddelenia</option>
               {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
@@ -633,18 +621,17 @@ export default function Home() {
         {activeScreen === "Klienti" ? (
           <section className="clientManager">
             <form className="clientForm" onSubmit={saveClient}>
-              <h2>{editingClient ? "Upravit klienta" : "Novy klient / zadavatel"}</h2>
+              <h2>{editingClient ? "Premenovať klienta" : "Nový klient"}</h2>
               <label>Nazov<input required value={clientDraft.name} onChange={e => setClientDraft({ ...clientDraft, name: e.target.value })} /></label>
-              <label>Email<input type="email" value={clientDraft.email} onChange={e => setClientDraft({ ...clientDraft, email: e.target.value })} /></label>
-              <label>Poznamka<textarea value={clientDraft.note} onChange={e => setClientDraft({ ...clientDraft, note: e.target.value })} /></label>
               <button type="submit">{editingClient ? "Ulozit klienta" : "Pridat klienta"}</button>
               {editingClient ? <button className="ghost" type="button" onClick={() => { setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" }); }}>Zrusit</button> : null}
             </form>
             <div className="clientList">
-              {clients.length === 0 ? <p>Pridajte klienta a priradte ho k projektu alebo priamo k ulohe.</p> : null}
+              <p>Klient je organizácia alebo zákazník, napríklad Penta Hospitals. Eviduje sa iba názov.</p>
+              {clients.length === 0 ? <p>Pridajte klienta a priraďte ho k oddeleniu alebo priamo k úlohe.</p> : null}
               {clients.map(client => <article className="clientRow" key={client.id}>
-                <div><strong>{client.name}</strong><small>{client.email}</small><p>{client.note}</p></div>
-                <span>{projects.filter(p => p.clientId === client.id).length} projektov · {tasks.filter(t => effectiveClientId(t, projects) === client.id).length} uloh</span>
+                <div><strong>{client.name}</strong></div>
+                <span>{projects.filter(p => p.clientId === client.id).length} oddelení · {tasks.filter(t => effectiveClientId(t, projects) === client.id).length} uloh</span>
                 <button className="ghost" onClick={() => { setClientDraft(client); setEditingClient(true); }}>Upravit</button>
                 <button className="danger" onClick={() => deleteClient(client)}>Zmazat</button>
               </article>)}
@@ -655,14 +642,14 @@ export default function Home() {
         {activeScreen === "Projekty" ? (
           <section className="projectManager">
             <form className="projectForm" onSubmit={saveProject}>
-              <h2>{editingProject ? "Upraviť projekt / oddelenie" : "Nový projekt / oddelenie"}</h2>
-              <input value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} placeholder="Názov projektu / oddelenia" />
+              <h2>{editingProject ? "Upraviť oddelenie" : "Nové oddelenie"}</h2>
+              <input value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} placeholder="Názov oddelenia" />
               <label>Vlastnik<select value={projectDraft.ownerId ?? ""} onChange={event => setProjectDraft({ ...projectDraft, ownerId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez vlastnika</option>{team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
               <label>Klient<select value={projectDraft.clientId ?? ""} onChange={event => setProjectDraft({ ...projectDraft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez klienta</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <select value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as Project["status"] })}>
                 <option>Aktivny</option><option>Pozastaveny</option><option>Hotovy</option>
               </select>
-              <textarea value={projectDraft.goal} onChange={(event) => setProjectDraft({ ...projectDraft, goal: event.target.value })} placeholder="Hlavny ciel projektu" />
+              <textarea value={projectDraft.goal} onChange={(event) => setProjectDraft({ ...projectDraft, goal: event.target.value })} placeholder="Hlavny ciel oddelenia" />
               <div className="colorChoices">
                 {projectColors.map((color) => (
                   <button key={color} type="button" className={projectDraft.color === color ? "selected" : ""} style={{ background: color }} aria-label={`Farba ${color}`} onClick={() => setProjectDraft({ ...projectDraft, color })} />
@@ -679,7 +666,7 @@ export default function Home() {
                     <span className="projectMark" style={{ background: project.color }} />
                     <div className="projectTitle"><h2>{project.name}</h2><span>{project.status}</span></div>
                     <p className="clientLabel">Klient: {clients.find(c => c.id === project.clientId)?.name || "Bez klienta"}</p>
-                    <p>{project.goal || "Ciel projektu este nie je doplneny."}</p>
+                    <p>{project.goal || "Ciel oddelenia este nie je doplneny."}</p>
                     <p>{project.tasks.length} uloh · {project.progress}% hotovo · {project.highOpen} rizik · vlastnik {project.owner}</p>
                     <div className="progressTrack"><span style={{ width: `${project.progress}%` }} /></div>
                     <div className="nextStep"><span>Dalsi krok</span><strong>{project.next}</strong></div>
@@ -695,32 +682,11 @@ export default function Home() {
           </section>
         ) : null}
 
-        {activeScreen === "Tim" ? (
-          <section className="teamLayout">
-            <form className="teamForm" onSubmit={addMember}>
-              <h2>Pridat clena</h2>
-              <input value={newMember.name} onChange={(event) => setNewMember({ ...newMember, name: event.target.value })} placeholder="Meno" />
-              <input value={newMember.role} onChange={(event) => setNewMember({ ...newMember, role: event.target.value })} placeholder="Rola" />
-              <label>Kapacita {newMember.capacity}%<input type="range" min="10" max="100" step="5" value={newMember.capacity} onChange={(event) => setNewMember({ ...newMember, capacity: Number(event.target.value) })} /></label>
-              <button type="submit">Pridat do timu</button>
-            </form>
-            <section className="memberList">
-              {team.map((member) => {
-                const memberTasks = tasks.filter((task) => task.ownerId === member.id);
-                const active = memberTasks.filter((task) => task.status !== "Hotovo").length;
-                return (
-                  <article className="memberCard" key={member.id}>
-                    <div className="avatar">{member.name.slice(0, 2).toUpperCase()}</div>
-                    <div><h2>{member.name}</h2><p>{member.role || "Bez roly"}</p></div>
-                    <div className="capacityMeter"><span style={{ width: `${member.capacity}%` }} /></div>
-                    <p>{active} aktivne ulohy</p>
-                    <button className="ghost" onClick={() => removeMember(member.id)}>Odstranit</button>
-                  </article>
-                );
-              })}
-            </section>
-          </section>
-        ) : null}
+        {activeScreen === "Tim" ? <Users key={workspaceRevision} users={team} tasks={tasks} projects={projects} onChange={next => {
+          setTeam(next);
+          setTasks(current => current.map(task => ({ ...task, owner: next.find(u => u.id === task.ownerId)?.name ?? "" })));
+          setProjects(current => current.map(project => ({ ...project, owner: next.find(u => u.id === project.ownerId)?.name ?? "" })));
+        }} /> : null}
 
       </section>
 
@@ -730,10 +696,10 @@ export default function Home() {
             <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
             <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <label>Projekt / oddelenie<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez oddelenia</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+              <label>Oddelenie<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez oddelenia</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
               <label>Entita<select value={draft.entityId ?? ""} onChange={event => setDraft({ ...draft, entityId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez entity</option>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}</select></label>
               <label>Vlastnik<select value={draft.ownerId ?? ""} onChange={event => setDraft({ ...draft, ownerId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez vlastnika</option>{team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-              <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z projektu: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+              <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z oddelenia: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
               <label>Prvý blok · dátum<input type="date" value={draft.day === "Neskor" ? "" : draft.day} onChange={event => setDraft({ ...draft, day: event.target.value || "Neskor" })} /></label>
@@ -761,7 +727,7 @@ export default function Home() {
           <button className="ghost" onClick={() => setSelectedTask(null)}>Zavriet</button>
           <h2>{selectedTask.name}</h2>
           <dl>
-            <dt>Projekt / oddelenie</dt><dd>{selectedTask.project || "Bez oddelenia"}</dd>
+            <dt>Oddelenie</dt><dd>{selectedTask.project || "Bez oddelenia"}</dd>
             <dt>Entita</dt><dd>{entityName(selectedTask)}</dd>
             <dt>Klient</dt><dd>{clientName(selectedTask)}</dd>
             <dt>Vlastnik</dt><dd>{selectedTask.owner}</dd>

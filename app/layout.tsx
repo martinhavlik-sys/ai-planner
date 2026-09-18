@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI Planner",
-  description: "Webova aplikacia na spravu uloh, projektov, kalendara a timovych kapacit."
+  description: "Pracovná aplikácia na správu úloh, oddelení, entít, klientov, používateľov a kalendára."
 };
 
 export default function RootLayout({

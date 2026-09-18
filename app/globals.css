@@ -1528,6 +1528,19 @@ button:disabled {
 }
 
 /* Compact core records */
+.usersInfo { font-size: 13px; color: #526058; }
+.usersColumns { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 18px; align-items: start; }
+.userForm select { width: 100%; }
+.permissionGroup { border: 1px solid #dfe5df; border-radius: 4px; padding: 8px; margin: 0; }
+.permissionGroup legend { font-size: 12px; font-weight: 600; }
+.permissionGroup label { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.permissionGroup input { width: 16px; min-height: 16px; height: 16px; margin: 0; }
+.userRow { padding: 12px 0; border-bottom: 1px solid #edf0ed; overflow-wrap: anywhere; font-size: 13px; }
+.userRow small { display: block; margin-top: 4px; color: #647067; }
+.userRow p { margin: 6px 0; }
+.userRow summary { cursor: pointer; }
+.userActions { display: flex; gap: 8px; margin-top: 10px; }
+@media(max-width: 900px) { .usersColumns { grid-template-columns: 1fr; } }
 .clientLabel { display: block; font-size: 11px; color: #647067; margin-top: 3px; }
 .notice { padding: 10px 14px; background: #fff4da; border: 1px solid #e8d5a8; border-radius: 6px; }
 .clientManager { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; align-items: start; }
