@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { matchesAssignments, removeEntity } from '../app/model.ts';
 import { normalizeWorkspace, normalizeTask, effectiveClientId, newId, calendarDate, localDate, addDays, monday, rangeDays, layoutSlots, timeLabel, calendarSegments } from '../app/model.ts';
 
 const legacy = () => ({
@@ -90,14 +91,68 @@ test('clients inherit through projects and task override takes precedence', () =
 });
 
 test('invalid schema, duplicate IDs and dangling links are rejected', () => {
-  assert.throws(() => normalizeWorkspace({ schemaVersion: 2, tasks: [] }));
+  assert.throws(() => normalizeWorkspace({ schemaVersion: 3, tasks: [] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: 1 }, { id: 1 }] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: '1' }] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: 1, slots: [{ id: 2 }, { id: 2 }] }] }));
-  for (const field of ['projectId', 'ownerId', 'clientId']) {
+  for (const field of ['projectId', 'entityId', 'ownerId', 'clientId']) {
     const data = normalizeWorkspace(legacy()); data.tasks[0][field] = 999;
     assert.throws(() => normalizeWorkspace(data));
   }
+});
+
+test('schema 1 migrates tasks to no entity without losing existing data', () => {
+  const old = normalizeWorkspace(legacy(), '2026-09-18');
+  old.schemaVersion = 1; delete old.entities;
+  old.tasks.forEach(task => delete task.entityId);
+  const before = JSON.stringify(old);
+  const migrated = normalizeWorkspace(old, '2026-09-18');
+  assert.equal(migrated.schemaVersion, 2);
+  assert.deepEqual(migrated.entities, []);
+  assert.equal(migrated.tasks[0].entityId, null);
+  const restored = JSON.parse(JSON.stringify(migrated));
+  restored.schemaVersion = 1; delete restored.entities;
+  restored.tasks.forEach(task => delete task.entityId);
+  assert.equal(JSON.stringify(restored), before);
+  assert.equal(JSON.stringify(old), before);
+});
+
+test('department and entity filters combine independently, including no entity', () => {
+  const tasks = [[20, 50], [20, 51], [21, 50], [21, null]].map(([projectId, entityId], i) => normalizeTask({ id: i + 1, projectId, entityId, slots: [] }));
+  const ids = (project, entity) => tasks.filter(t => matchesAssignments(t, project, entity)).map(t => t.id);
+  assert.deepEqual(ids(null, 'all'), [1, 2, 3, 4]);
+  assert.deepEqual(ids(20, 'all'), [1, 2]);
+  assert.deepEqual(ids(null, 50), [1, 3]);
+  assert.deepEqual(ids(20, 50), [1]);
+  assert.deepEqual(ids(20, 51), [2]);
+  assert.deepEqual(ids(20, null), []);
+  assert.deepEqual(ids(null, null), [4]);
+});
+
+test('entity export/import and rename preserve independent IDs and client links', () => {
+  const data = normalizeWorkspace(legacy());
+  data.entities = [{ id: 50, name: 'Nemocnica Bory' }, { id: 51, name: 'ProCare Betliarska' }];
+  data.clients = [{ id: 60, name: 'Separate client', email: '', note: '' }];
+  data.tasks[0].entityId = 50; data.tasks[0].clientId = 60;
+  assert.deepEqual(normalizeWorkspace(JSON.parse(JSON.stringify(data))), data);
+  data.entities[0].name = 'Nový názov';
+  const imported = normalizeWorkspace(JSON.parse(JSON.stringify(data)));
+  assert.equal(imported.tasks[0].entityId, 50);
+  assert.equal(imported.tasks[0].projectId, 20);
+  assert.equal(imported.tasks[0].clientId, 60);
+  assert.equal(imported.entities[0].name, 'Nový názov');
+  assert.throws(() => normalizeWorkspace({ ...data, entities: [{ id: 50, name: '' }] }));
+  assert.throws(() => normalizeWorkspace({ ...data, entities: [data.entities[0], data.entities[0]] }));
+});
+
+test('entity deletion is blocked until all tasks, including completed ones, are reassigned', () => {
+  const entities = [{ id: 50, name: 'Bory' }, { id: 51, name: 'Other' }];
+  const tasks = [normalizeTask({ entityId: 50, status: 'Hotovo', slots: [] })];
+  assert.throws(() => removeEntity(entities, tasks, 50), /Najprv zmeňte priradenie/);
+  assert.equal(entities.length, 2);
+  assert.deepEqual(removeEntity(entities, tasks, 51), [entities[0]]);
+  tasks[0].entityId = null;
+  assert.deepEqual(removeEntity(entities, tasks, 50), [entities[1]]);
 });
 
 test('empty workspace remains empty and generated IDs are unique safe integers', () => {

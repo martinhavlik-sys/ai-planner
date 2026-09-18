@@ -105,6 +105,10 @@ button {
   text-transform: uppercase;
 }
 
+.filterItems { display: grid; gap: 3px; min-width: 0; }
+.projectList button { overflow-wrap: anywhere; }
+.projectList button[aria-pressed="true"] { background: #e1ebfb; color: #214c90; }
+
 .projectList button {
   background: transparent;
   border-left: 3px solid #1f7a5a;
@@ -1057,8 +1061,8 @@ button:disabled {
 .tableHeader, .taskRow {
   display: grid;
   gap: 0;
-  grid-template-columns: minmax(260px, 2fr) 140px 110px 132px 112px 132px 108px 172px;
-  min-width: 1180px;
+  grid-template-columns: minmax(230px, 2fr) 140px 160px 100px 132px 112px 120px 90px 172px;
+  min-width: 1300px;
 }
 
 .tableHeader {
@@ -1547,7 +1551,7 @@ button:disabled {
   .appShell { grid-template-columns: 1fr; }
   .sidebar { display: block; padding: 12px; }
   .sidebar nav { display: flex; flex-wrap: wrap; gap: 6px; }
-  .sidebar .brand, .sidebar .projectList { display: none; }
+  .sidebar .brand { display: none; }
   .projectManager { grid-template-columns: 1fr; }
   .extraSlot { grid-template-columns: 1fr; }
 }

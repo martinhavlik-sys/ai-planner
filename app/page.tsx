@@ -3,20 +3,22 @@
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
 import Calendar from "./calendar";
+import { Entity, matchesAssignments, removeEntity } from "./model";
 import { localDate, timeLabel } from "./model";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
-type Screen = "Pracovna plocha" | "Klienti" | "Inbox" | "Projekty" | "Tim";
+type Screen = "Pracovna plocha" | "Klienti" | "Inbox" | "Projekty" | "Tim" | "Entity";
 const storageKey = "ai-planner-tasks-v2";
 const projectsStorageKey = "ai-planner-projects-v1";
 const teamStorageKey = "ai-planner-team-v1";
 const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screens: Screen[] = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Tim"];
+const screens: Screen[] = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Entity", "Tim"];
+const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Projekty / oddelenia", Tim: "Tím", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 
 
@@ -48,7 +50,7 @@ const initialGoals: Goal[] = [
 ];
 
 function blankTask(): Task {
-  return { projectId: null, ownerId: null, clientId: null, id: newId(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
+  return { projectId: null, entityId: null, ownerId: null, clientId: null, id: newId(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
 }
 
 function blankProject(): Project {
@@ -58,6 +60,12 @@ function blankProject(): Project {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [clients, setClients] = useState<Client[]>([]);
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [entityDraft, setEntityDraft] = useState<Entity>({ id: newId(), name: "" });
+  const [editingEntity, setEditingEntity] = useState(false);
+  const [entityFilter, setEntityFilter] = useState<number | null | "all">("all");
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [entitiesOpen, setEntitiesOpen] = useState(true);
   const [clientDraft, setClientDraft] = useState<Client>({ id: newId(), name: "", email: "", note: "" });
   const [editingClient, setEditingClient] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -84,6 +92,8 @@ export default function Home() {
   const importRef = useRef<HTMLInputElement>(null);
 
   function applyWorkspace(data: ReturnType<typeof normalizeWorkspace>) {
+    setEntities(data.entities); setEntityFilter("all");
+    setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
     setTasks(data.tasks); setProjects(data.projects); setTeam(data.team); setClients(data.clients); setGoals(data.goals);
     setSelectedTask(null); setIsFormOpen(false); setEditingProject(null); setProjectDraft(blankProject());
     setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" });
@@ -112,12 +122,35 @@ export default function Home() {
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 1, tasks, projects, team, clients, goals })));
+      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 2, tasks, projects, entities, team, clients, goals })));
       setStorageError("");
     } catch {
       setStorageError("Zmeny sa nepodarilo ulozit. Stiahnite Export pred zatvorenim aplikacie.");
     }
-  }, [loaded, tasks, projects, team, clients, goals]);
+  }, [loaded, tasks, projects, entities, team, clients, goals]);
+
+  function entityName(task: Task) { return entities.find(e => e.id === task.entityId)?.name ?? "Bez entity"; }
+
+  function saveEntity(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = entityDraft.name.trim();
+    if (!name) return;
+    if (entities.some(e => e.id !== entityDraft.id && e.name.toLocaleLowerCase("sk") === name.toLocaleLowerCase("sk"))) {
+      setNotice("Entita s týmto názvom už existuje."); return;
+    }
+    const entity = { ...entityDraft, name };
+    setEntities(current => editingEntity ? current.map(e => e.id === entity.id ? entity : e) : [...current, entity]);
+    setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
+  }
+
+  function deleteEntity(id: number) {
+    try { setEntities(removeEntity(entities, tasks, id)); }
+    catch (error) { setNotice((error as Error).message); return; }
+    if (entityFilter === id) setEntityFilter("all");
+    if (entityDraft.id === id) { setEditingEntity(false); setEntityDraft({ id: newId(), name: "" }); }
+  }
+
+  function chooseEntity(id: number | null | "all") { setEntityFilter(id); setActiveScreen("Pracovna plocha"); }
 
   function clientName(task: Task) {
     return clients.find(client => client.id === effectiveClientId(task, projects))?.name || "Bez klienta";
@@ -133,10 +166,10 @@ export default function Home() {
   const inboxTasks = useMemo(() => tasks.filter((task) => task.project === "Inbox"), [tasks]);
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
-      const haystack = `${task.name} ${task.project} ${task.owner} ${task.note} ${clientName(task)}`.toLowerCase();
+      const haystack = `${task.name} ${task.project} ${entityName(task)} ${task.owner} ${task.note} ${clientName(task)}`.toLowerCase();
       const matchesQuery = haystack.includes(query.toLowerCase());
       const matchesStatus = statusFilter === "Vsetko" || task.status === statusFilter;
-      const matchesProject = projectFilter === null || task.projectId === projectFilter;
+      const matchesProject = matchesAssignments(task, projectFilter, entityFilter);
       const matchesQuick =
         quickFilter === "Vsetko" ||
         (quickFilter === "Dnes" && (task.status === "Dnes" || task.due.toLowerCase().includes("dnes"))) ||
@@ -145,7 +178,7 @@ export default function Home() {
         (quickFilter === "Hotovo" && task.status === "Hotovo");
       return matchesQuery && matchesStatus && matchesProject && matchesQuick;
     });
-  }, [projectFilter, query, quickFilter, statusFilter, tasks, clients, projects]);
+  }, [projectFilter, entityFilter, query, quickFilter, statusFilter, tasks, clients, projects, entities]);
 
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
@@ -164,13 +197,14 @@ export default function Home() {
     });
   }, [projects, tasks]);
 
-  function chooseProject(project: number) {
+  function chooseProject(project: number | null) {
     setProjectFilter(project);
     setQuickFilter("Vsetko");
     setActiveScreen("Pracovna plocha");
   }
 
   function clearFilters() {
+    setEntityFilter("all");
     setQuery("");
     setStatusFilter("Vsetko");
     setProjectFilter(null);
@@ -179,7 +213,7 @@ export default function Home() {
   }
 
   function openNewTask() {
-    setDraft(linkedTask({ ...blankTask(), projectId: projects[0]?.id ?? null, ownerId: team[0]?.id ?? null }));
+    setDraft(linkedTask({ ...blankTask(), projectId: projectFilter ?? projects[0]?.id ?? null, entityId: entityFilter === "all" ? null : entityFilter, ownerId: team[0]?.id ?? null }));
     setEditingTask(null);
     setIsFormOpen(true);
   }
@@ -362,7 +396,7 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 1, tasks, projects, team, clients, goals }), null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 2, tasks, projects, entities, team, clients, goals }), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -379,11 +413,11 @@ export default function Home() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        const input = Array.isArray(parsed) ? { tasks: parsed, projects, team, clients, goals } : parsed;
+        const input = Array.isArray(parsed) ? { tasks: parsed, projects, entities, team, clients, goals } : parsed;
         const data = normalizeWorkspace(input);
         if (!window.confirm("Import nahradi aktualne data. Pred pokracovanim odporucame Export. Pokracovat?")) return;
         const previous = window.localStorage.getItem(workspaceKey);
-        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 1, tasks, projects, team, clients, goals }));
+        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 2, tasks, projects, entities, team, clients, goals }));
         window.localStorage.setItem(workspaceKey, JSON.stringify(data));
         applyWorkspace(data); setLoaded(true); setNotice("Zaloha bola nacitana.");
       } catch {
@@ -430,18 +464,30 @@ export default function Home() {
         <div className="brand"><span>AP</span><strong>AI Planner</strong></div>
         <nav>
           {screens.map((screen) => (
-            <button key={screen} className={activeScreen === screen ? "active" : ""} onClick={() => setActiveScreen(screen)}>{screen}</button>
+            <button key={screen} className={activeScreen === screen ? "active" : ""} onClick={() => setActiveScreen(screen)}>{screenLabel(screen)}</button>
           ))}
         </nav>
         <section className="projectList">
-          <p>Projekty</p>
-          {projects.map((project) => <button key={project.id} onClick={() => chooseProject(project.id)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
+          <button aria-expanded={projectsOpen} aria-controls="departmentFilters" onClick={() => setProjectsOpen(!projectsOpen)}>{projectsOpen ? "▾" : "▸"} Projekty / oddelenia</button>
+          {projectsOpen ? <div id="departmentFilters" className="filterItems">
+            <button aria-pressed={projectFilter === null} onClick={() => chooseProject(null)}>Všetky oddelenia</button>
+            {projects.map(project => <button key={project.id} aria-pressed={projectFilter === project.id} onClick={() => chooseProject(project.id)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
+          </div> : null}
+        </section>
+        <section className="projectList">
+          <button aria-expanded={entitiesOpen} aria-controls="entityFilters" onClick={() => setEntitiesOpen(!entitiesOpen)}>{entitiesOpen ? "▾" : "▸"} Entity</button>
+          {entitiesOpen ? <div id="entityFilters" className="filterItems">
+            <button aria-pressed={entityFilter === "all"} onClick={() => chooseEntity("all")}>Všetky entity</button>
+            <button aria-pressed={entityFilter === null} onClick={() => chooseEntity(null)}>Bez entity</button>
+            {entities.map(entity => <button key={entity.id} aria-pressed={entityFilter === entity.id} onClick={() => chooseEntity(entity.id)}>{entity.name}</button>)}
+            <button onClick={() => setActiveScreen("Entity")}>Spravovať entity</button>
+          </div> : null}
         </section>
       </aside>
 
       <section className="content">
         <header className="header">
-          <div><p className="eyebrow">Produktovy workspace</p><h1>{activeScreen}</h1></div>
+          <div><p className="eyebrow">Produktovy workspace</p><h1>{screenLabel(activeScreen)}</h1></div>
           <div className="headerActions">
             <button className="ghost" onClick={exportData}>Export</button>
             <button className="ghost" onClick={() => importRef.current?.click()}>Import</button>
@@ -466,9 +512,13 @@ export default function Home() {
               <option>Vsetko</option>
               {statuses.map((status) => <option key={status}>{status}</option>)}
             </select>
-            <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value ? Number(event.target.value) : null)} value={projectFilter ?? ""}>
-              <option value="">Vsetko</option>
+            <select aria-label="Projekt / oddelenie" onChange={(event) => setProjectFilter(event.target.value ? Number(event.target.value) : null)} value={projectFilter ?? ""}>
+              <option value="">Všetky oddelenia</option>
               {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+            </select>
+            <select aria-label="Entita" value={entityFilter ?? "none"} onChange={e => setEntityFilter(e.target.value === "all" ? "all" : e.target.value === "none" ? null : Number(e.target.value))}>
+              <option value="all">Všetky entity</option><option value="none">Bez entity</option>
+              {entities.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
             </select>
             <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
               <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
@@ -490,11 +540,11 @@ export default function Home() {
 
           {view === "Tabulka" ? (
           <section className="board">
-            <div className="tableHeader"><span>Uloha</span><span>Projekt / klient</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Cas</span><span>Akcie</span></div>
+            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / klient</span><span>Entita</span><span>Vlastník</span><span>Status</span><span>Priorita</span><span>Termín</span><span>Čas</span><span>Akcie</span></div>
             {visibleTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                <span>{task.project}<small className="clientLabel">{clientName(task)}</small></span><span>{task.owner}</span>
+                <span>{task.project || "Bez oddelenia"}<small className="clientLabel">{clientName(task)}</small></span><span>{entityName(task)}</span><span>{task.owner}</span>
                 <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
@@ -559,6 +609,27 @@ export default function Home() {
           </section>
         ) : null}
 
+        {activeScreen === "Entity" ? (
+          <section className="clientManager">
+            <form className="clientForm" onSubmit={saveEntity}>
+              <h2>{editingEntity ? "Premenovať entitu" : "Nová entita"}</h2>
+              <p>Organizácia alebo pracovisko, nezávislé od oddelenia.</p>
+              <label>Názov<input required value={entityDraft.name} placeholder="Napríklad: Nemocnica Bory" onChange={e => setEntityDraft({ ...entityDraft, name: e.target.value })} /></label>
+              <button type="submit">{editingEntity ? "Uložiť názov" : "Pridať entitu"}</button>
+              {editingEntity ? <button type="button" className="ghost" onClick={() => { setEditingEntity(false); setEntityDraft({ id: newId(), name: "" }); }}>Zrušiť</button> : null}
+            </form>
+            <div className="clientList">
+              {!entities.length ? <p>Zatiaľ nie sú vytvorené žiadne entity.</p> : null}
+              {entities.map(entity => <article className="clientRow" key={entity.id}>
+                <strong>{entity.name}</strong><span>{tasks.filter(t => t.entityId === entity.id).length} úloh</span>
+                <button className="ghost" onClick={() => chooseEntity(entity.id)}>Úlohy</button>
+                <button className="ghost" onClick={() => { setEntityDraft(entity); setEditingEntity(true); }}>Premenovať</button>
+                <button className="danger" onClick={() => deleteEntity(entity.id)}>Zmazať</button>
+              </article>)}
+            </div>
+          </section>
+        ) : null}
+
         {activeScreen === "Klienti" ? (
           <section className="clientManager">
             <form className="clientForm" onSubmit={saveClient}>
@@ -584,8 +655,8 @@ export default function Home() {
         {activeScreen === "Projekty" ? (
           <section className="projectManager">
             <form className="projectForm" onSubmit={saveProject}>
-              <h2>{editingProject ? "Upravit projekt" : "Novy projekt"}</h2>
-              <input value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} placeholder="Nazov projektu" />
+              <h2>{editingProject ? "Upraviť projekt / oddelenie" : "Nový projekt / oddelenie"}</h2>
+              <input value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} placeholder="Názov projektu / oddelenia" />
               <label>Vlastnik<select value={projectDraft.ownerId ?? ""} onChange={event => setProjectDraft({ ...projectDraft, ownerId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez vlastnika</option>{team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
               <label>Klient<select value={projectDraft.clientId ?? ""} onChange={event => setProjectDraft({ ...projectDraft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez klienta</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <select value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as Project["status"] })}>
@@ -597,7 +668,7 @@ export default function Home() {
                   <button key={color} type="button" className={projectDraft.color === color ? "selected" : ""} style={{ background: color }} aria-label={`Farba ${color}`} onClick={() => setProjectDraft({ ...projectDraft, color })} />
                 ))}
               </div>
-              <button type="submit">{editingProject ? "Ulozit projekt" : "Pridat projekt"}</button>
+              <button type="submit">{editingProject ? "Uložiť oddelenie" : "Pridať oddelenie"}</button>
               {editingProject ? <button type="button" className="ghost" onClick={cancelProjectEdit}>Zrusit upravu</button> : null}
             </form>
             <section className="screenGrid">
@@ -659,7 +730,8 @@ export default function Home() {
             <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
             <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <label>Projekt<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez projektu</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+              <label>Projekt / oddelenie<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez oddelenia</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+              <label>Entita<select value={draft.entityId ?? ""} onChange={event => setDraft({ ...draft, entityId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez entity</option>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}</select></label>
               <label>Vlastnik<select value={draft.ownerId ?? ""} onChange={event => setDraft({ ...draft, ownerId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez vlastnika</option>{team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
               <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z projektu: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
@@ -689,7 +761,8 @@ export default function Home() {
           <button className="ghost" onClick={() => setSelectedTask(null)}>Zavriet</button>
           <h2>{selectedTask.name}</h2>
           <dl>
-            <dt>Projekt</dt><dd>{selectedTask.project}</dd>
+            <dt>Projekt / oddelenie</dt><dd>{selectedTask.project || "Bez oddelenia"}</dd>
+            <dt>Entita</dt><dd>{entityName(selectedTask)}</dd>
             <dt>Klient</dt><dd>{clientName(selectedTask)}</dd>
             <dt>Vlastnik</dt><dd>{selectedTask.owner}</dd>
             <dt>Status</dt><dd>{selectedTask.status}</dd>

@@ -6,6 +6,7 @@ export type Task = {
   id: number;
   name: string;
   projectId: number | null;
+  entityId: number | null;
   ownerId: number | null;
   clientId: number | null;
   project: string;
@@ -64,7 +65,8 @@ export type Goal = {
 };
 
 export type Client = { id: number; name: string; email: string; note: string };
-export type Workspace = { schemaVersion: 1; tasks: Task[]; projects: Project[]; team: TeamMember[]; clients: Client[]; goals: Goal[] };
+export type Entity = { id: number; name: string };
+export type Workspace = { schemaVersion: 2; tasks: Task[]; projects: Project[]; entities: Entity[]; team: TeamMember[]; clients: Client[]; goals: Goal[] };
 export const workspaceKey = "ai-planner-workspace-v1";
 // Keep existing numeric IDs; new IDs are safe integers with collision protection in this session.
 let lastId = 0;
@@ -159,7 +161,7 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
   });
   return {
     id, name: text(value.name, "Nova uloha"), project: text(value.project, "Produkt"), owner: text(value.owner, "Martin"),
-    projectId: value.projectId ?? null, ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
+    projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
     due: text(value.due, "Neskor"), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
@@ -177,7 +179,7 @@ export function normalizeProject(value: Partial<Project>, index = 0): Project {
 // ID links are authoritative. Name fields are compatibility labels for the existing UI.
 export function normalizeWorkspace(input: unknown, anchor = localDate()): Workspace {
   const data = record(input);
-  if (data.schemaVersion !== undefined && data.schemaVersion !== 1) throw new Error("Nepodporovana verzia zalohy.");
+  if (data.schemaVersion !== undefined && data.schemaVersion !== 1 && data.schemaVersion !== 2) throw new Error("Nepodporovaná verzia zálohy.");
   // Reserve imported IDs before generating IDs for missing legacy records.
   const reserve = (value: unknown): void => {
     if (Array.isArray(value)) { value.forEach(reserve); return; }
@@ -187,6 +189,11 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     Object.values(item).forEach(reserve);
   };
   reserve(data);
+  const entities: Entity[] = uniqueIds(rows(data.entities ?? [])).map(e => {
+    const name = text(e.name).trim();
+    if (!name) throw new Error("Entita musí mať názov.");
+    return { id: e.id, name };
+  });
   const clients: Client[] = uniqueIds(rows(data.clients ?? [])).map(c => ({ id: c.id, name: text(c.name, "Klient"), email: text(c.email), note: text(c.note) }));
   const team: TeamMember[] = uniqueIds(rows(data.team ?? [])).map(m => ({ id: m.id, name: text(m.name, "Vlastnik"), role: text(m.role), capacity: Math.min(100, Math.max(0, num(m.capacity, 60))) }));
   const owner = (id: unknown, name: string, legacy: boolean) => {
@@ -211,6 +218,7 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
   });
   const tasks = uniqueIds(rows(data.tasks)).map(raw => {
     const task = normalizeTask(raw, anchor);
+    if (task.entityId !== null && !entities.some(e => e.id === task.entityId)) throw new Error("Entita neexistuje.");
     const legacyProject = data.schemaVersion === undefined && raw.projectId == null;
     let project = legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
     if (!legacyProject && task.projectId !== null && !project) throw new Error("Projekt neexistuje.");
@@ -222,7 +230,14 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     return { ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerId: member?.id ?? null, owner: member?.name ?? "", clientId: clientId(task.clientId) };
   });
   const goals: Goal[] = uniqueIds(rows(data.goals ?? [])).map(g => ({ id: g.id, title: text(g.title), project: text(g.project), quarter: text(g.quarter, "Neskor"), confidence: num(g.confidence, 60), outcome: text(g.outcome) }));
-  return { schemaVersion: 1, tasks, projects, team, clients, goals };
+  return { schemaVersion: 2, tasks, projects, entities, team, clients, goals };
+}
+export function matchesAssignments(task: Task, projectId: number | null, entityId: number | null | "all"): boolean {
+  return (projectId === null || task.projectId === projectId) && (entityId === "all" || task.entityId === entityId);
+}
+export function removeEntity(entities: Entity[], tasks: Task[], id: number): Entity[] {
+  if (tasks.some(task => task.entityId === id)) throw new Error("Entita je priradená k úlohe. Najprv zmeňte priradenie úloh na inú entitu alebo na Bez entity.");
+  return entities.filter(entity => entity.id !== id);
 }
 export function effectiveClientId(task: Task, projects: Project[]): number | null {
   return task.clientId ?? projects.find(p => p.id === task.projectId)?.clientId ?? null;
