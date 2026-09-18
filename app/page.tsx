@@ -1,103 +1,32 @@
 "use client";
 
+import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
+
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
-type Priority = "Nizka" | "Stredna" | "Vysoka";
 type View = "Tabulka" | "Kanban" | "Tyžden";
 type QuickFilter = "Vsetko" | "Dnes" | "Vysoka" | "Moje" | "Hotovo";
-type Screen = "Pracovna plocha" | "Inbox" | "Projekty" | "Roadmapa" | "Tim" | "Kalendar" | "Kapacity" | "Reporty";
-type SavedView = {
-  name: string;
-  description: string;
-  status: Status | "Vsetko";
-  project: string;
-  quick: QuickFilter;
-  view: View;
-  query: string;
-};
-
-type Task = {
-  id: number;
-  name: string;
-  project: string;
-  owner: string;
-  status: Status;
-  priority: Priority;
-  due: string;
-  day: string;
-  startHour: number;
-  duration: number;
-  slots: CalendarSlot[];
-  note: string;
-  checklist: ChecklistItem[];
-  activity: string[];
-};
-
-type CalendarSlot = {
-  id: number;
-  day: string;
-  startHour: number;
-  duration: number;
-};
-
-type Project = {
-  id: number;
-  name: string;
-  owner: string;
-  status: "Aktivny" | "Pozastaveny" | "Hotovy";
-  goal: string;
-  color: string;
-};
-
-type ChecklistItem = {
-  id: number;
-  text: string;
-  done: boolean;
-};
-
+type Screen = "Pracovna plocha" | "Klienti" | "Inbox" | "Projekty" | "Tim";
 const storageKey = "ai-planner-tasks-v2";
 const projectsStorageKey = "ai-planner-projects-v1";
 const teamStorageKey = "ai-planner-team-v1";
 const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screens: Screen[] = ["Pracovna plocha", "Inbox", "Projekty", "Roadmapa", "Tim", "Kalendar", "Kapacity", "Reporty"];
+const screens: Screen[] = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Tim"];
 const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
 const weekDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok", "Vikend", "Neskor"];
-const calendarDays = ["Dnes", "Pondelok", "Utorok", "Streda", "Stvrtok", "Piatok"];
+const calendarDays = weekDays.filter(day => day !== "Neskor");
 const calendarHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 
-type TeamMember = {
-  id: number;
-  name: string;
-  role: string;
-  capacity: number;
-};
 
-type Goal = {
-  id: number;
-  title: string;
-  project: string;
-  quarter: string;
-  confidence: number;
-  outcome: string;
-};
-
-type TaskTemplate = {
-  title: string;
-  project: string;
-  priority: Priority;
-  note: string;
-  checklist: string[];
-};
 
 const initialTasks: Task[] = [
   { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, slots: [{ id: 101, day: "Dnes", startHour: 9, duration: 1 }], note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
   { id: 2, name: "Navrhnut strukturu projektov a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a projekty.", checklist: [{ id: 21, text: "Zoznam projektov", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
   { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, slots: [{ id: 301, day: "Streda", startHour: 13, duration: 2 }], note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
   { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, slots: [], note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
-];
+].map(task => normalizeTask(task as Partial<Task>));
 
 const initialTeam: TeamMember[] = [
   { id: 1, name: "Martin", role: "Founder / Produkt", capacity: 80 },
@@ -110,7 +39,7 @@ const initialProjects: Project[] = [
   { id: 3, name: "UX", owner: "AI", status: "Aktivny", goal: "Priblizit rozhranie pracovnym nastrojom typu Monday.", color: "#8a5d00" },
   { id: 4, name: "Technologia", owner: "AI", status: "Pozastaveny", goal: "Pripravit zaklad pre databazu, prihlasenie a zdielanie.", color: "#6b4bb8" },
   { id: 5, name: "Inbox", owner: "Martin", status: "Aktivny", goal: "Zachytavat napady pred roztriedenim.", color: "#ad2f1e" }
-];
+].map(project => normalizeProject(project as Partial<Project>));
 
 const initialGoals: Goal[] = [
   { id: 1, title: "Pouzitelny pracovny dashboard", project: "Produkt", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
@@ -118,133 +47,98 @@ const initialGoals: Goal[] = [
   { id: 3, title: "Technicky zaklad pre realne pouzitie", project: "Technologia", quarter: "Neskor", confidence: 35, outcome: "Prihlasenie, databaza a zdielanie medzi ludmi." }
 ];
 
-const taskTemplates: TaskTemplate[] = [
-  { title: "Nova funkcia", project: "Produkt", priority: "Vysoka", note: "Popisat hodnotu pre pouzivatela a minimalny rozsah prvej verzie.", checklist: ["Definovat problem", "Navrhnut prve riesenie", "Overit v rozhrani"] },
-  { title: "Chyba na opravu", project: "Technologia", priority: "Vysoka", note: "Zachytit co sa pokazilo, kde sa to prejavuje a ako overime opravu.", checklist: ["Popisat kroky chyby", "Opravit pricinu", "Otestovat nasadenie"] },
-  { title: "Produktove rozhodnutie", project: "Planovanie", priority: "Stredna", note: "Zapisat moznosti, odporucanie a dovod rozhodnutia.", checklist: ["Spisat moznosti", "Vybrat odporucanie", "Zapisat dalsi krok"] },
-  { title: "Stretnutie / follow-up", project: "Planovanie", priority: "Stredna", note: "Pripravit agendu a vysledky, ktore maju po stretnuti existovat.", checklist: ["Agenda", "Otvorene otazky", "Dohodnute ulohy"] }
-];
-
-const savedViews: SavedView[] = [
-  { name: "Dnesny fokus", description: "Len praca, ktoru treba riesit teraz.", status: "Vsetko", project: "Vsetko", quick: "Dnes", view: "Tabulka", query: "" },
-  { name: "Moja praca", description: "Ulohy priradene Martinovi.", status: "Vsetko", project: "Vsetko", quick: "Moje", view: "Tabulka", query: "" },
-  { name: "Vysoka priorita", description: "Otvorene veci s najvyssou prioritou.", status: "Vsetko", project: "Vsetko", quick: "Vysoka", view: "Tabulka", query: "" },
-  { name: "Kanban aktivne", description: "Stav prace v stlpcoch.", status: "Vsetko", project: "Vsetko", quick: "Vsetko", view: "Kanban", query: "" },
-  { name: "Hotovo", description: "Dokoncene ulohy a vysledky.", status: "Hotovo", project: "Vsetko", quick: "Vsetko", view: "Tabulka", query: "" }
-];
-
 function blankTask(): Task {
-  return { id: Date.now(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
-}
-
-function normalizeTask(task: Partial<Task>): Task {
-  const plannedDay = task.day || task.due || "Neskor";
-  const startHour = typeof task.startHour === "number" ? task.startHour : 9;
-  const duration = typeof task.duration === "number" ? task.duration : 1;
-  const slots = Array.isArray(task.slots) ? task.slots : plannedDay === "Neskor" ? [] : [{ id: Date.now(), day: plannedDay, startHour, duration }];
-  return {
-    id: typeof task.id === "number" ? task.id : Date.now(),
-    name: task.name || "Nova uloha",
-    project: task.project || "Produkt",
-    owner: task.owner || "Martin",
-    status: task.status || "Backlog",
-    priority: task.priority || "Stredna",
-    due: task.due || "Tento tyzden",
-    day: plannedDay,
-    startHour,
-    duration,
-    slots,
-    note: task.note || "",
-    checklist: Array.isArray(task.checklist) ? task.checklist : [],
-    activity: Array.isArray(task.activity) ? task.activity : []
-  };
-}
-
-function normalizeProject(project: Partial<Project>, index = 0): Project {
-  return {
-    id: typeof project.id === "number" ? project.id : Date.now() + index,
-    name: project.name || "Novy projekt",
-    owner: project.owner || "Martin",
-    status: project.status || "Aktivny",
-    goal: project.goal || "",
-    color: project.color || projectColors[index % projectColors.length]
-  };
+  return { projectId: null, ownerId: null, clientId: null, id: newId(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
 }
 
 function blankProject(): Project {
-  return { id: Date.now(), name: "", owner: "Martin", status: "Aktivny", goal: "", color: projectColors[0] };
+  return { ownerId: null, clientId: null, id: newId(), name: "", owner: "Martin", status: "Aktivny", goal: "", color: projectColors[0] };
 }
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [draft, setDraft] = useState<Task>(blankTask());
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientDraft, setClientDraft] = useState<Client>({ id: newId(), name: "", email: "", note: "" });
+  const [editingClient, setEditingClient] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [storageError, setStorageError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [draft, setDraft] = useState<Task>(blankTask);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "Vsetko">("Vsetko");
-  const [projectFilter, setProjectFilter] = useState("Vsetko");
+  const [projectFilter, setProjectFilter] = useState<number | null>(null);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("Vsetko");
   const [view, setView] = useState<View>("Tabulka");
   const [activeScreen, setActiveScreen] = useState<Screen>("Pracovna plocha");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [projectDraft, setProjectDraft] = useState<Project>(blankProject());
+  const [projectDraft, setProjectDraft] = useState<Project>(blankProject);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [team, setTeam] = useState<TeamMember[]>(initialTeam);
   const [newMember, setNewMember] = useState({ name: "", role: "", capacity: 60 });
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
-  const [newGoal, setNewGoal] = useState({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
   const [inboxText, setInboxText] = useState("");
   const [activityNote, setActivityNote] = useState("");
   const [draggedSlot, setDraggedSlot] = useState<{ taskId: number; slotId: number } | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
+  function applyWorkspace(data: ReturnType<typeof normalizeWorkspace>) {
+    setTasks(data.tasks); setProjects(data.projects); setTeam(data.team); setClients(data.clients); setGoals(data.goals);
+    setSelectedTask(null); setIsFormOpen(false); setEditingProject(null); setProjectDraft(blankProject());
+    setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" });
+    setEditingTask(null); setDraggedSlot(null); setActivityNote("");
+    setQuery(""); setStatusFilter("Vsetko"); setProjectFilter(null); setQuickFilter("Vsetko");
+  }
+
   useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey);
-    const loadedTasks: Task[] = saved ? JSON.parse(saved).map((task: Partial<Task>) => normalizeTask(task)) : initialTasks;
-    setTasks(loadedTasks);
-    const savedProjects = window.localStorage.getItem(projectsStorageKey);
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects).map((project: Partial<Project>, index: number) => normalizeProject(project, index)));
-    } else {
-      const taskProjects: string[] = Array.from(new Set(loadedTasks.map((task) => task.project)));
-      setProjects(taskProjects.map((name: string, index: number) => normalizeProject(initialProjects.find((project) => project.name === name) || { name }, index)));
+    try {
+      const saved = window.localStorage.getItem(workspaceKey);
+      const legacy = (key: string, fallback: unknown) => {
+        const value = window.localStorage.getItem(key);
+        return value === null ? fallback : JSON.parse(value);
+      };
+      const data = saved !== null ? JSON.parse(saved) : {
+        tasks: legacy(storageKey, initialTasks), projects: legacy(projectsStorageKey, initialProjects),
+        team: legacy(teamStorageKey, initialTeam), goals: legacy(goalsStorageKey, initialGoals), clients: []
+      };
+      applyWorkspace(normalizeWorkspace(data));
+      setLoaded(true);
+    } catch {
+      setStorageError("Data sa nepodarilo nacitat. Povodne ulozene data zostali nedotknute. Obnovte platnu JSON zalohu cez Import.");
     }
-    const savedTeam = window.localStorage.getItem(teamStorageKey);
-    if (savedTeam) setTeam(JSON.parse(savedTeam));
-    const savedGoals = window.localStorage.getItem(goalsStorageKey);
-    if (savedGoals) setGoals(JSON.parse(savedGoals));
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(tasks));
-  }, [tasks]);
+    if (!loaded) return;
+    try {
+      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 1, tasks, projects, team, clients, goals })));
+      setStorageError("");
+    } catch {
+      setStorageError("Zmeny sa nepodarilo ulozit. Stiahnite Export pred zatvorenim aplikacie.");
+    }
+  }, [loaded, tasks, projects, team, clients, goals]);
 
-  useEffect(() => {
-    window.localStorage.setItem(projectsStorageKey, JSON.stringify(projects));
-  }, [projects]);
+  function clientName(task: Task) {
+    return clients.find(client => client.id === effectiveClientId(task, projects))?.name || "Bez klienta";
+  }
 
-  useEffect(() => {
-    window.localStorage.setItem(teamStorageKey, JSON.stringify(team));
-  }, [team]);
+  function linkedTask(task: Task): Task {
+    const project = projects.find(p => p.id === task.projectId);
+    const member = team.find(m => m.id === task.ownerId);
+    return normalizeTask({ ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerId: member?.id ?? null, owner: member?.name ?? "" });
+  }
 
-  useEffect(() => {
-    window.localStorage.setItem(goalsStorageKey, JSON.stringify(goals));
-  }, [goals]);
-
-  const projectNames = useMemo(() => projects.map((project) => project.name), [projects]);
-  const owners = useMemo(() => Array.from(new Set(tasks.map((task) => task.owner))), [tasks]);
-  const completedTasks = useMemo(() => tasks.filter((task) => task.status === "Hotovo"), [tasks]);
+  const displayedDays = useMemo(() => Array.from(new Set([...calendarDays, ...tasks.flatMap(task => task.slots.map(slot => slot.day))])), [tasks]);
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== "Hotovo"), [tasks]);
   const inboxTasks = useMemo(() => tasks.filter((task) => task.project === "Inbox"), [tasks]);
-  const completionRate = tasks.length ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
-
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
-      const haystack = `${task.name} ${task.project} ${task.owner} ${task.note}`.toLowerCase();
+      const haystack = `${task.name} ${task.project} ${task.owner} ${task.note} ${clientName(task)}`.toLowerCase();
       const matchesQuery = haystack.includes(query.toLowerCase());
       const matchesStatus = statusFilter === "Vsetko" || task.status === statusFilter;
-      const matchesProject = projectFilter === "Vsetko" || task.project === projectFilter;
+      const matchesProject = projectFilter === null || task.projectId === projectFilter;
       const matchesQuick =
         quickFilter === "Vsetko" ||
         (quickFilter === "Dnes" && (task.status === "Dnes" || task.due.toLowerCase().includes("dnes"))) ||
@@ -253,32 +147,11 @@ export default function Home() {
         (quickFilter === "Hotovo" && task.status === "Hotovo");
       return matchesQuery && matchesStatus && matchesProject && matchesQuick;
     });
-  }, [projectFilter, query, quickFilter, statusFilter, tasks]);
-
-  const focusTasks = useMemo(() => {
-    return tasks.filter((task) => task.status === "Dnes" || task.due.toLowerCase().includes("dnes")).slice(0, 4);
-  }, [tasks]);
-
-  const warehouseTasks = useMemo(() => {
-    return tasks.filter((task) => task.status !== "Hotovo" && (task.status === "Backlog" || task.due.toLowerCase().includes("neskor") || task.project === "Inbox"));
-  }, [tasks]);
-
-  const suggestedFocus = useMemo(() => {
-    const priorityWeight: Record<Priority, number> = { Vysoka: 3, Stredna: 2, Nizka: 1 };
-    const statusWeight: Record<Status, number> = { Dnes: 5, "Robi sa": 4, Caka: 2, Backlog: 1, Hotovo: 0 };
-    return tasks
-      .filter((task) => task.status !== "Hotovo")
-      .sort((a, b) => {
-        const scoreA = priorityWeight[a.priority] + statusWeight[a.status] + (a.due.toLowerCase().includes("dnes") ? 3 : 0);
-        const scoreB = priorityWeight[b.priority] + statusWeight[b.status] + (b.due.toLowerCase().includes("dnes") ? 3 : 0);
-        return scoreB - scoreA;
-      })
-      .slice(0, 3);
-  }, [tasks]);
+  }, [projectFilter, query, quickFilter, statusFilter, tasks, clients, projects]);
 
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
-      const projectTasks = tasks.filter((task) => task.project === project.name);
+      const projectTasks = tasks.filter((task) => task.projectId === project.id);
       const done = projectTasks.filter((task) => task.status === "Hotovo").length;
       const highOpen = projectTasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length;
       const progress = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
@@ -293,44 +166,22 @@ export default function Home() {
     });
   }, [projects, tasks]);
 
-  function chooseProject(project: string) {
+  function chooseProject(project: number) {
     setProjectFilter(project);
     setQuickFilter("Vsetko");
-    setActiveScreen("Pracovna plocha");
-  }
-
-  function applySavedView(savedView: SavedView) {
-    setQuery(savedView.query);
-    setStatusFilter(savedView.status);
-    setProjectFilter(savedView.project);
-    setQuickFilter(savedView.quick);
-    setView(savedView.view);
     setActiveScreen("Pracovna plocha");
   }
 
   function clearFilters() {
     setQuery("");
     setStatusFilter("Vsetko");
-    setProjectFilter("Vsetko");
+    setProjectFilter(null);
     setQuickFilter("Vsetko");
     setView("Tabulka");
   }
 
   function openNewTask() {
-    setDraft(blankTask());
-    setEditingTask(null);
-    setIsFormOpen(true);
-  }
-
-  function openTemplate(template: TaskTemplate) {
-    setDraft({
-      ...blankTask(),
-      name: template.title,
-      project: template.project,
-      priority: template.priority,
-      note: template.note,
-      checklist: template.checklist.map((text, index) => ({ id: Date.now() + index, text, done: false }))
-    });
+    setDraft(linkedTask({ ...blankTask(), projectId: projects[0]?.id ?? null, ownerId: team[0]?.id ?? null }));
     setEditingTask(null);
     setIsFormOpen(true);
   }
@@ -339,11 +190,20 @@ export default function Home() {
     event.preventDefault();
     const items = inboxText.split("\n").map((item) => item.trim()).filter(Boolean);
     if (!items.length) return;
-    const captured = items.map((name, index) => ({
+    let inbox = projects.find(project => project.name === "Inbox");
+    if (!inbox) {
+      inbox = normalizeProject({ name: "Inbox", owner: "", ownerId: null });
+      setProjects(current => [...current, inbox!]);
+    }
+    const inboxId = inbox.id;
+    const captured = items.map((name) => ({
       ...blankTask(),
-      id: Date.now() + index,
+      id: newId(),
       name,
       project: "Inbox",
+      projectId: inboxId,
+      ownerId: team[0]?.id ?? null,
+      owner: team[0]?.name ?? "",
       status: "Backlog" as Status,
       note: "Rychlo zachytene v inboxe.",
       activity: [`Zachytene ${new Date().toLocaleDateString("sk-SK")}`]
@@ -353,30 +213,47 @@ export default function Home() {
   }
 
   function triageTask(task: Task, status: Status, project = task.project === "Inbox" ? "Planovanie" : task.project) {
-    updateTask(task.id, { status, project, activity: [`Roztriedene do ${project} / ${status}`, ...task.activity] });
+    const target = projects.find(p => p.name === project);
+    updateTask(task.id, { status, projectId: target?.id ?? task.projectId, activity: [`Roztriedene do ${target?.name ?? task.project} / ${status}`, ...task.activity] });
   }
 
   function openEditTask(task: Task) {
-    setDraft(task);
+    setDraft(normalizeTask(task));
     setEditingTask(task);
     setSelectedTask(null);
     setIsFormOpen(true);
   }
 
+  function draftSlots(): CalendarSlot[] {
+    const rest = draft.slots.slice(1);
+    return draft.day === "Neskor" ? rest : [{
+      id: draft.slots[0]?.id ?? newId(), taskId: draft.id,
+      day: draft.day, startHour: draft.startHour, duration: draft.duration
+    }, ...rest];
+  }
+
+  function addDraftSlot() {
+    setDraft(normalizeTask({ ...draft, slots: [...draftSlots(), {
+      id: newId(), taskId: draft.id, day: "Dnes", startHour: 9, duration: 1
+    }] }));
+  }
+
+  function removeDraftSlot(index: number) {
+    const slots = draftSlots();
+    const offset = draft.day === "Neskor" ? 1 : 0;
+    setDraft(normalizeTask({ ...draft, slots: slots.filter((_, i) => i !== index - offset) }));
+  }
+
   function saveTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.name.trim()) return;
-    const slots = draft.day === "Neskor"
-      ? []
-      : draft.slots.length
-        ? draft.slots.map((slot, index) => (index === 0 ? { ...slot, day: draft.day, startHour: draft.startHour, duration: draft.duration } : slot))
-        : [{ id: Date.now() + 1, day: draft.day, startHour: draft.startHour, duration: draft.duration }];
-    const taskToSave = { ...draft, slots };
+    const slots = draftSlots();
+    const taskToSave = linkedTask({ ...draft, name: draft.name.trim(), checklist: draft.checklist.filter(item => item.text.trim()), slots: slots.map(slot => ({ ...slot, taskId: draft.id })) });
 
     if (editingTask) {
       setTasks((current) => current.map((task) => (task.id === editingTask.id ? { ...taskToSave, activity: [`Upravene ${new Date().toLocaleDateString("sk-SK")}`, ...draft.activity] } : task)));
     } else {
-      setTasks((current) => [{ ...taskToSave, id: Date.now(), activity: [`Vytvorene ${new Date().toLocaleDateString("sk-SK")}`] }, ...current]);
+      setTasks((current) => [{ ...taskToSave, activity: [`Vytvorene ${new Date().toLocaleDateString("sk-SK")}`] }, ...current]);
     }
 
     setIsFormOpen(false);
@@ -385,36 +262,8 @@ export default function Home() {
   }
 
   function updateTask(id: number, patch: Partial<Task>) {
-    setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
-    setSelectedTask((current) => (current?.id === id ? { ...current, ...patch } : current));
-  }
-
-  function planTask(task: Task, day: string) {
-    const slot = task.slots[0] || { id: Date.now(), day, startHour: task.startHour, duration: task.duration };
-    updateTask(task.id, {
-      due: day,
-      day,
-      slots: day === "Neskor" ? [] : [{ ...slot, day }],
-      status: day === "Neskor" ? "Backlog" : "Robi sa",
-      project: task.project === "Inbox" ? "Planovanie" : task.project,
-      activity: [`Naplanovane na ${day}`, ...task.activity]
-    });
-  }
-
-  function sendTaskToWarehouse(task: Task) {
-    updateTask(task.id, { due: "Neskor", day: "Neskor", slots: [], status: "Backlog", activity: ["Vratene do skladu uloh", ...task.activity] });
-  }
-
-  function scheduleTask(task: Task, day: string, startHour: number) {
-    const slot = task.slots[0] || { id: Date.now(), day, startHour, duration: task.duration };
-    updateTask(task.id, {
-      day,
-      due: day,
-      startHour,
-      slots: [{ ...slot, day, startHour }],
-      status: task.status === "Hotovo" ? "Hotovo" : "Robi sa",
-      activity: [`Presunute na ${day} o ${startHour}:00`, ...task.activity]
-    });
+    setTasks((current) => current.map((task) => (task.id === id ? linkedTask({ ...task, ...patch }) : task)));
+    setSelectedTask((current) => (current?.id === id ? linkedTask({ ...current, ...patch }) : current));
   }
 
   function moveCalendarSlot(task: Task, slotId: number, day: string, startHour: number) {
@@ -422,23 +271,11 @@ export default function Home() {
     const firstSlot = slots[0];
     updateTask(task.id, {
       day: firstSlot?.day || day,
-      due: firstSlot?.day || day,
       startHour: firstSlot?.startHour || startHour,
       slots,
       status: task.status === "Hotovo" ? "Hotovo" : "Robi sa",
       activity: [`Casovy blok presunuty na ${day} o ${startHour}:00`, ...task.activity]
     });
-  }
-
-  function applySuggestedFocus() {
-    setTasks((current) => current.map((task) => {
-      if (!suggestedFocus.some((focus) => focus.id === task.id)) return task;
-      return { ...task, status: "Dnes", due: "Dnes", activity: [`Pridane do dnesneho fokusu ${new Date().toLocaleDateString("sk-SK")}`, ...task.activity] };
-    }));
-    setQuickFilter("Dnes");
-    setStatusFilter("Vsetko");
-    setProjectFilter("Vsetko");
-    setView("Tabulka");
   }
 
   function addActivityNote(event: FormEvent<HTMLFormElement>) {
@@ -449,7 +286,7 @@ export default function Home() {
   }
 
   function updateDraftChecklist(value: string) {
-    const checklist = value.split("\n").map((text, index) => ({ id: draft.checklist[index]?.id || Date.now() + index, text: text.trim(), done: draft.checklist[index]?.done || false })).filter((item) => item.text);
+    const checklist = value.split("\n").map((text, index) => ({ id: draft.checklist[index]?.id || newId(), text: text.trim(), done: draft.checklist[index]?.done || false }));
     setDraft({ ...draft, checklist });
   }
 
@@ -461,23 +298,14 @@ export default function Home() {
   function addMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!newMember.name.trim()) return;
-    setTeam((current) => [{ id: Date.now(), ...newMember }, ...current]);
+    if (team.some(m => m.name.toLowerCase() === newMember.name.trim().toLowerCase())) { setNotice("Tento vlastnik uz existuje."); return; }
+    setTeam((current) => [{ id: newId(), ...newMember, name: newMember.name.trim() }, ...current]);
     setNewMember({ name: "", role: "", capacity: 60 });
   }
 
   function removeMember(id: number) {
+    if (tasks.some(t => t.ownerId === id) || projects.some(p => p.ownerId === id)) { setNotice("Vlastnik je priradeny k ulohe alebo projektu. Najprv zmente priradenie."); return; }
     setTeam((current) => current.filter((member) => member.id !== id));
-  }
-
-  function addGoal(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!newGoal.title.trim()) return;
-    setGoals((current) => [{ id: Date.now(), ...newGoal }, ...current]);
-    setNewGoal({ title: "", project: "Produkt", quarter: "Teraz", confidence: 60, outcome: "" });
-  }
-
-  function removeGoal(id: number) {
-    setGoals((current) => current.filter((goal) => goal.id !== id));
   }
 
   function saveProject(event: FormEvent<HTMLFormElement>) {
@@ -485,17 +313,17 @@ export default function Home() {
     const nextName = projectDraft.name.trim();
     if (!nextName) return;
     const duplicateName = projects.some((project) => project.name.toLowerCase() === nextName.toLowerCase() && project.id !== editingProject?.id);
-    if (duplicateName) return;
+    if (duplicateName) { setNotice("Projekt s tymto nazvom uz existuje."); return; }
 
     if (editingProject) {
       const previousName = editingProject.name;
-      const nextProject = { ...projectDraft, name: nextName };
+      const nextProject = { ...projectDraft, name: nextName, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" };
       setProjects((current) => current.map((project) => (project.id === editingProject.id ? nextProject : project)));
-      setTasks((current) => current.map((task) => (task.project === previousName ? { ...task, project: nextName, activity: [`Projekt zmeneny na ${nextName}`, ...task.activity] } : task)));
+      setTasks((current) => current.map((task) => (task.projectId === editingProject.id ? { ...task, project: nextName, activity: [`Projekt zmeneny na ${nextName}`, ...task.activity] } : task)));
       setGoals((current) => current.map((goal) => (goal.project === previousName ? { ...goal, project: nextName } : goal)));
-      if (projectFilter === previousName) setProjectFilter(nextName);
+      setSelectedTask(current => current?.projectId === editingProject.id ? { ...current, project: nextName } : current);
     } else {
-      setProjects((current) => [{ ...projectDraft, id: Date.now(), name: nextName }, ...current]);
+      setProjects((current) => [{ ...projectDraft, id: newId(), name: nextName, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" }, ...current]);
     }
 
     setProjectDraft(blankProject());
@@ -513,9 +341,11 @@ export default function Home() {
   }
 
   function deleteProject(project: Project) {
-    const hasLinkedWork = tasks.some((task) => task.project === project.name) || goals.some((goal) => goal.project === project.name);
+    const hasLinkedWork = tasks.some((task) => task.projectId === project.id) || goals.some((goal) => goal.project === project.name);
     if (hasLinkedWork) return;
     setProjects((current) => current.filter((currentProject) => currentProject.id !== project.id));
+    if (editingProject?.id === project.id) cancelProjectEdit();
+    if (projectFilter === project.id) setProjectFilter(null);
   }
 
   function deleteTask(id: number) {
@@ -524,7 +354,7 @@ export default function Home() {
   }
 
   function duplicateTask(task: Task) {
-    setTasks((current) => [{ ...task, id: Date.now(), name: `${task.name} kopia`, status: "Backlog", due: "Neskor", day: "Neskor", slots: [] }, ...current]);
+    setTasks((current) => [linkedTask({ ...task, id: newId(), name: `${task.name} kopia`, status: "Backlog", due: "Neskor", day: "Neskor", slots: [] }), ...current]);
   }
 
   function duplicateCalendarSlot(task: Task, slot: CalendarSlot) {
@@ -542,7 +372,7 @@ export default function Home() {
     }
 
     updateTask(task.id, {
-      slots: [...task.slots, { id: Date.now(), day: nextDay, startHour: nextHour, duration: slot.duration }],
+      slots: [...task.slots, { taskId: task.id, id: newId(), day: nextDay, startHour: nextHour, duration: 1 }],
       activity: [`Pridany dalsi casovy blok na ${nextDay} o ${nextHour}:00`, ...task.activity]
     });
   }
@@ -555,7 +385,7 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify({ tasks, projects, team, goals }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 1, tasks, projects, team, clients, goals }), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -570,16 +400,52 @@ export default function Home() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      const parsed = JSON.parse(String(reader.result));
-      if (Array.isArray(parsed)) setTasks(parsed.map((task: Partial<Task>) => normalizeTask(task)));
-      if (!Array.isArray(parsed) && Array.isArray(parsed.tasks)) setTasks(parsed.tasks.map((task: Partial<Task>) => normalizeTask(task)));
-      if (!Array.isArray(parsed) && Array.isArray(parsed.projects)) setProjects(parsed.projects.map((project: Partial<Project>, index: number) => normalizeProject(project, index)));
-      if (!Array.isArray(parsed) && Array.isArray(parsed.team)) setTeam(parsed.team);
-      if (!Array.isArray(parsed) && Array.isArray(parsed.goals)) setGoals(parsed.goals);
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const input = Array.isArray(parsed) ? { tasks: parsed, projects, team, clients, goals } : parsed;
+        const data = normalizeWorkspace(input);
+        if (!window.confirm("Import nahradi aktualne data. Pred pokracovanim odporucame Export. Pokracovat?")) return;
+        const previous = window.localStorage.getItem(workspaceKey);
+        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 1, tasks, projects, team, clients, goals }));
+        window.localStorage.setItem(workspaceKey, JSON.stringify(data));
+        applyWorkspace(data); setLoaded(true); setNotice("Zaloha bola nacitana.");
+      } catch {
+        setNotice("Import zlyhal: neplatna zaloha alebo nedostupne ulozisko. Aktualne data sa nezmenili.");
+      }
     };
+    reader.onerror = () => setNotice("Subor sa nepodarilo precitat.");
     reader.readAsText(file);
     event.target.value = "";
   }
+
+  function saveClient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = clientDraft.name.trim();
+    if (!name) return;
+    if (clients.some(c => c.id !== clientDraft.id && c.name.toLowerCase() === name.toLowerCase())) {
+      setNotice("Klient s tymto nazvom uz existuje."); return;
+    }
+    const client = { ...clientDraft, name, email: clientDraft.email.trim() };
+    setClients(current => editingClient ? current.map(c => c.id === client.id ? client : c) : [...current, client]);
+    setClientDraft({ id: newId(), name: "", email: "", note: "" }); setEditingClient(false);
+  }
+
+  function deleteClient(client: Client) {
+    if (projects.some(p => p.clientId === client.id) || tasks.some(t => t.clientId === client.id)) {
+      setNotice("Klient je priradeny k projektu alebo ulohe. Najprv zmente priradenie."); return;
+    }
+    setClients(current => current.filter(c => c.id !== client.id));
+    if (clientDraft.id === client.id) { setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" }); }
+  }
+
+  if (!loaded) return (
+    <main className="content">
+      <h1>AI Planner</h1>
+      <p role="alert">{storageError || "Nacitavam ulozene data…"}</p>
+      {notice ? <p role="status">{notice}</p> : null}
+      {storageError ? <label>Obnovit JSON zalohu <input type="file" accept="application/json" onChange={importData} /></label> : null}
+    </main>
+  );
 
   return (
     <main className="appShell">
@@ -592,7 +458,7 @@ export default function Home() {
         </nav>
         <section className="projectList">
           <p>Projekty</p>
-          {projects.map((project) => <button key={project.id} onClick={() => chooseProject(project.name)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
+          {projects.map((project) => <button key={project.id} onClick={() => chooseProject(project.id)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
         </section>
       </aside>
 
@@ -607,6 +473,8 @@ export default function Home() {
           </div>
         </header>
 
+        {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
+        {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}>Zavriet</button></div> : null}
         <section className="stats" aria-label="Prehlad">
           <article><span>{tasks.length}</span><p>Uloh spolu</p></article>
           <article><span>{activeTasks.length}</span><p>Aktivne</p></article>
@@ -621,9 +489,9 @@ export default function Home() {
               <option>Vsetko</option>
               {statuses.map((status) => <option key={status}>{status}</option>)}
             </select>
-            <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value)} value={projectFilter}>
-              <option>Vsetko</option>
-              {projectNames.map((project) => <option key={project}>{project}</option>)}
+            <select aria-label="Filtrovat projekt" onChange={(event) => setProjectFilter(event.target.value ? Number(event.target.value) : null)} value={projectFilter ?? ""}>
+              <option value="">Vsetko</option>
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
             <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
               <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
@@ -645,18 +513,18 @@ export default function Home() {
 
           {view === "Tabulka" ? (
           <section className="board">
-            <div className="tableHeader"><span>Uloha</span><span>Projekt</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Cas</span><span>Akcie</span></div>
+            <div className="tableHeader"><span>Uloha</span><span>Projekt / klient</span><span>Vlastnik</span><span>Status</span><span>Priorita</span><span>Termin</span><span>Cas</span><span>Akcie</span></div>
             {visibleTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                <span>{task.project}</span><span>{task.owner}</span>
+                <span>{task.project}<small className="clientLabel">{clientName(task)}</small></span><span>{task.owner}</span>
                 <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
                 <select className={`prioritySelect ${task.priority.toLowerCase()}`} value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority, activity: [`Priorita zmenena na ${event.target.value}`, ...task.activity] })}>
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
-                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, day: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
+                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
                 <span>{task.slots.length ? `${task.slots.reduce((sum, slot) => sum + slot.duration, 0)} h / ${task.slots.length} blok` : `${task.duration} h`}</span>
                 <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
               </article>
@@ -684,13 +552,13 @@ export default function Home() {
           </section>
           ) : (
           <section className="timeCalendar">
-            {calendarDays.map((day) => {
+            {displayedDays.map((day) => {
               const dayEvents = visibleTasks.flatMap((task) => task.slots.filter((slot) => slot.day === day).map((slot) => ({ task, slot })));
               return (
                 <article className="calendarDay" key={day}>
                   <h2>{day}<span>{dayEvents.length}</span></h2>
                   {calendarHours.map((hour) => {
-                    const hourEvents = dayEvents.filter((event) => event.slot.startHour === hour);
+                    const hourEvents = dayEvents.filter((event) => Math.floor(event.slot.startHour) === hour);
                     return (
                       <div
                         className={`timeSlot ${draggedSlot ? "dropReady" : ""}`}
@@ -711,6 +579,7 @@ export default function Home() {
                               style={{ minHeight: `${Math.max(0.5, slot.duration) * 46}px` }}
                             >
                               <strong>{task.name}</strong>
+                              <small>{Math.floor(slot.startHour)}:{String(Math.round((slot.startHour % 1) * 60)).padStart(2, "0")} · {slot.duration} h</small>
                               <div className="eventIcons">
                                 <button aria-label="Upravit ulohu" title="Upravit ulohu" type="button" onClick={(event) => { event.stopPropagation(); openEditTask(task); }}>✎</button>
                                 <button aria-label="Pridat dalsi casovy blok" title="Pridat dalsi casovy blok" type="button" onClick={(event) => { event.stopPropagation(); duplicateCalendarSlot(task, slot); }}>⧉</button>
@@ -756,12 +625,35 @@ export default function Home() {
           </section>
         ) : null}
 
+        {activeScreen === "Klienti" ? (
+          <section className="clientManager">
+            <form className="clientForm" onSubmit={saveClient}>
+              <h2>{editingClient ? "Upravit klienta" : "Novy klient / zadavatel"}</h2>
+              <label>Nazov<input required value={clientDraft.name} onChange={e => setClientDraft({ ...clientDraft, name: e.target.value })} /></label>
+              <label>Email<input type="email" value={clientDraft.email} onChange={e => setClientDraft({ ...clientDraft, email: e.target.value })} /></label>
+              <label>Poznamka<textarea value={clientDraft.note} onChange={e => setClientDraft({ ...clientDraft, note: e.target.value })} /></label>
+              <button type="submit">{editingClient ? "Ulozit klienta" : "Pridat klienta"}</button>
+              {editingClient ? <button className="ghost" type="button" onClick={() => { setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" }); }}>Zrusit</button> : null}
+            </form>
+            <div className="clientList">
+              {clients.length === 0 ? <p>Pridajte klienta a priradte ho k projektu alebo priamo k ulohe.</p> : null}
+              {clients.map(client => <article className="clientRow" key={client.id}>
+                <div><strong>{client.name}</strong><small>{client.email}</small><p>{client.note}</p></div>
+                <span>{projects.filter(p => p.clientId === client.id).length} projektov · {tasks.filter(t => effectiveClientId(t, projects) === client.id).length} uloh</span>
+                <button className="ghost" onClick={() => { setClientDraft(client); setEditingClient(true); }}>Upravit</button>
+                <button className="danger" onClick={() => deleteClient(client)}>Zmazat</button>
+              </article>)}
+            </div>
+          </section>
+        ) : null}
+
         {activeScreen === "Projekty" ? (
           <section className="projectManager">
             <form className="projectForm" onSubmit={saveProject}>
               <h2>{editingProject ? "Upravit projekt" : "Novy projekt"}</h2>
               <input value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} placeholder="Nazov projektu" />
-              <input value={projectDraft.owner} onChange={(event) => setProjectDraft({ ...projectDraft, owner: event.target.value })} placeholder="Vlastnik" />
+              <label>Vlastnik<select value={projectDraft.ownerId ?? ""} onChange={event => setProjectDraft({ ...projectDraft, ownerId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez vlastnika</option>{team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+              <label>Klient<select value={projectDraft.clientId ?? ""} onChange={event => setProjectDraft({ ...projectDraft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez klienta</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <select value={projectDraft.status} onChange={(event) => setProjectDraft({ ...projectDraft, status: event.target.value as Project["status"] })}>
                 <option>Aktivny</option><option>Pozastaveny</option><option>Hotovy</option>
               </select>
@@ -781,58 +673,19 @@ export default function Home() {
                   <article className="projectSummary" key={project.id}>
                     <span className="projectMark" style={{ background: project.color }} />
                     <div className="projectTitle"><h2>{project.name}</h2><span>{project.status}</span></div>
+                    <p className="clientLabel">Klient: {clients.find(c => c.id === project.clientId)?.name || "Bez klienta"}</p>
                     <p>{project.goal || "Ciel projektu este nie je doplneny."}</p>
                     <p>{project.tasks.length} uloh · {project.progress}% hotovo · {project.highOpen} rizik · vlastnik {project.owner}</p>
                     <div className="progressTrack"><span style={{ width: `${project.progress}%` }} /></div>
                     <div className="nextStep"><span>Dalsi krok</span><strong>{project.next}</strong></div>
                     <div className="projectActions">
-                      <button className="ghost" onClick={() => chooseProject(project.name)}>Otvorit ulohy</button>
+                      <button className="ghost" onClick={() => chooseProject(project.id)}>Otvorit ulohy</button>
                       <button className="ghost" onClick={() => editProject(project)}>Upravit</button>
                       <button className="danger" disabled={!canDelete} onClick={() => deleteProject(project)}>Zmazat</button>
                     </div>
                   </article>
                 );
               })}
-            </section>
-          </section>
-        ) : null}
-
-        {activeScreen === "Roadmapa" ? (
-          <section className="roadmapLayout">
-            <form className="goalForm" onSubmit={addGoal}>
-              <h2>Pridat ciel</h2>
-              <input value={newGoal.title} onChange={(event) => setNewGoal({ ...newGoal, title: event.target.value })} placeholder="Nazov ciela" />
-              <select value={newGoal.project} onChange={(event) => setNewGoal({ ...newGoal, project: event.target.value })}>
-                {projectNames.map((project) => <option key={project}>{project}</option>)}
-              </select>
-              <select value={newGoal.quarter} onChange={(event) => setNewGoal({ ...newGoal, quarter: event.target.value })}>
-                <option>Teraz</option><option>Dalsi krok</option><option>Neskor</option>
-              </select>
-              <label>Istota {newGoal.confidence}%<input type="range" min="10" max="100" step="5" value={newGoal.confidence} onChange={(event) => setNewGoal({ ...newGoal, confidence: Number(event.target.value) })} /></label>
-              <textarea value={newGoal.outcome} onChange={(event) => setNewGoal({ ...newGoal, outcome: event.target.value })} placeholder="Aky vysledok ma byt hotovy?" />
-              <button type="submit">Pridat ciel</button>
-            </form>
-            <section className="roadmap">
-              {["Teraz", "Dalsi krok", "Neskor"].map((lane) => (
-                <article className="roadmapLane" key={lane}>
-                  <h2>{lane}<span>{goals.filter((goal) => goal.quarter === lane).length}</span></h2>
-                  {goals.filter((goal) => goal.quarter === lane).map((goal) => {
-                    const linkedTasks = tasks.filter((task) => task.project === goal.project);
-                    const done = linkedTasks.filter((task) => task.status === "Hotovo").length;
-                    const taskProgress = linkedTasks.length ? Math.round((done / linkedTasks.length) * 100) : 0;
-                    return (
-                      <div className="goalCard" key={goal.id}>
-                        <p>{goal.project}</p>
-                        <h3>{goal.title}</h3>
-                        <span>{goal.outcome || "Vysledok este nie je doplneny."}</span>
-                        <div className="goalMeta"><strong>{goal.confidence}% istota</strong><strong>{taskProgress}% uloh</strong></div>
-                        <div className="progressTrack"><span style={{ width: `${Math.max(goal.confidence, taskProgress)}%` }} /></div>
-                        <button className="ghost" onClick={() => removeGoal(goal.id)}>Odstranit</button>
-                      </div>
-                    );
-                  })}
-                </article>
-              ))}
             </section>
           </section>
         ) : null}
@@ -848,7 +701,7 @@ export default function Home() {
             </form>
             <section className="memberList">
               {team.map((member) => {
-                const memberTasks = tasks.filter((task) => task.owner.toLowerCase() === member.name.toLowerCase());
+                const memberTasks = tasks.filter((task) => task.ownerId === member.id);
                 const active = memberTasks.filter((task) => task.status !== "Hotovo").length;
                 return (
                   <article className="memberCard" key={member.id}>
@@ -864,68 +717,6 @@ export default function Home() {
           </section>
         ) : null}
 
-        {activeScreen === "Kalendar" ? (
-          <section className="weekPlan">
-            {["Dnes", "Utorok", "Streda", "Stvrtok", "Piatok", "Neskor"].map((day) => {
-              const dayTasks = tasks.filter((task) => task.due.toLowerCase().includes(day.toLowerCase()) || (statuses.includes(day as Status) && task.status === day));
-              return (
-                <article className="dayPlan" key={day}>
-                  <h2>{day}<span>{dayTasks.length}</span></h2>
-                  {dayTasks.map((task) => (
-                    <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
-                      <strong>{task.name}</strong>
-                      <span>{task.project} · {task.owner}</span>
-                      <em>{task.status} · {task.priority}</em>
-                    </button>
-                  ))}
-                  {dayTasks.length === 0 ? <p className="columnEmpty">Bez uloh</p> : null}
-                </article>
-              );
-            })}
-          </section>
-        ) : null}
-
-        {activeScreen === "Kapacity" ? (
-          <section className="capacityList">
-            {owners.map((owner) => {
-              const ownerTasks = tasks.filter((task) => task.owner === owner);
-              const active = ownerTasks.filter((task) => task.status !== "Hotovo").length;
-              const load = Math.min(100, active * 20);
-              return (
-                <article className="capacityRow" key={owner}>
-                  <div><h2>{owner}</h2><p>{active} aktivne · {ownerTasks.filter((task) => task.priority === "Vysoka").length} vysoka priorita</p></div>
-                  <div className="capacityMeter"><span style={{ width: `${load}%` }} /></div>
-                  <strong>{load}%</strong>
-                </article>
-              );
-            })}
-          </section>
-        ) : null}
-
-        {activeScreen === "Reporty" ? (
-          <>
-            <section className="reportGrid">
-              <article><span>{completionRate}%</span><h2>Dokoncenie</h2><p>{completedTasks.length} z {tasks.length} uloh je hotovych.</p></article>
-              <article><span>{activeTasks.length}</span><h2>Otvorena praca</h2><p>Aktivne ulohy napriec projektmi.</p></article>
-              <article><span>{tasks.filter((task) => task.status === "Backlog").length}</span><h2>Backlog</h2><p>Napady a ulohy pripravene na zoradenie.</p></article>
-              <article><span>{tasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").length}</span><h2>Rizika</h2><p>Vysoka priorita, ktora este nie je hotova.</p></article>
-            </section>
-            <section className="insightGrid">
-              <article>
-                <h2>Najblizsie rizika</h2>
-                {tasks.filter((task) => task.priority === "Vysoka" && task.status !== "Hotovo").slice(0, 4).map((task) => (
-                  <button key={task.id} onClick={() => setSelectedTask(task)}><strong>{task.name}</strong><span>{task.project} · {task.status}</span></button>
-                ))}
-              </article>
-              <article>
-                <h2>Navrhnuty dalsi krok</h2>
-                {projectHealth.slice(0, 4).map((project) => (
-                  <button key={project.name} onClick={() => chooseProject(project.name)}><strong>{project.name}</strong><span>{project.next}</span></button>
-                ))}
-              </article>
-            </section>
-          </>
-        ) : null}
       </section>
 
       {isFormOpen ? (
@@ -934,14 +725,23 @@ export default function Home() {
             <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
             <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <label>Projekt<select value={draft.project} onChange={(event) => setDraft({ ...draft, project: event.target.value })}>{projectNames.map((project) => <option key={project}>{project}</option>)}</select></label>
-              <label>Vlastnik<input value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} /></label>
+              <label>Projekt<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez projektu</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+              <label>Vlastnik<select value={draft.ownerId ?? ""} onChange={event => setDraft({ ...draft, ownerId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez vlastnika</option>{team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+              <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z projektu: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
-              <label>Den<select value={draft.day} onChange={(event) => setDraft({ ...draft, day: event.target.value, due: event.target.value })}>{weekDays.map((day) => <option key={day}>{day}</option>)}</select></label>
-              <label>Zaciatok<select value={draft.startHour} onChange={(event) => setDraft({ ...draft, startHour: Number(event.target.value) })}>{calendarHours.map((hour) => <option key={hour} value={hour}>{hour}:00</option>)}</select></label>
-              <label>Odhad hodin<input type="number" min="0.5" max="12" step="0.5" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) || 1 })} /></label>
+              <label>Prvy blok · den<select value={draft.day} onChange={(event) => setDraft({ ...draft, day: event.target.value })}>{Array.from(new Set([...weekDays, draft.day])).map((day) => <option key={day}>{day}</option>)}</select></label>
+              <label>Zaciatok<input type="number" min="8" max="18" step="any" value={draft.startHour} onChange={(event) => setDraft({ ...draft, startHour: Number(event.target.value) })} /></label>
+              <label>Dlzka prveho bloku (h)<input type="number" min="0.5" max="12" step="0.5" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) || 1 })} /></label>
             </div>
+            {draft.day !== "Neskor" ? <button type="button" className="ghost" onClick={() => removeDraftSlot(0)}>Odstranit prvy blok</button> : null}
+            {draft.slots.slice(1).map((slot, index) => <div className="extraSlot" key={slot.id}>
+              <label>Dalsi blok<select value={slot.day} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, day: e.target.value } : s) })}>{Array.from(new Set([...calendarDays, slot.day])).map(day => <option key={day}>{day}</option>)}</select></label>
+              <label>Zaciatok<input type="number" min="8" max="18" step="any" value={slot.startHour} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, startHour: Number(e.target.value) } : s) })} /></label>
+              <label>Dlzka (h)<input type="number" min="0.5" max="12" step="0.5" value={slot.duration} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, duration: Number(e.target.value) || 1 } : s) })} /></label>
+              <button type="button" className="ghost" onClick={() => removeDraftSlot(index + 1)}>Odstranit blok</button>
+            </div>)}
+            <button type="button" className="ghost" onClick={addDraftSlot}>Pridat casovy blok</button>
             <label>Termin<input value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
             <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
@@ -956,6 +756,7 @@ export default function Home() {
           <h2>{selectedTask.name}</h2>
           <dl>
             <dt>Projekt</dt><dd>{selectedTask.project}</dd>
+            <dt>Klient</dt><dd>{clientName(selectedTask)}</dd>
             <dt>Vlastnik</dt><dd>{selectedTask.owner}</dd>
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
