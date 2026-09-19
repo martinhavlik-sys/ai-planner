@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Task, CalendarSlot, CalendarRange, addDays, localDate, parseDate, monday, rangeDays, layoutSlots, timeLabel, calendarSegments } from "./model";
-import { User, assignedUsers } from "./model";
+import { User, Project, assignedUsers, resizedSlotDuration, departmentEventColors } from "./model";
 import { People } from "./people";
 
 const hourHeight = 64;
-export default function Calendar({ tasks, users = [], onOpen, onEdit, onAdd, onMove }: {
-  users?: User[];
+export default function Calendar({ tasks, users = [], departments = [], onOpen, onEdit, onAdd, onMove, onResize }: {
+  users?: User[]; departments?: Project[];
+  onResize: (task: Task, slotId: number, duration: number) => void;
   tasks: Task[]; onOpen: (task: Task) => void; onEdit: (task: Task) => void;
   onAdd: (task: Task, slot: CalendarSlot) => void;
   onMove: (task: Task, slotId: number, day: string, hour: number) => void;
@@ -19,6 +20,15 @@ export default function Calendar({ tasks, users = [], onOpen, onEdit, onAdd, onM
   const [navigation, setNavigation] = useState(0);
   const [drag, setDrag] = useState<{ taskId: number; slotId: number } | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
+  const resizing = useRef<{ task: Task; slot: CalendarSlot; day: string; pointerId: number; y: number; scrollTop: number; endHour: number } | null>(null);
+  const [preview, setPreview] = useState<{ taskId: number; slotId: number; duration: number } | null>(null);
+  const blockedUntil = useRef(0);
+  const previewTasks = preview ? tasks.map(task => task.id === preview.taskId ? { ...task, slots: task.slots.map(slot => slot.id === preview.slotId ? { ...slot, duration: preview.duration } : slot) } : task) : tasks;
+  const durationAt = (clientY: number) => {
+    const active = resizing.current!;
+    return resizedSlotDuration(active.slot, active.day, active.endHour + (clientY - active.y + (scroll.current?.scrollTop ?? 0) - active.scrollTop) / hourHeight);
+  };
+  const cancelResize = () => { resizing.current = null; setPreview(null); blockedUntil.current = Date.now() + 250; };
   useEffect(() => {
     const current = new Date(); setNow(current); setAnchor(localDate(current)); setMonth(localDate(current));
     const timer = window.setInterval(() => setNow(new Date()), 30000);
@@ -65,12 +75,52 @@ export default function Calendar({ tasks, users = [], onOpen, onEdit, onAdd, onM
               }
               setDrag(null);
             }}>
-              {layoutSlots(tasks.flatMap(task => task.slots.flatMap(calendarSegments).filter(slot => slot.day === day))).map(({ slot, column, columns }) => {
+              {layoutSlots(previewTasks.flatMap(task => task.slots.flatMap(calendarSegments).filter(slot => slot.day === day))).map(({ slot, column, columns }) => {
                 const task = tasks.find(t => t.id === slot.taskId)!;
-                return <article key={`${task.id}-${slot.id}`} className="timedEvent" draggable tabIndex={0} role="button" aria-label={`${task.name}, ${dateTitle(day)}, ${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} title={`${task.name}\n${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} onClick={() => onOpen(task)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(task); } }} onDragStart={e => { setDrag({ taskId: task.id, slotId: slot.id }); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `${task.id}:${slot.id}`); }} onDragEnd={() => setDrag(null)} style={{ top: slot.startHour * hourHeight, height: slot.duration * hourHeight, left: `${column / columns * 100}%`, width: `${100 / columns}%` }}>
+                const original = task.slots.find(s => s.id === slot.id)!;
+                const colors = departmentEventColors(departments.find(d => d.id === task.projectId)?.color);
+                const canOpen = () => !resizing.current && Date.now() >= blockedUntil.current;
+                return <article key={`${task.id}-${slot.id}`} className={`timedEvent${preview?.taskId === task.id && preview.slotId === slot.id ? " isResizing" : ""}`} draggable={!preview} tabIndex={0} role="group" aria-keyshortcuts="Enter Space" aria-label={`${task.name}, ${dateTitle(day)}, ${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} title={`${task.name}\n${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} onClick={() => { if (canOpen()) onOpen(task); }} onKeyDown={e => { if (canOpen() && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(task); } }} onDragStart={e => { if (resizing.current || (e.target as HTMLElement).closest?.(".resizeHandle")) { e.preventDefault(); return; } setDrag({ taskId: task.id, slotId: slot.id }); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `${task.id}:${slot.id}`); }} onDragEnd={() => setDrag(null)} style={{ ...colors, top: slot.startHour * hourHeight, height: slot.duration * hourHeight, left: `${column / columns * 100}%`, width: `${100 / columns}%` }}>
                   <strong>{task.name}</strong><small>{timeLabel(slot.startHour)}–{timeLabel(slot.startHour + slot.duration)}</small>
                   {assignedUsers(task, users).length ? <People task={task} users={users} /> : null}
                   <div className="timedActions"><button aria-label="Upraviť úlohu a bloky" title="Upraviť" onClick={e => { e.stopPropagation(); onEdit(task); }}>✎</button><button aria-label="Pridať ďalší blok tej istej úlohy" title="Pridať blok" onClick={e => { e.stopPropagation(); onAdd(task, task.slots.find(s => s.id === slot.id)!); }}>+</button></div>
+                  <button type="button" className="resizeHandle" draggable={false} role="slider"
+                    aria-label={`Koniec bloku: ${task.name}`} aria-valuemin={slot.startHour + .25}
+                    aria-valuemax={Math.min(24, day === original.day ? 24 : original.startHour)} aria-valuenow={slot.startHour + slot.duration}
+                    aria-valuetext={`Koniec ${timeLabel(slot.startHour + slot.duration)}, celkové trvanie ${preview?.taskId === task.id && preview.slotId === slot.id ? preview.duration : original.duration} hodín`} aria-orientation="vertical"
+                    title="Zmeniť trvanie · potiahnite alebo použite ↑ / ↓ (15 min)"
+                    onClick={e => e.stopPropagation()} onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}
+                    onPointerDown={e => {
+                      if (e.button !== 0) return;
+                      e.preventDefault(); e.stopPropagation(); setDrag(null);
+                      e.currentTarget.focus(); e.currentTarget.setPointerCapture(e.pointerId);
+                      resizing.current = { task, slot: original, day, pointerId: e.pointerId, y: e.clientY, scrollTop: scroll.current?.scrollTop ?? 0, endHour: slot.startHour + slot.duration };
+                    }}
+                    onPointerMove={e => {
+                      if (resizing.current?.pointerId !== e.pointerId) return;
+                      e.preventDefault(); e.stopPropagation();
+                      setPreview({ taskId: task.id, slotId: slot.id, duration: durationAt(e.clientY) });
+                    }}
+                    onPointerUp={e => {
+                      const active = resizing.current;
+                      if (!active || active.pointerId !== e.pointerId) return;
+                      e.preventDefault(); e.stopPropagation();
+                      const changed = e.clientY !== active.y || (scroll.current?.scrollTop ?? 0) !== active.scrollTop;
+                      const duration = durationAt(e.clientY);
+                      cancelResize();
+                      if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+                      if (changed && duration !== original.duration) onResize(task, slot.id, duration);
+                    }}
+                    onPointerCancel={cancelResize} onLostPointerCapture={() => { if (resizing.current) cancelResize(); }}
+                    onKeyDown={e => {
+                      e.stopPropagation();
+                      if (e.key === "Escape" && resizing.current) { e.preventDefault(); cancelResize(); return; }
+                      if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key) || resizing.current) return;
+                      e.preventDefault();
+                      const end = slot.startHour + slot.duration;
+                      const targetEnd = e.key === "Home" ? slot.startHour + .25 : e.key === "End" ? 24 : end + (e.key === "ArrowDown" ? .25 : -.25);
+                      onResize(task, slot.id, resizedSlotDuration(original, day, targetEnd));
+                    }}><span aria-hidden="true" /></button>
                 </article>;
               })}
               {day === today ? <div className="nowLine" style={{ top: (now.getHours() + now.getMinutes() / 60) * hourHeight }} aria-label={`Aktuálny čas ${timeLabel(now.getHours() + now.getMinutes() / 60)}`} /> : null}

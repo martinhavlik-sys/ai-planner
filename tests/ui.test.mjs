@@ -14,13 +14,14 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
   const cells = [], effects = [];
   let cursor = 0, pending = [], tree;
   const scroll = { scrollTop: 0 };
+  const fakeDocument = { activeElement: null, body: { style: { overflow: "" } } };
   const react = {
     useState(initial) {
       const i = cursor++;
       if (!(i in cells)) cells[i] = typeof initial === 'function' ? initial() : initial;
       return [cells[i], value => { cells[i] = typeof value === 'function' ? value(cells[i]) : value; }];
     },
-    useRef(initial) { const i = cursor++; return cells[i] ??= { current: initial ?? { ...scroll, showModal() {} } }; },
+    useRef(initial) { const i = cursor++; return cells[i] ??= { current: initial }; },
     useMemo(fn) { return fn(); },
     useEffect(fn, deps) {
       const i = cursor++;
@@ -28,7 +29,11 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
       effects[i] = deps;
     }
   };
-  const jsx = (type, props) => ({ type, props: props || {} });
+  const jsx = (type, props) => {
+    // Only rendered DOM refs receive an element. Mutable gesture refs stay null.
+    if (typeof type === 'string' && props?.ref && props.ref.current === null) props.ref.current = { ...scroll, showModal() { this.open = true; }, close() { this.open = false; }, setCustomValidity() {} };
+    return { type, props: props || {} };
+  };
   const storage = new Map(savedWorkspace ? [[model.workspaceKey, JSON.stringify(savedWorkspace)]] : []);
   const load = file => {
     const exports = {};
@@ -41,7 +46,7 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
-    }, document: { activeElement: null }, window: { setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
+    }, document: fakeDocument, window: { setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
     return exports;
   };
   const exports = load(file);
@@ -60,7 +65,7 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     };
     walk(tree); return result;
   };
-  return { render, nodes, storage, find: predicate => nodes().find(predicate) };
+  return { render, nodes, storage, document: fakeDocument, find: predicate => nodes().find(predicate) };
 }
 
 test('every calendar navigation handler resets scroll, including repeated Today and date', options, () => {
@@ -188,4 +193,59 @@ test('user name derives initials and edited initials survive subsequent name cha
   assert.equal(app.find(n => n.props.maxLength === 3).props.value, 'XYZ');
   app.find(n => n.props.children === 'Z mena').props.onClick(); app.render();
   assert.equal(app.find(n => n.props.maxLength === 3).props.value, 'MN');
+});
+
+test('resize pointer gesture changes only duration and suppresses move/open; cancellation does not save', options, () => {
+  const day = model.localDate();
+  const task = model.normalizeTask({ id: 42, slots: [{ id: 8, day, startHour: 9, duration: 1 }, { id: 9, day, startHour: 13, duration: 2 }] });
+  const resized = []; let opened = 0, moved = 0;
+  const app = mount('calendar.tsx', { tasks: [task], onOpen() { opened++; }, onEdit() {}, onAdd() {}, onMove() { moved++; }, onResize: (...args) => resized.push(args) });
+  app.find(n => n.type === 'select').props.onChange({ target: { value: '3' } }); app.render();
+  const handle = () => app.nodes().find(n => n.props.className === 'resizeHandle');
+  const event = y => ({ pointerId: 1, button: 0, clientY: y, preventDefault() {}, stopPropagation() {}, currentTarget: { focus() {}, setPointerCapture() {}, hasPointerCapture() { return true; }, releasePointerCapture() {} } });
+  handle().props.onPointerDown(event(200));
+  handle().props.onPointerMove(event(232)); app.render();
+  const article = app.nodes().find(n => n.type === 'article' && n.props.className.includes('timedEvent'));
+  assert.equal(article.props.draggable, false); article.props.onClick();
+  handle().props.onPointerUp(event(232)); app.render();
+  assert.equal(resized.length, 1); assert.equal(resized[0][0], task); assert.equal(resized[0][1], 8); assert.equal(resized[0][2], 1.5);
+  assert.equal(opened, 0); assert.equal(moved, 0); assert.equal(task.slots[1].duration, 2);
+  handle().props.onPointerDown(event(200)); handle().props.onPointerMove(event(264)); app.render();
+  handle().props.onPointerCancel(); app.render(); assert.equal(resized.length, 1);
+});
+
+test('resize keyboard changes by quarter hours and clamps the displayed end', options, () => {
+  const day = model.localDate(), task = model.normalizeTask({ id: 42, slots: [{ id: 8, day, startHour: 23, duration: .5 }] });
+  const calls = [];
+  const app = mount('calendar.tsx', { tasks: [task], onOpen() {}, onEdit() {}, onAdd() {}, onMove() {}, onResize: (...args) => calls.push(args) });
+  app.find(n => n.type === 'select').props.onChange({ target: { value: '3' } }); app.render();
+  const handle = app.find(n => n.props.className === 'resizeHandle');
+  for (const key of ['ArrowDown','Home','End']) handle.props.onKeyDown({ key, preventDefault() {}, stopPropagation() {} });
+  assert.deepEqual(calls.map(c => c[2]), [.75,.25,1]);
+});
+
+test('event body retains the original move gesture and quarter-hour destination', options, () => {
+  const day = model.localDate(), task = model.normalizeTask({ id: 42, slots: [{ id: 8, day, startHour: 9, duration: 1 }] });
+  const moves = [];
+  const app = mount('calendar.tsx', { tasks: [task], onOpen() {}, onEdit() {}, onAdd() {}, onMove: (...args) => moves.push(args), onResize() {} });
+  app.find(n => n.type === 'select').props.onChange({ target: { value: '3' } }); app.render();
+  const event = app.find(n => n.type === 'article');
+  let data;
+  event.props.onDragStart({ target: { closest() { return null; } }, dataTransfer: { setData: (...args) => { data = args; } } }); app.render();
+  const destination = app.nodes().filter(n => n.props.className === 'dateColumn')[1];
+  destination.props.onDrop({ preventDefault() {}, clientY: 64 * 11.26, currentTarget: { getBoundingClientRect() { return { top: 0 }; } } });
+  assert.deepEqual(data, ['text/plain','42:8']);
+  assert.equal(moves[0][0], task); assert.deepEqual(moves[0].slice(1), [8, model.addDays(day,1), 11.25]);
+  assert.equal(task.slots[0].duration, 1);
+});
+
+test('task editor uses native modal top layer, locks body scroll and routes Escape to close', options, () => {
+  let closed = 0, prevented = false;
+  const app = mount('task-dialog.tsx', { children: null, onClose() { closed++; } });
+  const dialog = app.find(n => n.type === 'dialog');
+  assert.equal(dialog.props.ref.current.open, true);
+  assert.equal(app.document.body.style.overflow, 'hidden');
+  assert.equal(dialog.props['aria-labelledby'], 'task-dialog-title');
+  dialog.props.onCancel({ preventDefault() { prevented = true; } });
+  assert.equal(closed, 1); assert.equal(prevented, true);
 });

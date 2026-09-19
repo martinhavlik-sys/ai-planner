@@ -389,3 +389,50 @@ export function removeEntity(entities: Entity[], tasks: Task[], id: number): Ent
 export function effectiveClientId(task: Task, projects: Project[]): number | null {
   return task.clientId ?? projects.find(p => p.id === task.projectId)?.clientId ?? null;
 }
+
+// v6 interaction helpers; persisted workspace format remains v5.
+export function projectLabel(project?: Pick<Campaign, "name" | "edition">): string {
+  return project ? [project.name.trim(), project.edition.trim()].filter(Boolean).join(" · ") : "";
+}
+export function campaignChoices(campaigns: Campaign[], departmentId: number | null, entityId: number | null, currentId: number | null) {
+  const eligible = campaigns.filter(c => c.id === currentId || (!c.archived && c.departmentId === departmentId && (!c.entityIds.length || (entityId !== null && c.entityIds.includes(entityId)))));
+  return eligible.map(c => {
+    const label = projectLabel(c);
+    const duplicate = eligible.some(other => other.id !== c.id && projectLabel(other).toLocaleLowerCase("sk") === label.toLocaleLowerCase("sk"));
+    // Legacy duplicate imports remain selectable without rewriting their names.
+    return { id: c.id, name: `${label}${duplicate ? ` · #${c.id}` : ""}${c.archived ? " (archív)" : ""}` };
+  });
+}
+export function saveCampaign(campaigns: Campaign[], draft: Campaign): Campaign[] {
+  const next = { ...draft, name: draft.name.trim(), edition: draft.edition.trim(), entityIds: [...new Set(draft.entityIds)] };
+  if (!next.name) throw new Error("Vyplňte názov projektu.");
+  if (campaigns.some(c => c.id !== next.id && c.departmentId === next.departmentId && c.name.trim().toLocaleLowerCase("sk") === next.name.toLocaleLowerCase("sk") && c.edition.trim().toLocaleLowerCase("sk") === next.edition.toLocaleLowerCase("sk"))) throw new Error("Projekt s týmto názvom, oddelením a edíciou už existuje.");
+  return campaigns.some(c => c.id === next.id) ? campaigns.map(c => c.id === next.id ? next : c) : [...campaigns, next];
+}
+
+/** Resize the end on the displayed date, retaining the original start and ID.
+ * Existing overnight slots have two rendered segments but one stored duration.
+ * The first segment's handle can trim at midnight; the next segment's handle
+ * includes the preceding hours. Total stored duration still cannot exceed 24h.
+ */
+export function resizedSlotDuration(slot: CalendarSlot, displayedDay: string, endHour: number): number {
+  if (!Number.isFinite(endHour)) return slot.duration;
+  const offset = displayedDay === slot.day ? 0 : displayedDay === addDays(slot.day, 1) ? 24 : -1;
+  if (offset < 0 || (offset === 24 && slot.startHour + slot.duration <= 24)) return slot.duration;
+  const segmentStart = offset === 0 ? slot.startHour : 0;
+  const snappedEnd = Math.round(endHour * 4) / 4;
+  const clampedEnd = Math.min(24, Math.max(segmentStart + .25, snappedEnd));
+  return Math.min(24, Math.max(.25, offset + clampedEnd - slot.startHour));
+}
+export function resizeTaskSlot(task: Task, slotId: number, duration: number): Task {
+  if (!Number.isFinite(duration) || duration < .25 || duration > 24 || !task.slots.some(s => s.id === slotId)) return task;
+  return normalizeTask({ ...task, slots: task.slots.map(s => s.id === slotId ? { ...s, duration } : s) });
+}
+export function departmentEventColors(color?: string) {
+  const border = /^#[0-9a-f]{6}$/i.test(color ?? "") ? color! : defaultColor;
+  const rgb = [1, 3, 5].map(i => parseInt(border.slice(i, i + 2), 16));
+  const tint = rgb.map(channel => Math.round(channel * .14 + 255 * .86));
+  const background = `#${tint.map(channel => channel.toString(16).padStart(2, "0")).join("")}`;
+  const luminance = tint.map(channel => { const c = channel / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; }).reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+  return { borderLeftColor: border, backgroundColor: background, color: luminance > .179 ? "#17202a" : "#ffffff" };
+}

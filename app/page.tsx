@@ -2,7 +2,8 @@
 
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
-import { Campaign } from "./model";
+import { Campaign, projectLabel, campaignChoices, saveCampaign, resizeTaskSlot } from "./model";
+import TaskDialog from "./task-dialog";
 import RecordPicker from "./record-picker";
 import { remoteStatus, prepareImport } from "./repository";
 import Calendar from "./calendar";
@@ -64,9 +65,11 @@ function blankProject(): Project {
   return normalizeProject({ name: "", owner: "" });
 }
 
+function blankCampaign(): Campaign { return { id: newId(), name: "", departmentId: 0, entityIds: [], edition: "", archived: false }; }
+
 export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [campaignDraft, setCampaignDraft] = useState<Campaign>({ id: newId(), name: "", departmentId: 0, entityIds: [], edition: "", archived: false });
+  const [campaignDraft, setCampaignDraft] = useState<Campaign>(blankCampaign);
   const [adminConfig, setAdminConfig] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
@@ -109,7 +112,7 @@ export default function Home() {
   const importRef = useRef<HTMLInputElement>(null);
 
   function applyWorkspace(data: ReturnType<typeof normalizeWorkspace>) {
-    setCampaigns(data.campaigns); setMenuOrder(data.menuOrder); setPersonFilter("all"); setDragMenu(null);
+    setCampaignDraft(blankCampaign()); setCampaigns(data.campaigns); setMenuOrder(data.menuOrder); setPersonFilter("all"); setDragMenu(null);
     setWorkspaceRevision(current => current + 1);
     setEntities(data.entities); setEntityFilter("all");
     setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
@@ -333,6 +336,11 @@ export default function Home() {
       slots,
       activity: [`Casovy blok presunuty na ${day} o ${timeLabel(startHour)}`, ...task.activity]
     });
+  }
+
+  function resizeCalendarSlot(task: Task, slotId: number, duration: number) {
+    setTasks(current => current.map(t => t.id === task.id ? resizeTaskSlot(t, slotId, duration) : t));
+    setSelectedTask(current => current?.id === task.id ? resizeTaskSlot(current, slotId, duration) : current);
   }
 
   function addActivityNote(event: FormEvent<HTMLFormElement>) {
@@ -566,7 +574,7 @@ export default function Home() {
             {tableTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                <span>{task.project || "Bez oddelenia"}<small>{campaigns.find(c => c.id === task.campaignId)?.name}</small>{adminConfig ? <small className="clientLabel">{clientName(task)}</small> : null}</span><span>{entityName(task)}</span><People task={task} users={team} />
+                <span className="taskClassification"><span>{task.project || "Bez oddelenia"}</span>{task.campaignId !== null ? <small className="taskProject">{projectLabel(campaigns.find(c => c.id === task.campaignId))}</small> : null}{adminConfig ? <small className="clientLabel">{clientName(task)}</small> : null}</span><span>{entityName(task)}</span><People task={task} users={team} />
                 <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
@@ -599,7 +607,7 @@ export default function Home() {
             })}
           </section>
           ) : (
-          <Calendar tasks={visibleTasks} users={team} onOpen={setSelectedTask} onEdit={openEditTask} onAdd={duplicateCalendarSlot} onMove={moveCalendarSlot} />
+          <Calendar tasks={visibleTasks} users={team} departments={projects} onResize={resizeCalendarSlot} onOpen={setSelectedTask} onEdit={openEditTask} onAdd={duplicateCalendarSlot} onMove={moveCalendarSlot} />
           )}
           </>
         ) : null}
@@ -631,22 +639,25 @@ export default function Home() {
         ) : null}
 
         {activeScreen === "Entity" ? (
-          <section className="clientManager">
-            <form className="clientForm" onSubmit={saveEntity}>
-              <h2>{editingEntity ? "Premenovať entitu" : "Nová entita"}</h2>
-              <p>Organizácia alebo pracovisko, nezávislé od oddelenia.</p>
+          <section className="recordManager" aria-label="Správa entít">
+            <form className="recordForm entityForm" onSubmit={saveEntity}>
+              <h2>{editingEntity ? "Upraviť entitu" : "Nová entita"}</h2>
               <label>Názov<input required value={entityDraft.name} placeholder="Napríklad: Nemocnica Bory" onChange={e => setEntityDraft({ ...entityDraft, name: e.target.value })} /></label>
-              <button type="submit">{editingEntity ? "Uložiť názov" : "Pridať entitu"}</button>
-              {editingEntity ? <button type="button" className="ghost" onClick={() => { setEditingEntity(false); setEntityDraft({ id: newId(), name: "" }); }}>Zrušiť</button> : null}
+              <div className="recordFormActions"><button type="submit">{editingEntity ? "Uložiť" : "Pridať entitu"}</button>
+                {editingEntity ? <button type="button" className="ghost" onClick={() => { setEditingEntity(false); setEntityDraft({ id: newId(), name: "" }); }}>Zrušiť</button> : null}
+              </div>
             </form>
-            <div className="clientList">
-              {!entities.length ? <p>Zatiaľ nie sú vytvorené žiadne entity.</p> : null}
-              {entities.map(entity => <article className="clientRow" key={entity.id}>
-                <strong>{entity.name}</strong><span>{tasks.filter(t => t.entityId === entity.id).length} úloh</span>
-                <button className="ghost" onClick={() => chooseEntity(entity.id)}>Úlohy</button>
-                <button className="ghost" onClick={() => { setEntityDraft(entity); setEditingEntity(true); }}>Premenovať</button>
-                <button className="danger" onClick={() => deleteEntity(entity.id)}>Zmazať</button>
-              </article>)}
+            <div className="recordList" role="table" aria-label="Entity">
+              <div className="entityRow recordHeading" role="row"><span role="columnheader">Názov</span><span role="columnheader">Úlohy</span><span role="columnheader">Akcie</span></div>
+              {!entities.length ? <p className="emptyState">Zatiaľ nie sú vytvorené žiadne entity.</p> : null}
+              {entities.map(entity => <div className="entityRow" role="row" key={entity.id}>
+                <strong role="cell">{entity.name}</strong><span role="cell">{tasks.filter(t => t.entityId === entity.id).length}</span>
+                <div className="recordActions" role="cell">
+                  <button className="ghost iconButton" title="Zobraziť úlohy" aria-label={`Úlohy entity ${entity.name}`} onClick={() => chooseEntity(entity.id)}>☷</button>
+                  <button className="ghost iconButton" title="Upraviť entitu" aria-label={`Upraviť entitu ${entity.name}`} onClick={() => { setEntityDraft(entity); setEditingEntity(true); }}>✎</button>
+                  <button className="danger iconButton" title="Zmazať entitu" aria-label={`Zmazať entitu ${entity.name}`} onClick={() => deleteEntity(entity.id)}>×</button>
+                </div>
+              </div>)}
             </div>
           </section>
         ) : null}
@@ -672,19 +683,35 @@ export default function Home() {
           </section>
         ) : null}
 
-        {activeScreen === "Kampane" ? <section className="board">
-          <form onSubmit={e => { e.preventDefault(); try {
-            const next = [...campaigns.filter(c => c.id !== campaignDraft.id), campaignDraft];
-            normalizeWorkspace({ schemaVersion: 5, campaigns: next, menuOrder, tasks, projects, entities, users: team, clients, goals });
-            setCampaigns(next); setCampaignDraft({ id: newId(), name: "", departmentId: 0, entityIds: [], edition: "", archived: false });
+        {activeScreen === "Kampane" ? <section className="recordManager" aria-label="Správa projektov">
+          <form className="recordForm campaignForm" onSubmit={e => { e.preventDefault(); try {
+            const next = saveCampaign(campaigns, campaignDraft);
+            const normalized = normalizeWorkspace({ schemaVersion: 5, campaigns: next, menuOrder, tasks, projects, entities, users: team, clients, goals });
+            setCampaigns(normalized.campaigns); setCampaignDraft(blankCampaign());
           } catch (error) { setNotice((error as Error).message); } }}>
-            <label>Názov projektu<input required value={campaignDraft.name} onChange={e => setCampaignDraft({ ...campaignDraft, name: e.target.value })} /></label>
-            <RecordPicker label="Oddelenie" records={projects} value={campaignDraft.departmentId || null} onChange={id => setCampaignDraft({ ...campaignDraft, departmentId: id ?? 0 })} />
-            <label>Ročník / edícia<input value={campaignDraft.edition} placeholder="2026" onChange={e => setCampaignDraft({ ...campaignDraft, edition: e.target.value })} /></label>
-            <fieldset><legend>Entity · prázdne znamená všetky</legend>{entities.map(entity => <label key={entity.id}><input type="checkbox" checked={campaignDraft.entityIds.includes(entity.id)} onChange={e => setCampaignDraft({ ...campaignDraft, entityIds: e.target.checked ? [...campaignDraft.entityIds, entity.id] : campaignDraft.entityIds.filter(id => id !== entity.id) })} />{entity.name}</label>)}</fieldset>
-            <button>Uložiť projekt</button>
+            <h2>{campaigns.some(c => c.id === campaignDraft.id) ? "Upraviť projekt" : "Nový projekt"}</h2>
+            <label>Názov projektu<input required value={campaignDraft.name} placeholder="Najzamestnávateľ" onChange={e => setCampaignDraft({ ...campaignDraft, name: e.target.value })} /></label>
+            <RecordPicker label="Oddelenie" required records={projects} value={campaignDraft.departmentId || null} onChange={id => setCampaignDraft({ ...campaignDraft, departmentId: id ?? 0 })} />
+            <label>Ročník / edícia<input value={campaignDraft.edition} placeholder="2026 · nepovinné" onChange={e => setCampaignDraft({ ...campaignDraft, edition: e.target.value })} /></label>
+            <fieldset className="entityChoices"><legend>Entity <span>· bez výberu platí pre všetky</span></legend>
+              <div>{entities.map(entity => <label key={entity.id}><input type="checkbox" checked={campaignDraft.entityIds.includes(entity.id)} onChange={e => setCampaignDraft({ ...campaignDraft, entityIds: e.target.checked ? [...campaignDraft.entityIds, entity.id] : campaignDraft.entityIds.filter(id => id !== entity.id) })} /><span>{entity.name}</span></label>)}</div>
+              {!entities.length ? <p>Entity môžete pridať v sekcii Entity.</p> : null}
+            </fieldset>
+            <div className="recordFormActions"><button type="submit">Uložiť projekt</button><button type="button" className="ghost" onClick={() => setCampaignDraft(blankCampaign())}>Zrušiť</button></div>
           </form>
-          {campaigns.map(c => <div className="campaignRow" key={c.id}><strong>{c.name}</strong><span>{projects.find(p => p.id === c.departmentId)?.name} · {c.edition}</span><span>{c.entityIds.map(id => entities.find(e => e.id === id)?.name).join(", ") || "Všetky entity"}</span><button title="Upraviť projekt" onClick={() => setCampaignDraft(c)}>✎</button><button title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} onClick={() => setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived: !p.archived } : p))}>{c.archived ? "↶" : "▣"}</button></div>)}
+          <div className="recordList" role="table" aria-label="Projekty">
+            <div className="campaignRow recordHeading" role="row"><span role="columnheader">Projekt / edícia</span><span role="columnheader">Oddelenie</span><span role="columnheader">Entity</span><span role="columnheader">Akcie</span></div>
+            {!campaigns.length ? <p className="emptyState">Zatiaľ nie sú vytvorené žiadne projekty.</p> : null}
+            {campaigns.map(c => <div className={`campaignRow${c.archived ? " archivedRecord" : ""}`} role="row" key={c.id}>
+              <div role="cell"><strong>{projectLabel(c)}</strong>{c.archived ? <small>Archivovaný</small> : null}</div>
+              <span role="cell">{projects.find(p => p.id === c.departmentId)?.name}</span>
+              <span role="cell">{c.entityIds.map(id => entities.find(e => e.id === id)?.name).join(", ") || "Všetky entity"}</span>
+              <div className="recordActions" role="cell">
+                <button className="ghost iconButton" title="Upraviť projekt" aria-label={`Upraviť projekt ${projectLabel(c)}`} onClick={() => setCampaignDraft(c)}>✎</button>
+                <button className="ghost iconButton" title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} aria-label={`${c.archived ? "Obnoviť" : "Archivovať"} projekt ${projectLabel(c)}`} onClick={() => { const archived = !c.archived; setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived } : p)); setCampaignDraft(current => current.id === c.id ? { ...current, archived } : current); }}>{c.archived ? "↶" : "▣"}</button>
+              </div>
+            </div>)}
+          </div>
         </section> : null}
 
         {activeScreen === "Projekty" ? (
@@ -725,14 +752,14 @@ export default function Home() {
       </section>
 
       {isFormOpen ? (
-        <div className="modalBackdrop" role="presentation">
+        <TaskDialog onClose={() => setIsFormOpen(false)}>
           <form className="modal" onSubmit={saveTask}>
-            <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
-            <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
+            <div className="modalHeader"><h2 id="task-dialog-title">{editingTask ? "Upraviť úlohu" : "Nová úloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
+            <label>Názov úlohy<input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
               <RecordPicker label="Oddelenie" records={projects} value={draft.projectId} onChange={projectId => setDraft({ ...draft, projectId, campaignId: null })} />
               <RecordPicker label="Entita" records={entities} value={draft.entityId} onChange={entityId => setDraft({ ...draft, entityId, campaignId: null })} />
-              <RecordPicker label="Projekt" records={campaigns.filter(c => !c.archived && c.departmentId === draft.projectId && (!c.entityIds.length || c.entityIds.includes(draft.entityId!)))} value={draft.campaignId} onChange={campaignId => setDraft({ ...draft, campaignId })} />
+              <RecordPicker label="Projekt" records={campaignChoices(campaigns, draft.projectId, draft.entityId, draft.campaignId)} value={draft.campaignId} onChange={campaignId => setDraft({ ...draft, campaignId })} />
               <PersonPicker users={team} ids={draft.ownerIds} onChange={ownerIds => setDraft({ ...draft, ownerIds })} />
               {adminConfig ? <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z oddelenia: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label> : null}
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
@@ -754,7 +781,7 @@ export default function Home() {
             <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
             <button type="submit">{editingTask ? "Ulozit zmeny" : "Pridat ulohu"}</button>
           </form>
-        </div>
+        </TaskDialog>
       ) : null}
 
       {selectedTask ? (
@@ -764,7 +791,7 @@ export default function Home() {
           <dl>
             <dt>Oddelenie</dt><dd>{selectedTask.project || "Bez oddelenia"}</dd>
             <dt>Entita</dt><dd>{entityName(selectedTask)}</dd>
-            <dt>Projekt</dt><dd>{campaigns.find(c => c.id === selectedTask.campaignId)?.name || "Bez projektu"}</dd>{adminConfig ? <><dt>Klient</dt><dd>{clientName(selectedTask)}</dd></> : null}
+            <dt>Projekt</dt><dd>{projectLabel(campaigns.find(c => c.id === selectedTask.campaignId)) || "Bez projektu"}</dd>{adminConfig ? <><dt>Klient</dt><dd>{clientName(selectedTask)}</dd></> : null}
             <dt>Osoby</dt><dd><People task={selectedTask} users={team} expanded /></dd>
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
