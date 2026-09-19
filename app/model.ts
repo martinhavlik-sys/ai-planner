@@ -300,7 +300,17 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     if (!migrating && m.status !== "active" && m.status !== "pending") throw new Error("Neplatný stav používateľa.");
     const permissions = m.permissions === undefined && migrating ? defaultPermissions(role) : m.permissions;
     if (!Array.isArray(permissions) || permissions.some(p => !permissionCatalog.some(item => item.key === p))) throw new Error("Neplatné oprávnenia používateľa.");
-    return { id: m.id, ...avatarProfile(m), name: text(m.name, "Osoba").trim(), email: normalizeEmail(text(m.email)), role,
+    return {
+  id: m.id,
+  ...avatarProfile({
+    name: m.name,
+    initials: m.initials,
+    avatarColor: m.avatarColor,
+    photo: m.photo,
+  }),
+  name: text(m.name, "Osoba").trim(),
+  email: normalizeEmail(text(m.email)),
+  role,
       status: m.status === "active" || (migrating && role === "admin") ? "active" : "pending",
       permissions: [...new Set(permissions)] as PermissionKey[], capacity: Math.min(100, Math.max(0, num(m.capacity, 60))),
       ...(typeof m.legacyRole === "string" ? { legacyRole: m.legacyRole } : migrating && m.role !== "admin" && m.role !== "user" ? { legacyRole: text(m.role) } : {}) };
