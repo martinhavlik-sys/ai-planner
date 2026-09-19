@@ -8,7 +8,7 @@ const draft = (id = 32) => ({ id, name: 'Jana', email: ' Jana@Example.com ', rol
 test('schema 2 migrates members to users preserving IDs, assignments, capacity and client legacy data', () => {
   const old = oldWorkspace(); const snapshot = JSON.stringify(old);
   const data = normalizeWorkspace(old);
-  assert.equal(data.schemaVersion, 3);
+  assert.equal(data.schemaVersion, 4);
   assert.equal(data.users[0].id, 30); assert.equal(data.users[0].role, 'admin');
   assert.equal(data.users[0].status, 'active'); assert.equal(data.users[0].email, '');
   assert.equal(data.users[1].role, 'user'); assert.equal(data.users[1].legacyRole, 'Designer');
@@ -45,7 +45,7 @@ test('last administrator cannot be deleted or demoted, assigned owners cannot be
   assert.throws(() => saveUser(data.users, { ...data.users[0], email: 'martin@example.com', role: 'user' }), /administrátor/);
   const users = saveUser(data.users, { ...draft(), role: 'admin' });
   assert.throws(() => removeUser(users, data.tasks, [], 30), /priradený/);
-  assert.throws(() => removeUser(users, [], data.projects, 30), /priradený/);
+  assert.equal(removeUser(users, [], data.projects, 30).length, 2); // Hidden department metadata no longer assigns work.
   assert.equal(removeUser(users, [], [], 30).length, 2);
   assert.throws(() => normalizeWorkspace({ ...data, users: data.users.map(u => ({ ...u, role: 'user' })) }), /administrátor/);
 });
@@ -61,7 +61,7 @@ test('clients need only a name and deletion checks departments and tasks', () =>
 test('schema 3 roundtrip keeps custom permissions, all assignments and calendar', () => {
   const data = normalizeWorkspace(oldWorkspace());
   data.users = saveUser(data.users, { ...draft(), permissions: ['calendar.view', 'entities.manage'] });
-  data.tasks[0].ownerId = 32;
+  data.tasks[0].ownerIds = [32];
   const normalized = normalizeWorkspace(data);
   assert.deepEqual(normalizeWorkspace(JSON.parse(JSON.stringify(normalized))), normalized);
   assert.equal(normalized.tasks[0].entityId, 50);

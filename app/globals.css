@@ -1604,3 +1604,44 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   .projectManager { grid-template-columns: 1fr; }
   .extraSlot { grid-template-columns: 1fr; }
 }
+.avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; color: #fff; font-size: 10px; font-weight: 700; vertical-align: middle; }
+.avatar > span { background: rgba(0,0,0,.65); border-radius: 8px; padding: 1px 3px; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.people, .person, .userIdentity, .profilePreview { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.people.expanded { flex-wrap: wrap; gap: 10px; }
+.person { font-size: 12px; }
+.morePeople { background: #e9edf3; color: #3d4c60; }
+.unassigned { color: #687385; font-size: 12px; }
+.userIdentity { align-items: flex-start; gap: 8px; }
+.profilePreview label { display: grid; gap: 4px; font-size: 12px; }
+.profilePreview input { width: 80px; }
+.personPicker, .compactColor { border: 0; margin: 0; padding: 0; min-width: 0; font-size: 12px; }
+.personPicker legend, .compactColor legend { margin-bottom: 5px; }
+.personPicker summary { padding: 9px; border: 1px solid #dfe5df; border-radius: 5px; overflow-wrap: anywhere; cursor: pointer; }
+.personPicker details > input { width: 100%; margin: 6px 0; }
+.personChoices { max-height: 180px; overflow-y: auto; }
+.personChoices label { display: flex; gap: 7px; align-items: center; padding: 5px 0; cursor: pointer; }
+.personChoices input[type="checkbox"] { width: 16px; min-height: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
+.colorControl { display: flex; gap: 10px; align-items: flex-start; }
+.colorSample { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #ccc; }
+.colorControl details { min-width: 0; flex: 1; }
+.colorControl summary { cursor: pointer; padding: 4px 0; }
+.colorControl .colorPalette { margin-top: 8px; }
+.tableControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e3e7ed; font-size: 12px; }
+.tableControls label { display: flex; align-items: center; gap: 8px; }
+.tableControls select, .quickFilters select { padding: 6px 8px; font-size: 12px; }
+.timedEvent .avatar { width: 20px; height: 20px; flex-basis: 20px; font-size: 8px; }
+.timedEvent .people { gap: 2px; margin-top: 2px; }
+.sidebar nav { display: grid; gap: 3px; }
+.navItem { display: flex; align-items: center; min-width: 0; }
+.navItem > button { flex: 1; min-width: 0; padding: 8px 6px; }
+.navMove { display: flex; flex: 0 0 auto; }
+.sidebar .navMove button { padding: 4px; min-width: 22px; font-size: 12px; }
+.navMove button:disabled { opacity: .25; }
+.taskRow .people { gap: 0; }
+.taskRow .avatar { width: 24px; height: 24px; flex-basis: 24px; box-shadow: 0 0 0 1px #fff; }
+.taskRow .person + .person, .taskRow .morePeople { margin-left: -7px; }
+summary:focus-visible { outline: 2px solid #3467d6; outline-offset: 3px; }
+.colorControl .colorChoices { grid-template-columns: repeat(auto-fit, 28px); }
+.quickFilters { flex-wrap: wrap; }
+@media(max-width: 720px) { .sidebar nav { display: grid; } .navItem > button { text-align: left; } .navMove button { min-height: 32px; } .profilePreview { flex-wrap: wrap; } }

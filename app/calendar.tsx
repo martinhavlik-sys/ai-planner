@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Task, CalendarSlot, CalendarRange, addDays, localDate, parseDate, monday, rangeDays, layoutSlots, timeLabel, calendarSegments } from "./model";
+import { User, assignedUsers } from "./model";
+import { People } from "./people";
 
 const hourHeight = 64;
-export default function Calendar({ tasks, onOpen, onEdit, onAdd, onMove }: {
+export default function Calendar({ tasks, users = [], onOpen, onEdit, onAdd, onMove }: {
+  users?: User[];
   tasks: Task[]; onOpen: (task: Task) => void; onEdit: (task: Task) => void;
   onAdd: (task: Task, slot: CalendarSlot) => void;
   onMove: (task: Task, slotId: number, day: string, hour: number) => void;
@@ -66,6 +69,7 @@ export default function Calendar({ tasks, onOpen, onEdit, onAdd, onMove }: {
                 const task = tasks.find(t => t.id === slot.taskId)!;
                 return <article key={`${task.id}-${slot.id}`} className="timedEvent" draggable tabIndex={0} role="button" aria-label={`${task.name}, ${dateTitle(day)}, ${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} title={`${task.name}\n${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} onClick={() => onOpen(task)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(task); } }} onDragStart={e => { setDrag({ taskId: task.id, slotId: slot.id }); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `${task.id}:${slot.id}`); }} onDragEnd={() => setDrag(null)} style={{ top: slot.startHour * hourHeight, height: slot.duration * hourHeight, left: `${column / columns * 100}%`, width: `${100 / columns}%` }}>
                   <strong>{task.name}</strong><small>{timeLabel(slot.startHour)}–{timeLabel(slot.startHour + slot.duration)}</small>
+                  {assignedUsers(task, users).length ? <People task={task} users={users} /> : null}
                   <div className="timedActions"><button aria-label="Upraviť úlohu a bloky" title="Upraviť" onClick={e => { e.stopPropagation(); onEdit(task); }}>✎</button><button aria-label="Pridať ďalší blok tej istej úlohy" title="Pridať blok" onClick={e => { e.stopPropagation(); onAdd(task, task.slots.find(s => s.id === slot.id)!); }}>+</button></div>
                 </article>;
               })}

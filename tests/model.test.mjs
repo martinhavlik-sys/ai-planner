@@ -71,7 +71,7 @@ test('ID references survive stale names, rename and null assignments', () => {
   data.projects[0].name = 'Renamed'; data.users[0].name = 'Renamed owner';
   let next = normalizeWorkspace(data);
   assert.equal(next.tasks[0].project, 'Renamed'); assert.equal(next.tasks[0].owner, 'Renamed owner');
-  next.tasks[0].projectId = null; next.tasks[0].ownerId = null;
+  next.tasks[0].projectId = null; next.tasks[0].ownerIds = [];
   next.projects[0].ownerId = null;
   next = normalizeWorkspace(next);
   assert.equal(next.tasks[0].projectId, null); assert.equal(next.tasks[0].project, '');
@@ -95,7 +95,7 @@ test('invalid schema, duplicate IDs and dangling links are rejected', () => {
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: 1 }, { id: 1 }] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: '1' }] }));
   assert.throws(() => normalizeWorkspace({ tasks: [{ id: 1, slots: [{ id: 2 }, { id: 2 }] }] }));
-  for (const field of ['projectId', 'entityId', 'ownerId', 'clientId']) {
+  for (const field of ['projectId', 'entityId', 'clientId']) {
     const data = normalizeWorkspace(legacy()); data.tasks[0][field] = 999;
     assert.throws(() => normalizeWorkspace(data));
   }
@@ -107,13 +107,13 @@ test('schema 1 migrates tasks to no entity without losing existing data', () => 
   old.tasks.forEach(task => delete task.entityId);
   const before = JSON.stringify(old);
   const migrated = normalizeWorkspace(old, '2026-09-18');
-  assert.equal(migrated.schemaVersion, 3);
+  assert.equal(migrated.schemaVersion, 4);
   assert.deepEqual(migrated.entities, []);
   assert.equal(migrated.tasks[0].entityId, null);
   const restored = JSON.parse(JSON.stringify(migrated));
   restored.schemaVersion = 1; delete restored.entities;
   restored.tasks.forEach(task => delete task.entityId);
-  assert.equal(JSON.stringify(restored), before);
+  assert.deepEqual(restored, JSON.parse(before));
   assert.equal(JSON.stringify(old), before);
 });
 

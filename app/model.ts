@@ -8,6 +8,8 @@ export type Task = {
   projectId: number | null;
   entityId: number | null;
   ownerId: number | null;
+  // Authoritative assignments; ownerId/owner below remain compatibility mirrors.
+  ownerIds: number[];
   clientId: number | null;
   project: string;
   owner: string;
@@ -83,7 +85,20 @@ export type User = {
   id: number; name: string; email: string; role: UserRole;
   status: "active" | "pending"; permissions: PermissionKey[]; capacity: number;
   legacyRole?: string;
+  initials: string; avatarColor: string; photo: string;
 };
+export const defaultColor = "#4285F4";
+export const maxPhotoBytes = 150 * 1024;
+export function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts.at(-1)![0]}` : parts[0]?.slice(0, 2) ?? "").toLocaleUpperCase("sk");
+}
+export function avatarProfile(value: { name?: unknown; initials?: unknown; avatarColor?: unknown; photo?: unknown }) {
+  const initials = typeof value.initials === "string" ? value.initials.trim().toLocaleUpperCase("sk").replace(/\s/g, "").slice(0, 3) : "";
+  const photo = typeof value.photo === "string" ? value.photo : "";
+  if (photo && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(photo) || photo.length > Math.ceil(maxPhotoBytes / 3) * 4 + 40)) throw new Error("Fotografia musí byť PNG, JPEG alebo WebP do 150 KB.");
+  return { initials: initials || initialsFromName(typeof value.name === "string" ? value.name : ""), avatarColor: typeof value.avatarColor === "string" && /^#[0-9a-f]{6}$/i.test(value.avatarColor) ? value.avatarColor : defaultColor, photo };
+}
 export function defaultPermissions(role: UserRole): PermissionKey[] {
   return permissionCatalog.filter(p => role === "admin" || ["workspace.view", "calendar.view", "tasks.create", "tasks.edit"].includes(p.key)).map(p => p.key);
 }
@@ -100,7 +115,8 @@ function validateUsers(users: User[], allowMissingEmail = false): void {
   if (!users.some(u => u.role === "admin")) throw new Error("Musí zostať aspoň jeden administrátor.");
 }
 export function saveUser(users: User[], draft: User): User[] {
-  const user = { ...draft, name: draft.name.trim(), email: normalizeEmail(draft.email) };
+  const user = { ...draft, ...avatarProfile(draft), name: draft.name.trim(), email: normalizeEmail(draft.email) };
+  if ([...users.filter(u => u.id !== user.id), user].reduce((sum, u) => sum + (u.photo?.length ?? 0), 0) > 1024 * 1024) throw new Error("Fotografie spolu môžu zaberať najviac 1 MB. Odstráňte alebo zmenšite niektorú fotografiu.");
   validateUsers([ { ...user, role: "admin" } ]);
   const next = users.some(u => u.id === user.id) ? users.map(u => u.id === user.id ? user : u) : [...users, user];
   validateUsers(next, true);
@@ -109,7 +125,7 @@ export function saveUser(users: User[], draft: User): User[] {
 export function removeUser(users: User[], tasks: Task[], projects: Project[], id: number): User[] {
   const next = users.filter(u => u.id !== id);
   validateUsers(next, true);
-  if (tasks.some(t => t.ownerId === id) || projects.some(p => p.ownerId === id)) throw new Error("Používateľ je priradený k úlohe alebo oddeleniu. Najprv zmeňte priradenie.");
+  if (tasks.some(t => t.ownerIds.includes(id))) throw new Error("Používateľ je priradený k úlohe. Najprv zmeňte priradenie osôb.");
   return next;
 }
 export function removeClient(clients: Client[], tasks: Task[], projects: Project[], id: number): Client[] {
@@ -118,7 +134,18 @@ export function removeClient(clients: Client[], tasks: Task[], projects: Project
 }
 export type Client = { id: number; name: string; email?: string; note?: string };
 export type Entity = { id: number; name: string };
-export type Workspace = { schemaVersion: 3; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
+export const defaultMenuOrder = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Entity", "Tim"] as const;
+export type MenuItem = typeof defaultMenuOrder[number];
+export function normalizeMenuOrder(value: unknown): MenuItem[] {
+  const saved = Array.isArray(value) ? value.filter((item): item is MenuItem => defaultMenuOrder.includes(item)) : [];
+  return [...new Set([...saved, ...defaultMenuOrder])];
+}
+export function moveMenuItem(order: MenuItem[], item: MenuItem, target: MenuItem): MenuItem[] {
+  const next = [...order], from = next.indexOf(item), to = next.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return next;
+  next.splice(from, 1); next.splice(to, 0, item); return next;
+}
+export type Workspace = { schemaVersion: 4; menuOrder: MenuItem[]; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
 export const workspaceKey = "ai-planner-workspace-v1";
 // Keep existing numeric IDs; new IDs are safe integers with collision protection in this session.
 let lastId = 0;
@@ -165,7 +192,7 @@ export function formatDeadline(value: string): string {
   const [year, month, day] = value.split("-").map(Number);
   return `${day}. ${month}. ${year}`;
 }
-export const departmentColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad1457", "#e3135b", "#e97d73", "#db0000", "#ff5120", "#f87900", "#f59600", "#fbc02d", "#e6c83e", "#c0cf30", "#7db343", "#008641", "#2eb77c", "#009e8f", "#00a5df", "#4285f4", "#7e87cc", "#4554bb", "#b39ddb", "#a168b0", "#9323a7", "#795548", "#616161", "#a69e91"];
+export const departmentColors = [defaultColor, "#1f7a5a", "#3467d6", "#8a5d00", "#ad1457", "#e3135b", "#e97d73", "#db0000", "#ff5120", "#f87900", "#f59600", "#fbc02d", "#e6c83e", "#c0cf30", "#7db343", "#008641", "#2eb77c", "#009e8f", "#00a5df", "#7e87cc", "#4554bb", "#b39ddb", "#a168b0", "#9323a7", "#795548", "#616161", "#a69e91"];
 export function appendCalendarSlot(task: Task, timing: Pick<CalendarSlot, "day" | "startHour" | "duration">): Task {
   if (!deadline(timing.day) || !Number.isFinite(timing.startHour) || timing.startHour < 0 || timing.startHour > 23.75 || !Number.isFinite(timing.duration) || timing.duration < .25 || timing.duration > 24) throw new Error("Neplatný dátum, čas alebo trvanie bloku.");
   return normalizeTask({ ...task, slots: [...task.slots, { ...timing, taskId: task.id, id: newId() }] });
@@ -217,6 +244,8 @@ export function layoutSlots(slots: CalendarSlot[]): { slot: CalendarSlot; column
 }
 export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task {
   const id = value.id ?? newId();
+  const ownerIds = value.ownerIds === undefined ? (value.ownerId == null ? [] : [value.ownerId]) : value.ownerIds;
+  if (!Array.isArray(ownerIds) || ownerIds.some(id => !Number.isSafeInteger(id) || id < 1)) throw new Error("Neplatné priradenie osôb.");
   const day = text(value.day, text(value.due, "Neskor"));
   const legacy = day === "Neskor" ? [] : [{ id: newId(), day, startHour: value.startHour, duration: value.duration }];
   const slots: CalendarSlot[] = uniqueIds(rows(value.slots ?? legacy)).map(slot => {
@@ -226,7 +255,7 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
   });
   return {
     id, name: text(value.name, "Nova uloha"), project: text(value.project, "Produkt"), owner: text(value.owner, "Martin"),
-    projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
+    projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
     due: deadline(text(value.due)), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
@@ -239,12 +268,12 @@ export function normalizeProject(value: Partial<Project>, index = 0): Project {
   return { id: value.id ?? newId(), name: text(value.name, "Nové oddelenie"), owner: text(value.owner, "Martin"),
     ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
     status: (["Aktivny", "Pozastaveny", "Hotovy"] as unknown[]).includes(value.status) ? value.status! : "Aktivny",
-    goal: text(value.goal), color: /^#[0-9a-f]{6}$/i.test(value.color ?? "") ? value.color! : ["#1f7a5a", "#3467d6", "#8a5d00"][index % 3] };
+    goal: text(value.goal), color: /^#[0-9a-f]{6}$/i.test(value.color ?? "") ? value.color! : defaultColor };
 }
 // ID links are authoritative. Name fields are compatibility labels for the existing UI.
 export function normalizeWorkspace(input: unknown, anchor = localDate()): Workspace {
   const data = record(input);
-  if (data.schemaVersion !== undefined && ![1, 2, 3].includes(data.schemaVersion as number)) throw new Error("Nepodporovaná verzia zálohy.");
+  if (data.schemaVersion !== undefined && ![1, 2, 3, 4].includes(data.schemaVersion as number)) throw new Error("Nepodporovaná verzia zálohy.");
   // Reserve imported IDs before generating IDs for missing legacy records.
   const reserve = (value: unknown): void => {
     if (Array.isArray(value)) { value.forEach(reserve); return; }
@@ -264,14 +293,14 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     if (!name) throw new Error("Klient musí mať názov.");
     return { id: c.id, name, email: text(c.email), note: text(c.note) };
   });
-  const migrating = data.schemaVersion !== 3;
+  const migrating = data.schemaVersion === undefined || data.schemaVersion === 1 || data.schemaVersion === 2;
   const team: User[] = uniqueIds(rows(data.users ?? (migrating ? data.team ?? [] : undefined))).map(m => {
     const role: UserRole = m.role === "admin" || (migrating && text(m.name).trim().toLowerCase() === "martin") ? "admin" : "user";
     if (!migrating && m.role !== "admin" && m.role !== "user") throw new Error("Neplatná rola používateľa.");
     if (!migrating && m.status !== "active" && m.status !== "pending") throw new Error("Neplatný stav používateľa.");
     const permissions = m.permissions === undefined && migrating ? defaultPermissions(role) : m.permissions;
     if (!Array.isArray(permissions) || permissions.some(p => !permissionCatalog.some(item => item.key === p))) throw new Error("Neplatné oprávnenia používateľa.");
-    return { id: m.id, name: text(m.name, "Vlastník").trim(), email: normalizeEmail(text(m.email)), role,
+    return { id: m.id, ...avatarProfile(m), name: text(m.name, "Osoba").trim(), email: normalizeEmail(text(m.email)), role,
       status: m.status === "active" || (migrating && role === "admin") ? "active" : "pending",
       permissions: [...new Set(permissions)] as PermissionKey[], capacity: Math.min(100, Math.max(0, num(m.capacity, 60))),
       ...(typeof m.legacyRole === "string" ? { legacyRole: m.legacyRole } : migrating && m.role !== "admin" && m.role !== "user" ? { legacyRole: text(m.role) } : {}) };
@@ -280,11 +309,11 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     if (!legacy) {
       if (id === null) return undefined;
       const member = team.find(m => m.id === id);
-      if (!member) throw new Error("Vlastnik neexistuje.");
+      if (!member) throw new Error("Priradená osoba neexistuje.");
       return member;
     }
     let member = team.find(m => m.name.toLowerCase() === name.toLowerCase());
-    if (!member && name) { member = { id: newId(), name, email: "", role: name.trim().toLowerCase() === "martin" ? "admin" : "user", status: "pending", permissions: defaultPermissions(name.trim().toLowerCase() === "martin" ? "admin" : "user"), capacity: 60 }; team.push(member); }
+    if (!member && name) { member = { id: newId(), name, ...avatarProfile({ name }), email: "", role: name.trim().toLowerCase() === "martin" ? "admin" : "user", status: "pending", permissions: defaultPermissions(name.trim().toLowerCase() === "martin" ? "admin" : "user"), capacity: 60 }; team.push(member); }
     return member;
   };
   const clientId = (id: unknown) => {
@@ -302,17 +331,39 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     const legacyProject = data.schemaVersion === undefined && raw.projectId == null;
     let project = legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
     if (!legacyProject && task.projectId !== null && !project) throw new Error("Oddelenie neexistuje.");
+    const legacyPerson = raw.ownerIds === undefined && data.schemaVersion === undefined && raw.ownerId == null && typeof raw.owner === "string" && !!raw.owner.trim();
     if (!project && task.project && legacyProject) {
-      const member = owner(task.ownerId, task.owner, data.schemaVersion === undefined && raw.ownerId == null);
+      const member = owner(task.ownerId, legacyPerson ? task.owner : "", legacyPerson);
       project = normalizeProject({ name: task.project, owner: member?.name ?? "", ownerId: member?.id ?? null }); projects.push(project);
     }
-    const member = owner(task.ownerId, task.owner, data.schemaVersion === undefined && raw.ownerId == null);
-    return { ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerId: member?.id ?? null, owner: member?.name ?? "", clientId: clientId(task.clientId) };
+    const members = legacyPerson
+      ? [owner(null, task.owner, true)].filter((m): m is User => !!m)
+      : task.ownerIds.map(id => owner(id, "", false)!);
+    return { ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerIds: members.map(m => m.id), ownerId: members[0]?.id ?? null, owner: members.map(m => m.name).join(", "), clientId: clientId(task.clientId) };
   });
   const goals: Goal[] = uniqueIds(rows(data.goals ?? [])).map(g => ({ id: g.id, title: text(g.title), project: text(g.project), quarter: text(g.quarter, "Neskor"), confidence: num(g.confidence, 60), outcome: text(g.outcome) }));
-  if (migrating && !team.some(u => u.role === "admin")) team.push({ id: newId(), name: "Martin", email: "", role: "admin", status: "active", permissions: defaultPermissions("admin"), capacity: 80 });
+  if (migrating && !team.some(u => u.role === "admin")) team.push({ id: newId(), name: "Martin", ...avatarProfile({ name: "Martin" }), email: "", role: "admin", status: "active", permissions: defaultPermissions("admin"), capacity: 80 });
   validateUsers(team, true);
-  return { schemaVersion: 3, tasks, projects, entities, users: team, clients, goals };
+  if (team.reduce((sum, u) => sum + u.photo.length, 0) > 1024 * 1024) throw new Error("Fotografie spolu môžu zaberať najviac 1 MB.");
+  return { schemaVersion: 4, menuOrder: normalizeMenuOrder(data.menuOrder), tasks, projects, entities, users: team, clients, goals };
+}
+export function assignedUsers(task: Task, users: User[]): User[] { return task.ownerIds.map(id => users.find(u => u.id === id)).filter((u): u is User => !!u); }
+export function personTaskCount(tasks: Task[], id: number): number { return tasks.filter(t => t.ownerIds.includes(id)).length; }
+export type TaskSort = "name" | "due" | "priority" | "people" | "department";
+export function sortTasks(tasks: Task[], key: TaskSort, direction: "asc" | "desc", users: User[], projects: Project[]): Task[] {
+  const collator = new Intl.Collator("sk", { sensitivity: "base", numeric: true });
+  const value = (task: Task): string | number => {
+    if (key === "priority") return { Nizka: 1, Stredna: 2, Vysoka: 3 }[task.priority];
+    if (key === "people") return assignedUsers(task, users).map(u => u.name).sort(collator.compare).join(", ");
+    if (key === "department") return projects.find(p => p.id === task.projectId)?.name ?? "";
+    return task[key];
+  };
+  return tasks.map((task, index) => ({ task, index })).sort((a, b) => {
+    const av = value(a.task), bv = value(b.task);
+    if (av === "" || bv === "") return (av === "" ? 1 : 0) - (bv === "" ? 1 : 0) || a.index - b.index;
+    const compared = typeof av === "number" && typeof bv === "number" ? av - bv : collator.compare(String(av), String(bv));
+    return compared * (direction === "asc" ? 1 : -1) || a.index - b.index;
+  }).map(item => item.task);
 }
 export function matchesAssignments(task: Task, projectId: number | null, entityId: number | null | "all"): boolean {
   return (projectId === null || task.projectId === projectId) && (entityId === "all" || task.entityId === entityId);

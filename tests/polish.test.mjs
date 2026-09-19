@@ -22,8 +22,8 @@ test('palette offers at least 20 unique valid colors and preserves saved color',
     const project = normalizeProject({ id: 1, color });
     assert.equal(normalizeProject(JSON.parse(JSON.stringify(project))).color, color);
   }
-  assert.match(source('page.tsx'), /aria-pressed=\{projectDraft.color === color\}/);
-  assert.match(source('page.tsx'), /Predvolené/);
+  assert.match(source('people.tsx'), /aria-pressed=\{value.toLowerCase\(\) === color.toLowerCase\(\)\}/);
+  assert.match(source('people.tsx'), /Predvolené/);
 });
 
 test('same and different timing add slots without duplicating or mutating task', () => {
@@ -48,7 +48,7 @@ test('table has eight matching columns, no time column and accessible icon actio
   const header = page.match(/<div className="tableHeader">(.*?)<\/div>/s)[1];
   assert.equal((header.match(/<span>/g) || []).length, 8);
   assert.ok(!header.includes('Čas'));
-  assert.ok(header.includes('Termín'));
+  assert.ok(header.includes('Deadline') && header.includes('Osoby'));
   const actions = page.match(/<div className="rowActions">(.*?)<\/div>/s)[1];
   assert.equal((actions.match(/aria-label=/g) || []).length, 3);
   assert.match(page, /type="date" value=\{draft.due\}/);
