@@ -48,7 +48,7 @@ test('table has eight matching columns, no time column and accessible icon actio
   const header = page.match(/<div className="tableHeader">(.*?)<\/div>/s)[1];
   assert.equal((header.match(/<span>/g) || []).length, 8);
   assert.ok(!header.includes('Čas'));
-  assert.ok(header.includes('Deadline') && header.includes('Osoby'));
+  assert.ok(header.includes('Dátum dokončenia') && header.includes('Osoby'));
   const actions = page.match(/<div className="rowActions">(.*?)<\/div>/s)[1];
   assert.equal((actions.match(/aria-label=/g) || []).length, 3);
   assert.match(page, /type="date" value=\{draft.due\}/);

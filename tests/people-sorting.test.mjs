@@ -11,7 +11,7 @@ const fixture = () => normalizeWorkspace({ schemaVersion: 3,
 
 test('schema 3 ownerId migrates to one-person array while preserving task and department data', () => {
   const data = fixture(), task = data.tasks[0];
-  assert.equal(data.schemaVersion, 4); assert.deepEqual(task.ownerIds, [1]);
+  assert.equal(data.schemaVersion, 5); assert.deepEqual(task.ownerIds, [1]);
   assert.equal(task.due, '2026-09-20'); assert.equal(task.note, 'Note');
   assert.deepEqual(task.activity, ['Created']); assert.equal(task.checklist[0].done, true);
   assert.deepEqual(task.slots.map(s => s.id), [20, 21]);
@@ -54,6 +54,21 @@ test('profiles derive initials, cap custom initials and reject unsafe or oversiz
   assert.throws(() => saveUser(users.slice(0, 5), users[5]), /1 MB/);
 });
 
+test('raw imported profiles preserve defaults, normalization and photo validation', () => {
+  const migrate = profile => normalizeWorkspace({ tasks: [], team: [{ id: 7, ...profile }] }).users.find(user => user.id === 7);
+  const photo = 'data:image/png;base64,AAAA';
+  const profileOf = user => ({ initials: user.initials, avatarColor: user.avatarColor, photo: user.photo });
+  assert.deepEqual(profileOf(migrate({})), { initials: '', avatarColor: '#4285F4', photo: '' });
+  assert.equal(migrate({}).name, 'Osoba');
+  assert.deepEqual(profileOf(migrate({ name: 'Eva Nová' })), { initials: 'EN', avatarColor: '#4285F4', photo: '' });
+  assert.deepEqual(profileOf(migrate({ name: 42, initials: null, avatarColor: false, photo: {} })), { initials: '', avatarColor: '#4285F4', photo: '' });
+  assert.deepEqual(profileOf(migrate({ name: 'Eva Nová', initials: ' x y z q ', avatarColor: '#aBcDeF', photo })), { initials: 'XYZ', avatarColor: '#aBcDeF', photo });
+  assert.deepEqual(profileOf(migrate({ name: 'Eva Nová', initials: ' ', avatarColor: 'invalid' })), { initials: 'EN', avatarColor: '#4285F4', photo: '' });
+  for (const photo of ['https://example.com/avatar.png', 'data:image/svg+xml;base64,AAAA', `data:image/png;base64,${'A'.repeat(210000)}`]) {
+    assert.throws(() => migrate({ name: 'Eva Nová', photo }), /Fotografia/);
+  }
+});
+
 test('sorts name, deadline, priority, people and department stably without modifying data', () => {
   const { users } = fixture(), projects = [{ id: 10, name: 'Zeta' }, { id: 11, name: 'Alfa' }];
   const tasks = [
@@ -79,7 +94,7 @@ test('menu repairs old and incomplete data and moves in either direction without
   const before = [...defaultMenuOrder];
   const next = moveMenuItem(before, 'Tim', 'Pracovna plocha');
   assert.equal(next[0], 'Tim'); assert.deepEqual(before, defaultMenuOrder);
-  assert.deepEqual(moveMenuItem(next, 'Tim', 'Entity'), before);
+  assert.deepEqual(moveMenuItem(next, 'Tim', 'Klienti'), before);
   assert.deepEqual(moveMenuItem(before, 'Entity', 'Entity'), before);
 });
 
@@ -92,5 +107,5 @@ test('department UI has only name/color and task UI uses Deadline and Osoby', ()
   assert.ok(!/Vlastn[íi]k|Termín/.test(page));
   assert.ok(!page.includes('Spravovať entity'));
   assert.match(page, /tableTasks.map/); assert.match(page, /sortTasks\(visibleTasks/);
-  assert.match(page, /menuOrder.map/); assert.match(page, /moveMenuItem/);
+  assert.match(page, /menuOrder.filter/); assert.match(page, /moveMenuItem/);
 });

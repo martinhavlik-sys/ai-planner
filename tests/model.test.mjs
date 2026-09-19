@@ -107,7 +107,7 @@ test('schema 1 migrates tasks to no entity without losing existing data', () => 
   old.tasks.forEach(task => delete task.entityId);
   const before = JSON.stringify(old);
   const migrated = normalizeWorkspace(old, '2026-09-18');
-  assert.equal(migrated.schemaVersion, 4);
+  assert.equal(migrated.schemaVersion, 5);
   assert.deepEqual(migrated.entities, []);
   assert.equal(migrated.tasks[0].entityId, null);
   const restored = JSON.parse(JSON.stringify(migrated));

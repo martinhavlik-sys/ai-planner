@@ -38,6 +38,7 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === './model') return model;
+    if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
     }, document: { activeElement: null }, window: { setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
@@ -165,15 +166,15 @@ test('workspace filters and sorting combine; menu buttons and drag persist acros
   app.find(n => n.props['aria-label'] === 'Filtrovať osoby').props.onChange({ target: { value: String(data.users.find(u => u.name === 'Eva').id) } });
   app.find(n => n.props['aria-label'] === 'Hladat ulohy').props.onChange({ target: { value: 'al' } }); app.render();
   assert.deepEqual(rowNames(), ['Alfa']);
-  app.find(n => n.props['aria-label'] === 'Klienti presunúť hore').props.onClick(); app.render();
-  let stored = JSON.parse(app.storage.get(model.workspaceKey));
-  assert.equal(stored.menuOrder[0], 'Klienti'); assert.deepEqual(stored.tasks.map(t => t.id), [1, 2, 3]);
+  app.find(n => n.props.children === '▸ Doplnenia' || (Array.isArray(n.props.children) && n.props.children.includes(' Doplnenia'))).props.onClick(); app.render();
   const transfer = { setData() {} };
   app.find(n => n.props.draggable && n.props.children === 'Používatelia').props.onDragStart({ dataTransfer: transfer }); app.render();
-  app.find(n => n.props.className === 'navItem').props.onDrop({ preventDefault() {} }); app.render();
-  stored = JSON.parse(app.storage.get(model.workspaceKey)); assert.equal(stored.menuOrder[0], 'Tim');
+  app.nodes().find(n => n.props.className === 'navItem' && n.props.children.props.children === 'Oddelenia').props.onDrop({ preventDefault() {} }); app.render();
+  const stored = JSON.parse(app.storage.get(model.workspaceKey));
+  assert.ok(stored.menuOrder.indexOf('Tim') < stored.menuOrder.indexOf('Projekty'));
+  assert.deepEqual(stored.tasks.map(t => t.id), [1, 2, 3]);
   const reloaded = mount('page.tsx', {}, 'default', stored);
-  assert.equal(reloaded.nodes().find(n => n.props.draggable).props.children, 'Používatelia');
+  assert.equal(reloaded.nodes().find(n => n.props.draggable).props.children, 'Pracovná plocha');
   assert.ok(!app.nodes().some(n => n.props.children === 'Spravovať entity'));
 });
 

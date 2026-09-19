@@ -1645,3 +1645,11 @@ summary:focus-visible { outline: 2px solid #3467d6; outline-offset: 3px; }
 .colorControl .colorChoices { grid-template-columns: repeat(auto-fit, 28px); }
 .quickFilters { flex-wrap: wrap; }
 @media(max-width: 720px) { .sidebar nav { display: grid; } .navItem > button { text-align: left; } .navMove button { min-height: 32px; } .profilePreview { flex-wrap: wrap; } }
+
+/* Compact functional core controls */
+.compactFilters { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px; }
+.compactFilters select,.compactFilters button { width:auto; min-height:30px; padding:5px 9px; font-size:12px; }
+.compactFilters span { margin-left:auto; font-size:12px; }
+.storageStatus { font-size:12px; color:#64748b; margin:8px 0; }
+.campaignRow { display:flex; align-items:center; gap:12px; padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; }
+.campaignRow strong { flex:1; }

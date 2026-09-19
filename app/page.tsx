@@ -2,6 +2,9 @@
 
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
+import { Campaign } from "./model";
+import RecordPicker from "./record-picker";
+import { remoteStatus, prepareImport } from "./repository";
 import Calendar from "./calendar";
 import Users from "./users";
 import { User, removeClient } from "./model";
@@ -22,7 +25,7 @@ const teamStorageKey = "ai-planner-team-v1";
 const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
+const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Kampane: "Projekty", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
 const projectColors = departmentColors;
 
 
@@ -62,6 +65,10 @@ function blankProject(): Project {
 }
 
 export default function Home() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignDraft, setCampaignDraft] = useState<Campaign>({ id: newId(), name: "", departmentId: 0, entityIds: [], edition: "", archived: false });
+  const [adminConfig, setAdminConfig] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [clients, setClients] = useState<Client[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -102,7 +109,7 @@ export default function Home() {
   const importRef = useRef<HTMLInputElement>(null);
 
   function applyWorkspace(data: ReturnType<typeof normalizeWorkspace>) {
-    setMenuOrder(data.menuOrder); setPersonFilter("all"); setDragMenu(null);
+    setCampaigns(data.campaigns); setMenuOrder(data.menuOrder); setPersonFilter("all"); setDragMenu(null);
     setWorkspaceRevision(current => current + 1);
     setEntities(data.entities); setEntityFilter("all");
     setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
@@ -124,7 +131,9 @@ export default function Home() {
         tasks: legacy(storageKey, initialTasks()), projects: legacy(projectsStorageKey, initialProjects),
         team: legacy(teamStorageKey, initialTeam), goals: legacy(goalsStorageKey, initialGoals), clients: []
       };
-      applyWorkspace(normalizeWorkspace(data));
+      const normalized = normalizeWorkspace(data);
+      if (saved && data.schemaVersion !== 5 && !window.localStorage.getItem("ai-planner-before-v5")) window.localStorage.setItem("ai-planner-before-v5", saved);
+      applyWorkspace(normalized);
       setLoaded(true);
     } catch {
       setStorageError("Data sa nepodarilo nacitat. Povodne ulozene data zostali nedotknute. Obnovte platnu JSON zalohu cez Import.");
@@ -134,12 +143,12 @@ export default function Home() {
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 4, menuOrder, tasks, projects, entities, users: team, clients, goals })));
+      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals })));
       setStorageError("");
     } catch {
       setStorageError("Zmeny sa nepodarilo ulozit. Stiahnite Export pred zatvorenim aplikacie.");
     }
-  }, [loaded, tasks, projects, entities, team, clients, goals, menuOrder]);
+  }, [loaded, tasks, projects, entities, team, clients, goals, menuOrder, campaigns]);
 
   function entityName(task: Task) { return entities.find(e => e.id === task.entityId)?.name ?? "Bez entity"; }
 
@@ -156,6 +165,7 @@ export default function Home() {
   }
 
   function deleteEntity(id: number) {
+    if (campaigns.some(c => c.entityIds.includes(id))) { setNotice("Entita je priradená k projektu."); return; }
     try { setEntities(removeEntity(entities, tasks, id)); }
     catch (error) { setNotice((error as Error).message); return; }
     if (entityFilter === id) setEntityFilter("all");
@@ -294,6 +304,7 @@ export default function Home() {
   function saveTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.name.trim()) return;
+    try { normalizeWorkspace({ schemaVersion: 5, campaigns, menuOrder, tasks: [...tasks.filter(t => t.id !== draft.id), draft], projects, entities, users: team, clients, goals }); } catch (error) { setNotice((error as Error).message); return; }
     const slots = draftSlots();
     const taskToSave = linkedTask({ ...draft, name: draft.name.trim(), checklist: draft.checklist.filter(item => item.text.trim()), slots: slots.map(slot => ({ ...slot, taskId: draft.id })) });
 
@@ -374,7 +385,7 @@ export default function Home() {
   }
 
   function deleteProject(project: Project) {
-    const hasLinkedWork = tasks.some((task) => task.projectId === project.id) || goals.some((goal) => goal.project === project.name);
+    const hasLinkedWork = campaigns.some(c => c.departmentId === project.id) || tasks.some((task) => task.projectId === project.id) || goals.some((goal) => goal.project === project.name);
     if (hasLinkedWork) return;
     setProjects((current) => current.filter((currentProject) => currentProject.id !== project.id));
     if (editingProject?.id === project.id) cancelProjectEdit();
@@ -395,7 +406,7 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 4, menuOrder, tasks, projects, entities, users: team, clients, goals }), null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals }), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -412,11 +423,12 @@ export default function Home() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        const input = Array.isArray(parsed) ? { tasks: parsed, menuOrder, projects, entities, users: team, clients, goals } : parsed;
+        const restored = parsed?.format === "ai-planner-supabase-import-v1" ? parsed.snapshot : parsed;
+        const input = Array.isArray(restored) ? { tasks: restored, menuOrder, projects, entities, users: team, clients, goals } : restored;
         const data = normalizeWorkspace(input);
         if (!window.confirm("Import nahradi aktualne data. Pred pokracovanim odporucame Export. Pokracovat?")) return;
         const previous = window.localStorage.getItem(workspaceKey);
-        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 4, menuOrder, tasks, projects, entities, users: team, clients, goals }));
+        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals }));
         window.localStorage.setItem(workspaceKey, JSON.stringify(data));
         applyWorkspace(data); setLoaded(true); setNotice("Zaloha bola nacitana.");
       } catch {
@@ -460,11 +472,16 @@ export default function Home() {
       <aside className="sidebar">
         <div className="brand"><span>AP</span><strong>AI Planner</strong></div>
         <nav aria-label="Hlavné menu">
-          {menuOrder.map((screen) => (
+          {(["top", "config"] as const).map(group => <div key={group}>
+            {group === "config" ? <button aria-expanded={extrasOpen} onClick={() => setExtrasOpen(!extrasOpen)}>{extrasOpen ? "▾" : "▸"} Doplnenia</button> : null}
+            {group === "top" || extrasOpen ? <>
+          {menuOrder.filter(screen => group === "top" ? ["Pracovna plocha", "Inbox"].includes(screen) : !["Pracovna plocha", "Inbox"].includes(screen) && (screen !== "Klienti" || adminConfig)).map((screen) => (
             <div className="navItem" key={screen} onDragOver={e => { if (dragMenu) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }} onDrop={e => { e.preventDefault(); if (dragMenu) setMenuOrder(current => moveMenuItem(current, dragMenu, screen)); setDragMenu(null); }}>
               <button draggable className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => setActiveScreen(screen)}>{screenLabel(screen)}</button>
             </div>
           ))}
+            </> : null}
+          </div>)}
         </nav>
         <section className="projectList">
           <button aria-expanded={projectsOpen} aria-controls="departmentFilters" onClick={() => setProjectsOpen(!projectsOpen)}>{projectsOpen ? "▾" : "▸"} Oddelenia</button>
@@ -486,14 +503,21 @@ export default function Home() {
       <section className="content">
         <header className="header">
           <div><p className="eyebrow">Produktovy workspace</p><h1>{screenLabel(activeScreen)}</h1></div>
-          <div className="headerActions">
+          <div className="headerActions"><button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</button>
             <button className="ghost" onClick={exportData}>Export</button>
+            <button className="ghost" title="Pripraví zálohu a počty; nič neposiela na server" onClick={() => {
+              const plan = prepareImport({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals });
+              const url = URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" }));
+              const a = document.createElement("a"); a.href = url; a.download = `ai-planner-import-${localDate()}.json`; a.click(); URL.revokeObjectURL(url);
+              setNotice(`Príprava importu: ${plan.counts.tasks} úloh, ${plan.counts.slots} blokov. Vzdialený zápis zostáva uzamknutý.`);
+            }}>Pripraviť prenos</button>
             <button className="ghost" onClick={() => importRef.current?.click()}>Import</button>
             <input ref={importRef} className="hiddenInput" type="file" accept="application/json" onChange={importData} />
             <button onClick={openNewTask}>Nova uloha</button>
           </div>
         </header>
 
+        <p className="storageStatus" role="status">{remoteStatus()}</p>
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
         {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}>Zavriet</button></div> : null}
         <section className="stats" aria-label="Prehlad">
@@ -525,26 +549,24 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="quickFilters">
+          <section className="filterSummary toolbar compactFilters">
             <select aria-label="Filtrovať osoby" value={personFilter} onChange={e => setPersonFilter(e.target.value === "all" || e.target.value === "none" ? e.target.value : Number(e.target.value))}><option value="all">Všetky osoby</option><option value="none">Nepriradené</option>{team.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}</select>
             {(["Vsetko", "Dnes", "Vysoka", "Moje", "Hotovo"] as QuickFilter[]).map((filter) => (
-              <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter}</button>
+              <button key={filter} className={quickFilter === filter ? "selected" : ""} onClick={() => setQuickFilter(filter)}>{filter === "Vsetko" ? "Všetko" : filter === "Vysoka" ? "Vysoká" : filter}</button>
             ))}
-          </section>
 
-          <section className="filterSummary">
             <span>Zobrazene: {visibleTasks.length} z {tasks.length} uloh</span>
-            <button className="ghost" onClick={clearFilters}>Vymazat filtre</button>
+            <button className="ghost" onClick={clearFilters}>Vymazať filtre</button>
           </section>
 
           {view === "Tabulka" ? (
           <section className="board">
             <div className="tableControls"><label>Triediť podľa <select value={sortKey} onChange={e => setSortKey(e.target.value as TaskSort)}><option value="name">Názov</option><option value="due">Dátum dokončenia</option><option value="priority">Priorita</option><option value="people">Osoby</option><option value="department">Oddelenie</option></select></label><select aria-label="Smer triedenia" value={sortDirection} onChange={e => setSortDirection(e.target.value as "asc" | "desc")}><option value="asc">Vzostupne</option><option value="desc">Zostupne</option></select></div>
-            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / klient</span><span>Entita</span><span>Osoby</span><span>Status</span><span>Priorita</span><span>Dátum dokončenia</span><span>Akcie</span></div>
+            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / projekt</span><span>Entita</span><span>Osoby</span><span>Status</span><span>Priorita</span><span>Dátum dokončenia</span><span>Akcie</span></div>
             {tableTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                <span>{task.project || "Bez oddelenia"}<small className="clientLabel">{clientName(task)}</small></span><span>{entityName(task)}</span><People task={task} users={team} />
+                <span>{task.project || "Bez oddelenia"}<small>{campaigns.find(c => c.id === task.campaignId)?.name}</small>{adminConfig ? <small className="clientLabel">{clientName(task)}</small> : null}</span><span>{entityName(task)}</span><People task={task} users={team} />
                 <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
@@ -629,7 +651,7 @@ export default function Home() {
           </section>
         ) : null}
 
-        {activeScreen === "Klienti" ? (
+        {activeScreen === "Klienti" && adminConfig ? (
           <section className="clientManager">
             <form className="clientForm" onSubmit={saveClient}>
               <h2>{editingClient ? "Premenovať klienta" : "Nový klient"}</h2>
@@ -650,6 +672,21 @@ export default function Home() {
           </section>
         ) : null}
 
+        {activeScreen === "Kampane" ? <section className="board">
+          <form onSubmit={e => { e.preventDefault(); try {
+            const next = [...campaigns.filter(c => c.id !== campaignDraft.id), campaignDraft];
+            normalizeWorkspace({ schemaVersion: 5, campaigns: next, menuOrder, tasks, projects, entities, users: team, clients, goals });
+            setCampaigns(next); setCampaignDraft({ id: newId(), name: "", departmentId: 0, entityIds: [], edition: "", archived: false });
+          } catch (error) { setNotice((error as Error).message); } }}>
+            <label>Názov projektu<input required value={campaignDraft.name} onChange={e => setCampaignDraft({ ...campaignDraft, name: e.target.value })} /></label>
+            <RecordPicker label="Oddelenie" records={projects} value={campaignDraft.departmentId || null} onChange={id => setCampaignDraft({ ...campaignDraft, departmentId: id ?? 0 })} />
+            <label>Ročník / edícia<input value={campaignDraft.edition} placeholder="2026" onChange={e => setCampaignDraft({ ...campaignDraft, edition: e.target.value })} /></label>
+            <fieldset><legend>Entity · prázdne znamená všetky</legend>{entities.map(entity => <label key={entity.id}><input type="checkbox" checked={campaignDraft.entityIds.includes(entity.id)} onChange={e => setCampaignDraft({ ...campaignDraft, entityIds: e.target.checked ? [...campaignDraft.entityIds, entity.id] : campaignDraft.entityIds.filter(id => id !== entity.id) })} />{entity.name}</label>)}</fieldset>
+            <button>Uložiť projekt</button>
+          </form>
+          {campaigns.map(c => <div className="campaignRow" key={c.id}><strong>{c.name}</strong><span>{projects.find(p => p.id === c.departmentId)?.name} · {c.edition}</span><span>{c.entityIds.map(id => entities.find(e => e.id === id)?.name).join(", ") || "Všetky entity"}</span><button title="Upraviť projekt" onClick={() => setCampaignDraft(c)}>✎</button><button title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} onClick={() => setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived: !p.archived } : p))}>{c.archived ? "↶" : "▣"}</button></div>)}
+        </section> : null}
+
         {activeScreen === "Projekty" ? (
           <section className="projectManager">
             <form className="projectForm" onSubmit={saveProject}>
@@ -661,7 +698,7 @@ export default function Home() {
             </form>
             <section className="screenGrid">
               {projectHealth.map((project) => {
-                const canDelete = project.tasks.length === 0 && !goals.some((goal) => goal.project === project.name);
+                const canDelete = !campaigns.some(c => c.departmentId === project.id) && project.tasks.length === 0 && !goals.some((goal) => goal.project === project.name);
                 return (
                   <article className="projectSummary" key={project.id}>
                     <span className="projectMark" style={{ background: project.color }} />
@@ -693,10 +730,11 @@ export default function Home() {
             <div className="modalHeader"><h2>{editingTask ? "Upravit ulohu" : "Nova uloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
             <label>Nazov ulohy<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <label>Oddelenie<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez oddelenia</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
-              <label>Entita<select value={draft.entityId ?? ""} onChange={event => setDraft({ ...draft, entityId: event.target.value ? Number(event.target.value) : null })}><option value="">Bez entity</option>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}</select></label>
+              <RecordPicker label="Oddelenie" records={projects} value={draft.projectId} onChange={projectId => setDraft({ ...draft, projectId, campaignId: null })} />
+              <RecordPicker label="Entita" records={entities} value={draft.entityId} onChange={entityId => setDraft({ ...draft, entityId, campaignId: null })} />
+              <RecordPicker label="Projekt" records={campaigns.filter(c => !c.archived && c.departmentId === draft.projectId && (!c.entityIds.length || c.entityIds.includes(draft.entityId!)))} value={draft.campaignId} onChange={campaignId => setDraft({ ...draft, campaignId })} />
               <PersonPicker users={team} ids={draft.ownerIds} onChange={ownerIds => setDraft({ ...draft, ownerIds })} />
-              <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z oddelenia: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+              {adminConfig ? <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z oddelenia: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label> : null}
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Priorita<select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Priority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
               <label>Prvý blok · dátum<input type="date" value={draft.day === "Neskor" ? "" : draft.day} onChange={event => setDraft({ ...draft, day: event.target.value || "Neskor" })} /></label>
@@ -726,7 +764,7 @@ export default function Home() {
           <dl>
             <dt>Oddelenie</dt><dd>{selectedTask.project || "Bez oddelenia"}</dd>
             <dt>Entita</dt><dd>{entityName(selectedTask)}</dd>
-            <dt>Klient</dt><dd>{clientName(selectedTask)}</dd>
+            <dt>Projekt</dt><dd>{campaigns.find(c => c.id === selectedTask.campaignId)?.name || "Bez projektu"}</dd>{adminConfig ? <><dt>Klient</dt><dd>{clientName(selectedTask)}</dd></> : null}
             <dt>Osoby</dt><dd><People task={selectedTask} users={team} expanded /></dd>
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>

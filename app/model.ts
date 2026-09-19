@@ -5,7 +5,8 @@ export type Priority = "Nizka" | "Stredna" | "Vysoka";
 export type Task = {
   id: number;
   name: string;
-  projectId: number | null;
+  projectId: number | null; // Legacy department ID, preserved for compatibility.
+  campaignId: number | null;
   entityId: number | null;
   ownerId: number | null;
   // Authoritative assignments; ownerId/owner below remain compatibility mirrors.
@@ -134,7 +135,7 @@ export function removeClient(clients: Client[], tasks: Task[], projects: Project
 }
 export type Client = { id: number; name: string; email?: string; note?: string };
 export type Entity = { id: number; name: string };
-export const defaultMenuOrder = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Entity", "Tim"] as const;
+export const defaultMenuOrder = ["Pracovna plocha", "Inbox", "Projekty", "Kampane", "Entity", "Klienti", "Tim"] as const;
 export type MenuItem = typeof defaultMenuOrder[number];
 export function normalizeMenuOrder(value: unknown): MenuItem[] {
   const saved = Array.isArray(value) ? value.filter((item): item is MenuItem => defaultMenuOrder.includes(item)) : [];
@@ -145,7 +146,8 @@ export function moveMenuItem(order: MenuItem[], item: MenuItem, target: MenuItem
   if (from < 0 || to < 0 || from === to) return next;
   next.splice(from, 1); next.splice(to, 0, item); return next;
 }
-export type Workspace = { schemaVersion: 4; menuOrder: MenuItem[]; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
+export type Campaign = { id: number; name: string; departmentId: number; entityIds: number[]; edition: string; archived: boolean };
+export type Workspace = { schemaVersion: 5; campaigns: Campaign[]; menuOrder: MenuItem[]; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
 export const workspaceKey = "ai-planner-workspace-v1";
 // Keep existing numeric IDs; new IDs are safe integers with collision protection in this session.
 let lastId = 0;
@@ -255,7 +257,7 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
   });
   return {
     id, name: text(value.name, "Nova uloha"), project: text(value.project, "Produkt"), owner: text(value.owner, "Martin"),
-    projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
+    campaignId: value.campaignId ?? null, projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
     due: deadline(text(value.due)), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
@@ -273,7 +275,7 @@ export function normalizeProject(value: Partial<Project>, index = 0): Project {
 // ID links are authoritative. Name fields are compatibility labels for the existing UI.
 export function normalizeWorkspace(input: unknown, anchor = localDate()): Workspace {
   const data = record(input);
-  if (data.schemaVersion !== undefined && ![1, 2, 3, 4].includes(data.schemaVersion as number)) throw new Error("Nepodporovaná verzia zálohy.");
+  if (data.schemaVersion !== undefined && ![1, 2, 3, 4, 5].includes(data.schemaVersion as number)) throw new Error("Nepodporovaná verzia zálohy.");
   // Reserve imported IDs before generating IDs for missing legacy records.
   const reserve = (value: unknown): void => {
     if (Array.isArray(value)) { value.forEach(reserve); return; }
@@ -300,17 +302,9 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     if (!migrating && m.status !== "active" && m.status !== "pending") throw new Error("Neplatný stav používateľa.");
     const permissions = m.permissions === undefined && migrating ? defaultPermissions(role) : m.permissions;
     if (!Array.isArray(permissions) || permissions.some(p => !permissionCatalog.some(item => item.key === p))) throw new Error("Neplatné oprávnenia používateľa.");
-    return {
-  id: m.id,
-  ...avatarProfile({
-    name: m.name,
-    initials: m.initials,
-    avatarColor: m.avatarColor,
-    photo: m.photo,
-  }),
-  name: text(m.name, "Osoba").trim(),
-  email: normalizeEmail(text(m.email)),
-  role,
+    // Imported fields stay unknown until avatarProfile validates them.
+    const profile = avatarProfile({ name: m.name, initials: m.initials, avatarColor: m.avatarColor, photo: m.photo });
+    return { id: m.id, ...profile, name: text(m.name, "Osoba").trim(), email: normalizeEmail(text(m.email)), role,
       status: m.status === "active" || (migrating && role === "admin") ? "active" : "pending",
       permissions: [...new Set(permissions)] as PermissionKey[], capacity: Math.min(100, Math.max(0, num(m.capacity, 60))),
       ...(typeof m.legacyRole === "string" ? { legacyRole: m.legacyRole } : migrating && m.role !== "admin" && m.role !== "user" ? { legacyRole: text(m.role) } : {}) };
@@ -335,9 +329,19 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     const project = normalizeProject(p, i); const member = owner(project.ownerId, project.owner, data.schemaVersion === undefined && p.ownerId == null);
     return { ...project, ownerId: member?.id ?? null, owner: member?.name ?? "", clientId: clientId(project.clientId) };
   });
+  const campaigns: Campaign[] = uniqueIds(rows(data.campaigns ?? [])).map(c => {
+    const name = text(c.name).trim();
+    if (!name || !projects.some(p => p.id === c.departmentId)) throw new Error("Projekt potrebuje názov a existujúce oddelenie.");
+    if (!Array.isArray(c.entityIds) || c.entityIds.some(id => !entities.some(e => e.id === id))) throw new Error("Neplatné entity projektu.");
+    return { id: c.id, name, departmentId: c.departmentId as number, entityIds: [...new Set(c.entityIds)] as number[], edition: text(c.edition), archived: c.archived === true };
+  });
   const tasks = uniqueIds(rows(data.tasks)).map(raw => {
     const task = normalizeTask(raw, anchor);
     if (task.entityId !== null && !entities.some(e => e.id === task.entityId)) throw new Error("Entita neexistuje.");
+    if (task.campaignId !== null) {
+      const campaign = campaigns.find(c => c.id === task.campaignId);
+      if (!campaign || campaign.departmentId !== task.projectId || (campaign.entityIds.length > 0 && (task.entityId === null || !campaign.entityIds.includes(task.entityId)))) throw new Error("Projekt nezodpovedá oddeleniu alebo entite úlohy.");
+    }
     const legacyProject = data.schemaVersion === undefined && raw.projectId == null;
     let project = legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
     if (!legacyProject && task.projectId !== null && !project) throw new Error("Oddelenie neexistuje.");
@@ -355,7 +359,7 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
   if (migrating && !team.some(u => u.role === "admin")) team.push({ id: newId(), name: "Martin", ...avatarProfile({ name: "Martin" }), email: "", role: "admin", status: "active", permissions: defaultPermissions("admin"), capacity: 80 });
   validateUsers(team, true);
   if (team.reduce((sum, u) => sum + u.photo.length, 0) > 1024 * 1024) throw new Error("Fotografie spolu môžu zaberať najviac 1 MB.");
-  return { schemaVersion: 4, menuOrder: normalizeMenuOrder(data.menuOrder), tasks, projects, entities, users: team, clients, goals };
+  return { schemaVersion: 5, campaigns, menuOrder: normalizeMenuOrder(data.menuOrder), tasks, projects, entities, users: team, clients, goals };
 }
 export function assignedUsers(task: Task, users: User[]): User[] { return task.ownerIds.map(id => users.find(u => u.id === id)).filter((u): u is User => !!u); }
 export function personTaskCount(tasks: Task[], id: number): number { return tasks.filter(t => t.ownerIds.includes(id)).length; }

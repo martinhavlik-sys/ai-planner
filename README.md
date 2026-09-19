@@ -1,65 +1,52 @@
-# AI Planner – osoby, triedenie a menu, 19. 9. 2026
+# AI Planner · Core v5 · 19. 9. 2026
 
-Pracovná aplikácia v slovenčine. Táto verzia zachováva reálny kalendár, viac blokov jednej úlohy, nezávislý deadline, oddelenia, entity, klientov a lokálne dáta.
+## Implementované
 
-## Zmeny
+- Bezstratová lokálna migrácia schém 1–4 na 5. Pôvodné dáta sú pred prvým zápisom v5 zachované v `ai-planner-before-v5`; pri chybe načítania sa neprepisujú. Export a import zachovávajú všetky bloky, osoby, poznámky aj historické polia.
+- Skutočné projekty: názov, oddelenie, viac entít, ročník/edícia, úprava a archivácia. Každý ročník je samostatný záznam. Úloha má nepovinný projekt; nekompatibilné väzby sa odmietajú. Archivácia nemení staré úlohy. Prázdny zoznam entít projektu znamená všetky entity.
+- Kvôli kompatibilite lokálne `projects` a `Task.projectId` stále označujú oddelenia. Nové projekty sú `campaigns` a `Task.campaignId`. V SQL sú názvy už `departments` a `projects`.
+- Pracovná plocha a Inbox sú hore; konfigurácia je pod Doplnenia. Presúvanie menu funguje potiahnutím, bez šípok. Horné a konfiguračné položky zostávajú vo svojich skupinách.
+- Formulár má poradie názov → Oddelenie → Entita → Projekt, natívne vyhľadávanie existujúcich záznamov a klávesnicový výber. Zmena oddelenia/entity vyčistí projekt. Nové záznamy sa zakladajú v konfigurácii.
+- Osoby a rýchle filtre sú vedľa Vymazať filtre. Dátum dokončenia zostáva nepovinný. Počet osôb nemení počet úloh. Kalendár a jeho handlery zostali zachované.
+- Klient je skrytý v bežnom pohľade. Správa vlastníka sprístupní lokálnu konfiguráciu. **Tento lokálny prepínač nie je autentifikácia ani bezpečnostná hranica.** Táto verzia je stále lokálny nástroj jedného vlastníka, nie nasaditeľný zdieľaný systém s rolami.
 
-- Oddelenie je jednoduchá kategória: formulár a prehľad používajú názov a farbu. Nové oddelenie má modrú **#4285F4**. Vzorka a „Vybrať inú farbu“ otvárajú paletu, ktorá je predvolene zatvorená. Výber má fajku, obrys, aria-pressed a klávesnicové ovládanie. Predvolené obnoví modrú. Staré cieľ/stav/osoba/klient zostávajú v dátach pre kompatibilitu, bez ich zobrazenia v správe oddelení.
-- Tabuľka a formulár používajú **Deadline** a **Osoby**. Osem stĺpcov a tri ikonové akcie zostávajú; tabuľka sa na mobile posúva vodorovne.
-- Triedenie v prvom ovládacom riadku tabuľky: názov, deadline, priorita, osoby, oddelenie; vzostupne/zostupne. Predvolené je priorita zostupne: Vysoká → Stredná → Nízka. Prázdne hodnoty sú na konci v oboch smeroch. Rovnaké hodnoty zachovajú pôvodné poradie. Mená osôb sa najprv zoradia podľa slovenskej abecedy, takže výsledok nezávisí od poradia zaškrtnutia. Triedenie sa aplikuje po filtrovaní a nemení uložené poradie úloh.
-- Jedna úloha obsahuje **ownerIds: number[]**. Rozbaľovací výber osôb má vyhľadávanie a checkboxy. Tabuľka, Kanban, detail a kalendár používajú spoločné avatary. Viac než tri osoby dopĺňa +N; detail ukazuje všetky mená. Každá osoba má úlohu započítanú raz, celkový počet úloh sa nemení.
-- Filter Osoby podporuje konkrétnu osobu aj Nepriradené a kombinuje sa so všetkými existujúcimi filtrami a vyhľadávaním. Existujúce „Moje“ naďalej znamená priradenú osobu s menom obsahujúcim Martin; aplikácia zatiaľ nemá prihláseného používateľa.
-- Používateľ má meno, email, rolu, oprávnenia, iniciály (najviac 3 znaky), farbu a voliteľnú fotografiu. Iniciály sa odvodia z mena, napr. Martin Havlík → MH, možno ich prepísať alebo obnoviť tlačidlom Z mena.
-- Fotografia: PNG/JPEG/WebP do **150 KB**, spolu do **1 MB** Data URL v pracovnej ploche. Výber overí typ, veľkosť aj načítanie obrázka; import overí povolený formát Data URL a limity. SVG a vzdialené URL nie sú povolené.
-- Hlavné menu možno presúvať vertikálne potiahnutím alebo tlačidlami ↑/↓ dostupnými aj klávesnicou a na mobile. Poradie sa ukladá a exportuje. Duplicitné „Spravovať entity“ je odstránené; spodný zoznam entít slúži iba na filtrovanie.
+## Supabase: čo je pripravené a čo zostáva uzamknuté
 
-## Používatelia a väzby
+`supabase/migrations/202609190001_core.sql` obsahuje workspaces, členstvá, oddelenia, entity, projekty, väzby projekt–entity, profily/osoby, úlohy, osoby úloh a kalendárové bloky. Klienti a ich väzby sú oddelené do tabuliek čitateľných len administrátormi/vlastníkmi. Kompozitné cudzie kľúče bránia väzbám medzi pracovnými priestormi, mazanie je reštriktívne. Tabuľky majú RLS, indexy, časové a archivačné polia.
 
-Sekcia správy zostáva **Používatelia**, priradenie práce používa **Osoby**. Email sa oreže a normalizuje na malé písmená. Uloženie aj import overujú formát a duplicitu. Starí používatelia bez emailu ho doplnia pri úprave.
+Anon nemá prístup. Prihlásený člen má iba čítanie vlastného priestoru; žiadne browser zápisy ani vytváranie členstiev nie sú povolené. Členstvo nemôže používateľ sám prideliť. Serverové administrátorské zavedenie priestoru/členstva je budúci krok. Návrh vychádza z [oficiálnej dokumentácie RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
-Posledného administrátora nemožno zmazať ani zmeniť na používateľa. Osobu nemožno zmazať, kým figuruje v ownerIds ktorejkoľvek úlohy, aj hotovej. Najprv ju odškrtnite alebo nahraďte vo formulári; ostatné osoby zostanú. Nepoužívaná historická osoba oddelenia už neblokuje zmazanie používateľa a pri zmazaní sa bezpečne vyprázdni.
+`app/supabase-client.ts` poskytuje read-only REST hranicu s verejným anon API kľúčom a skutočným Auth access tokenom. `app/repository.ts` obsahuje explicitne uzamknutý vzdialený repository a validovaný plán importu. UI zostáva lokálne a ukazuje tento stav. Env premenné **nezapínajú synchronizáciu**. Nikde nie je service-role kľúč.
 
-Oddelenie nemožno zmazať, kým má úlohy alebo historické ciele. Premenovanie zachová ID a aktualizuje textové väzby. Klient má iba názov a možno ho priradiť úlohe. Historické priradenie klienta k oddeleniu a dedenie do úloh zostáva funkčné pre staré dáta; nové oddelenia klienta nemajú. Klient s existujúcou väzbou sa nedá zmazať. Staré email/note klientov zostávajú v exporte.
+Chýbajú: prihlasovanie/obnova session, bezpečné provisioning členstiev a roly v UI, transakčný import do nového priestoru, kontrola počtov po importe, plný remote read/write mapping, konfliktové verzie a integračné RLS testy. SQL zatiaľ nebol aplikovaný ani vykonaný na PostgreSQL. Pred aktivovaním zápisov treba tieto kroky dokončiť; neotvárajte anon write policies.
 
-**Prihlasovanie, reálne pozvánky a aktivácia nie sú implementované.** Oprávnenia sa iba lokálne evidujú, neblokujú prístup. Stav aktívny/pripravený na pozvanie označuje lokálny záznam. Roly admin/user majú predvolené oprávnenia, ktoré možno upraviť. Katalóg permissionCatalog má stabilné kľúče pre budúci backend; roly sa neskôr musia vynucovať aj na serveri.
+## Kontrolovaný prenos dát
 
-## Dáta a migrácia
+1. Na pôvodnej doméne použite Export a bezpečne odložte JSON.
+2. Pripraviť prenos vytvorí balík s úplným normalizovaným snapshotom a počtami úloh/blokov/priradení. Nič sa neposiela na server.
+3. Bežný Import rozpozná aj tento balík, validuje ho, pýta sa pred nahradením a uloží predchádzajúci stav do `ai-planner-before-import`.
+4. Budúci vzdialený importer musí pre overeného vlastníka vytvoriť nový priestor v jednej transakcii, zachovať numerické ID, mapovať `projects`→departments a `campaigns`→projects, rozbaliť assignees/slots a klientské väzby. Lokálny snapshot vrátane historických polí treba zachovať mimo bežných členských tabuliek. Po verifikácii počtov sa používateľ rozhodne prepnúť zdroj dát. Táto operácia nie je v tejto verzii dostupná.
 
-- Kľúč localStorage zostáva **ai-planner-workspace-v1**, schéma je **4**. Podporované sú dáta bez verzie a schémy 1/2/3/4.
-- Staré ownerId sa prevedie na ownerIds s jedným ID alebo prázdne pole; staré textové priradenia sa previažu s osobami. ownerIds je autoritatívne, duplicitné ID sa odstránia. ownerId (prvá osoba) a owner (spojené mená) zostávajú iba kompatibilnými odvodenými poľami. Úpravy nového modelu robte cez ownerIds.
-- Schéma 4 pridáva initials/avatarColor/photo a menuOrder. Neznáme položky menu sa odstránia, duplicity zlúčia a chýbajúce položky doplnia. Staré dáta dostanú pôvodné poradie.
-- Starý team sa migruje na users so zachovanými ID, kapacitou a legacyRole. Pri migrácii starého tímu sa Martin stáva administrátorom; ak žiadny nie je, pribudne lokálny administrátor. Schémy 3/4 musia mať administrátora.
-- Úlohy, oddelenia, entity, klienti, používatelia, oprávnenia, ciele, poznámky, checklisty, aktivity a všetky časové bloky sa zachovávajú. Historické samostatné kľúče úložiska sa nemenia ani nemažú.
-- Import najprv validuje celú zálohu a po potvrdení nahradí pracovnú plochu. Predchádzajúce dáta zálohuje do ai-planner-before-import. Neplatné ID, väzby, emaily, oprávnenia alebo fotografia odmietnu import pred zmenou dát.
-- Pri chybe načítania sa pôvodné dáta neprepíšu. Pri chybe zápisu aplikácia odporučí export. Kapacita úložiska závisí aj od množstva úloh a ostatných dát; fotografie majú samostatný konzervatívny limit.
-- Dáta patria doméne a profilu prehliadača. Pri zmene domény použite export/import.
+## Inštalácia a nasadenie
 
-## Zachovaný kalendár
+Node 22.18+; manifest má presné overené verzie a pnpm lockfile.
 
-Rozsahy 3/5 dní, pracovný/celý týždeň, mesačný navigátor, os 00:00–24:00, aktuálny čas, prekryvy, presun po 15 minútach a viac blokov jednej úlohy. Blok cez polnoc sa zobrazí na oboch dňoch so zachovaným ID a trvaním. Dátum/čas možno upraviť aj formulárom.
+```sh
+corepack enable
+pnpm install --frozen-lockfile
+pnpm test
+pnpm typecheck
+pnpm build
+```
 
-Po otvorení a navigácii sa kalendár vracia na 08:00 vrátane opakovaného Dnes alebo rovnakého dátumu. Blok má akcie upraviť a plus. Plus → Rovnaký čas pridá blok s rovnakým časom; Iný čas pridáva až po potvrdení. Počet úloh sa nemení, pribudne unikátne slot ID.
+Komponentové testy potrebujú `BABEL_BUNDLE` nastavené na existujúci Playwright `lib/transform/babelBundle.js`; bez neho sa výslovne preskočia. Na tomto hoste boli spustené s týmto balíkom.
 
-Dátumy blokov sú YYYY-MM-DD. Staré názvy dní sa pri prvej migrácii prevedú na lokálny aktuálny týždeň a potom sa už neposúvajú. Deadline je nezávislý dátum; neplatné staré textové termíny sú prázdne. Zobrazenie používa slovenský dátum alebo pomlčku.
+Obsah ai-planner-vercel nahrajte do existujúceho GitHub repozitára a nasaďte cez Vercel. Zachovajte existujúce verejné env premenné; príklad je `.env.example`. Žiadne dashboardy ani GitHub sa v tejto dodávke nemenili. SQL skontrolujte a neskôr aplikujte manuálne najprv na testovacom Supabase projekte. Nerobte reset produkčnej databázy.
 
-## Overenie dodávky
+## Overenie
 
-Bez siete a bez inštalácie balíkov: **46 testov, 46 úspešných, 0 preskočených**. Pokrývajú migrácie, kalendár, viac blokov, väzby, profily, limity fotografií, počítadlá, stabilné triedenie všetkých piatich polí oboma smermi, filtre, zmenu poradia menu a obnovenie. Komponentové testy vykonávajú skutočné handlery výberu osôb, farieb, iniciál, menu aj kalendárové handlery/effecty. Všetky app/*.ts a app/*.tsx prešli offline transpilačnou a syntaktickou kontrolou cez Babel z dostupného Playwrightu.
+50 testov úspešných, 0 preskočených; skutočná TypeScript kontrola a produkčný Next.js build úspešné. Testy zahŕňajú migráciu v5, nezávislé ročníky projektov, viac entít, neplatné väzby, staré kalendárové operácie, viac osôb, filtre a presúvanie menu. Next aktualizoval jsx konfiguráciu na react-jsx a pridal vlastné generované typy.
 
-**Plný Next.js build, úplná typová kontrola a vizuálny/interakčný test v reálnom prehliadači neboli vykonané:** Next/React/TypeScript nie sú nainštalované v projekte ani v dostupnom balíku. Zachovaný manifest používa pôvodné latest. Komponentové prostredie simuluje hooky; neoveruje skutočné rozloženie DOM ani natívny výber obrázka.
+Vizuálna/interakčná kontrola v reálnom prehliadači nebola vykonaná: host zablokoval otvorenie lokálneho serverového portu a nemá nainštalovaný Playwright prehliadač. SQL/RLS nebolo overené na živej databáze. Úspešný build nepotvrdzuje vzdialenú synchronizáciu.
 
-Testy: `node --test tests/*.test.mjs` (Node 22.18+ alebo 24). Pre komponentové/transpilačné testy nastavte `BABEL_BUNDLE` na absolútnu cestu existujúceho `playwright/lib/transform/babelBundle.js`; bez nej sa tieto testy výslovne preskočia. Projekt nie je Git checkout. Predchádzajúce ZIP-y zostali zachované.
-
-## Nasadenie a krátky akceptačný test
-
-Rozbaľte nový ZIP s koreňovým priečinkom ai-planner-vercel. **Obsah tohto priečinka** nahrajte do koreňa existujúceho GitHub repozitára a nasaďte cez existujúci Vercel projekt. Dodávka sa automaticky nenasadzovala.
-
-Po deployi overte desktop aj šírku 390 px:
-
-1. Exportujte zálohu pred aktualizáciou. Obnovte stránku a overte pôvodné úlohy, osoby, entity, klientov, deadline, poznámky a bloky. Nový export má schemaVersion 4 a ownerIds.
-2. Vytvorte oddelenie: iba názov a modrá vzorka. Otvorte paletu, vyberte farbu klávesnicou, obnovte Predvolené a uložte. Premenovanie musí zachovať priradenie úloh.
-3. V Používateľoch vytvorte dve osoby. Overte automatické aj vlastné iniciály, farbu a malú PNG/JPEG/WebP fotografiu. Súbor nad 150 KB alebo iný typ sa odmietne. Skontrolujte oprávnenia a zachovanie po obnovení.
-4. Priraďte jednu úlohu obom: celkový počet ostáva rovnaký, obe majú +1 v počítadle. Overte avatary, detail, Kanban, kalendár a filtre. Odškrtnutie jednej zachová druhú; zmazanie priradenej osoby sa odmietne.
-5. Kombinujte vyhľadávanie a filtre s každým triedením oboma smermi. Prázdne hodnoty zostávajú na konci; priorita zostupne začína Vysoká. Exportované poradie úloh sa triedením nemení.
-6. Presuňte menu potiahnutím aj ↑/↓. Obnovte stránku a spravte export/import: poradie, profily, fotografie a priradenia musia zostať. Entity majú jednu správcovskú položku.
-7. V kalendári pridajte blok cez plus, presuňte iba jeden blok, overte prekryv aj blok cez polnoc a návrat na 08:00 pri navigácii. Na mobile overte formuláre, presúvanie menu tlačidlami a rolovanie tabuľky/kalendára.
+Po nasadení overte export/import pôvodných dát, vytvorenie projektu a dvoch ročníkov, tabovanie a výber v troch poliach, filtre pri Vymazať filtre, menu Doplnenia a klienta v správe vlastníka. Na desktope aj mobile overte kalendár, presun a zmenu dĺžky bloku, viac blokov jednej úlohy, návrat na 08:00 a rolovanie 00:00–24:00.
