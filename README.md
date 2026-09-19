@@ -1,4 +1,13 @@
-# AI Planner – používatelia a oprávnenia, 18. 9. 2026
+# AI Planner – dokončenie UI a kalendára, 19. 9. 2026
+
+## Zmeny tejto verzie
+
+- Kompaktné skupiny oprávnení majú checkbox a text v spoločnom klikateľnom riadku. Zoznam používateľov má zarovnané stĺpce a pomenované ikonové akcie.
+- Oddelenia majú 27 kruhových farieb podľa dodaného vzorkovníka, fajku a obrys výberu, aria-pressed a tlačidlo Predvolené. Rovnaká paleta slúži na vytváranie aj úpravu; ovláda sa Tab a Enter/medzerník.
+- Termín je nezávislé nepovinné dátumové pole. Ukladá iba ISO YYYY-MM-DD alebo prázdny reťazec. Staré textové termíny sa vyprázdnia, ostatné údaje a bloky sa zachovajú. Zobrazenie je napríklad 19. 9. 2026 alebo pomlčka.
+- Tabuľka má osem stĺpcov bez stĺpca Čas, tri ikonové akcie a vodorovné rolovanie na úzkej obrazovke.
+- Kalendár sa pri otvorení aj navigácii vracia na 08:00, vrátane opakovaného Dnes a výberu rovnakého dátumu. Červená čiara zostáva.
+- Každý blok má dve akcie: editovať a plus. Plus otvorí dialóg: Rovnaký čas skopíruje pôvodný deň, začiatok a trvanie; Iný čas pridá blok až po potvrdení formulára. Pribudne nové ID bloku pri rovnakom ID úlohy.
 
 Pracovná aplikácia v slovenčine. Úloha má nezávislé priradenie k **oddeleniu** (HR, Marketing, IT) a **entite** (Nemocnica Bory, ProCare Betliarska). Interné názvy Project/projectId zostávajú kvôli kompatibilite. Správa entít, kombinované filtre, tabuľka, Kanban a celý reálny kalendár zostávajú zachované.
 
@@ -43,15 +52,27 @@ Dátumy blokov sú YYYY-MM-DD. Staré názvy dní sa pri prvej migrácii priradi
 
 ## Overenie dodávky
 
-Bez použitia siete a bez inštalácie závislostí prešlo **25 modelových testov**: migrácie klientov a TeamMember → User, predvoľby rolí a katalóg oprávnení, emaily, ochrana posledného administrátora a priradeného vlastníka/klienta, export/import, entity a pôvodné regresie kalendára.
+Bez použitia siete a bez inštalácie závislostí prešlo **35 testov**: modelové regresie, migrácia a formát termínu, farby a ich uloženie, tabuľka a ikonové akcie, zachovanie ID úlohy pri nových blokoch a vykonanie handlerov/effectov navigácie, dialógu a oprávnení v lokálnom komponentovom testovacom prostredí.
 
 Všetky app/*.ts a app/*.tsx prešli syntaktickou kontrolou a transpilačným spracovaním cez lokálny Babel z bundlovaného Playwrightu. tsconfig má target ES2017, nie ES5.
 
 **Plný Next.js build, úplná typová kontrola a vizuálny/interakčný test prehliadača neboli vykonané:** v projekte nie sú nainštalované Next/React/TypeScript závislosti. Nič sa neinštalovalo a sieť sa nepoužila. Zachovaný manifest používa pôvodné latest.
 
-Testy: `node --test tests/*.test.mjs` (Node.js 22.18+ alebo 24), prípadne `npm test`.
+Testy: `node --test tests/*.test.mjs` (Node.js 22.18+ alebo 24), prípadne `npm test`. Päť offline komponentových/transpilačných testov potrebuje premennú `BABEL_BUNDLE` s absolútnou cestou k existujúcemu `playwright/lib/transform/babelBundle.js`; bez nej sú výslovne preskočené. Pri overení dodávky bola nastavená a nič sa nepreskočilo. Testovacie prostredie simuluje hooky a vykonáva skutočné handlery komponentov; neoveruje rozloženie DOM ani natívne ovládanie prehliadača.
+
+Priečinok nie je Git checkout, preto nebol dostupný aktuálny Git diff. Skontrolované boli všetky aktuálne aplikačné súbory, konfigurácia a testy; staré ZIP archívy zostali zachované.
 
 ## Krátky test po nasadení
+
+Akceptácia tejto verzie (desktop aj šírka 390 px):
+
+1. Exportujte zálohu. Pri starej úlohe s textovým termínom overte pomlčku a zachovanie poznámok, checklistu a blokov. Nastavte termín, obnovte stránku a skontrolujte slovenský dátum. Tabuľka nemá Čas, ikony edit/duplikovať/zmazať fungujú.
+2. V Používateľoch kliknite priamo na text oprávnenia, uložte a obnovte stránku. Checkbox musí reagovať a zostať zarovnaný s textom. V Oddeleniach vytvorte aj upravte farbu, skúste Predvolené a ovládanie klávesnicou; po obnovení sa farba zachová.
+3. Otvorte kalendár, odrolujte mimo 08:00 a postupne skúste všetky rozsahy, Dnes dvakrát, šípky rozsahu/mesiaca a rovnaký dátum mini kalendára. Po každej akcii je hore 08:00; dnešná červená čiara ostáva na správnom čase.
+4. Na bloku vidíte iba edit a plus. Plus → Rovnaký čas vytvorí prekryv. Plus → Iný čas zatiaľ nič nepridá; vyplňte dátum/čas/trvanie a potvrďte. Export musí mať rovnaký počet úloh, rovnaké task ID a dve nové unikátne slot ID. Zrušenie/Escape nepridáva blok.
+5. Presuňte jeden blok, upravte druhý, skontrolujte blok cez polnoc aj 15-minútový blok. Obnovte stránku. Zachovajú sa oba bloky, ich trvania, filtre oddelenia/entity a klient/vlastník. Na mobile sa dá tabuľka a kalendár posúvať bez rozbitia formulárov.
+
+Ďalšie regresie existujúcich funkcií:
 
 1. Pred nasadením exportujte staré dáta. Na rovnakej doméne obnovte aplikáciu: overte úlohy, vlastníkov, kapacity v exporte, oddelenia, entity a bloky. Nový export má schemaVersion 3 a users. Martin je administrátor.
 2. V Klientoch pridajte Penta Hospitals, premenujte ho a priraďte k oddeleniu. Zmazanie sa musí odmietnuť. Po odstránení všetkých väzieb sa musí podariť. Formulár nemá email ani poznámku.

@@ -606,7 +606,8 @@ h2, p { margin-top: 0; }
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.8fr) 150px minmax(220px, 1.4fr) auto auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+  align-items: start;
   padding: 16px;
 }
 
@@ -1061,8 +1062,8 @@ button:disabled {
 .tableHeader, .taskRow {
   display: grid;
   gap: 0;
-  grid-template-columns: minmax(230px, 2fr) 140px 160px 100px 132px 112px 120px 90px 172px;
-  min-width: 1300px;
+  grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) minmax(130px, 1fr) 100px 120px 100px 120px 112px;
+  min-width: 1032px;
 }
 
 .tableHeader {
@@ -1521,7 +1522,7 @@ button:disabled {
   .focusStrip { align-items: stretch; display: grid; }
   .header { align-items: stretch; display: grid; }
   .board { overflow-x: auto; }
-  .tableHeader, .taskRow { min-width: 1300px; }
+  .tableHeader, .taskRow { min-width: 1032px; }
   .kanban { grid-template-columns: repeat(5, 240px); }
   .weekPlan, .timeCalendar { grid-template-columns: 1fr; }
   .activityForm { grid-template-columns: 1fr; }
@@ -1529,7 +1530,7 @@ button:disabled {
 
 /* Compact core records */
 .usersInfo { font-size: 13px; color: #526058; }
-.usersColumns { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 18px; align-items: start; }
+.usersColumns { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
 .userForm select { width: 100%; }
 .permissionGroup { border: 1px solid #dfe5df; border-radius: 4px; padding: 8px; margin: 0; }
 .permissionGroup legend { font-size: 12px; font-weight: 600; }
@@ -1554,6 +1555,41 @@ button:disabled {
 .clientRow small { display: block; color: #647067; margin-top: 4px; }
 .clientRow p { margin: 4px 0; }
 .extraSlot { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; border-top: 1px solid #dfe5df; padding-top: 10px; }
+.userForm { display: grid; gap: 10px; padding: 16px; background: white; border: 1px solid #dfe5df; border-radius: 8px; }
+.userForm h2 { font-size: 16px; margin: 0 0 4px; }
+.userForm > label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.userForm > label input, .userForm > label select { width: 100%; min-width: 0; }
+.userForm > small, .userForm > span { font-size: 12px; line-height: 1.5; color: #647067; }
+.permissionGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border-top: 1px solid #e4e9f1; padding-top: 12px; }
+.userForm .permissionGroup { border: 0; padding: 0; min-width: 0; }
+.userForm .permissionGroup legend { margin-bottom: 4px; color: #647067; }
+.userForm .permissionGroup label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12px; line-height: 1.35; padding: 6px 0; }
+.userForm .permissionGroup input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; min-height: 16px; margin: 0; accent-color: #3467d6; }
+.userList { min-width: 0; }
+.userRow, .userListHeader { display: grid; grid-template-columns: minmax(100px, 1.3fr) minmax(100px, 1fr) minmax(110px, 1fr) 68px; gap: 12px; align-items: start; }
+.userListHeader { font-size: 11px; font-weight: 600; color: #647067; padding: 10px 0; border-bottom: 1px solid #dfe5df; }
+.userActions { margin: 0; gap: 4px; }
+button.iconButton { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; min-width: 30px; padding: 0; font-size: 18px; }
+.rowActions { display: flex; gap: 3px; padding: 3px 6px; }
+.taskRow > * { min-width: 0; overflow-wrap: anywhere; }
+.colorPalette { border: 0; padding: 0; margin: 0; min-width: 0; }
+.colorPalette legend { font-size: 12px; margin-bottom: 8px; }
+.colorPalette .colorChoices { display: grid; grid-template-columns: repeat(7, 28px); gap: 8px; }
+.colorPalette .colorChoices button { width: 28px; height: 28px; min-width: 28px; border: 0; border-radius: 50%; padding: 0; color: white; font-size: 19px; text-shadow: 0 1px 2px #000; }
+.colorPalette .colorChoices button.selected { outline: 2px solid #17202a; outline-offset: 2px; }
+.paletteDefault { width: 100%; margin-top: 12px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #3467d6; outline-offset: 3px; }
+.slotDialog { border: 1px solid #dfe5df; border-radius: 12px; padding: 22px; width: min(420px, calc(100vw - 32px)); color: #17202a; }
+.slotDialog::backdrop { background: #17202a66; }
+.slotDialog h2 { font-size: 18px; }
+.slotDialog form, .slotDialog label { display: grid; gap: 8px; }
+.slotDialog form { gap: 14px; }
+.slotChoices { display: flex; gap: 10px; margin-top: 14px; }
+.timedEvent { overflow: hidden; padding-right: 45px; }
+.timedActions { position: absolute; top: 0; right: 1px; margin: 0; gap: 1px; }
+.timedActions button { height: 14px; width: 19px; line-height: 14px; }
+@media(max-width: 1200px) { .usersColumns { grid-template-columns: 1fr; } .userForm { max-width: 680px; } }
+@media(max-width: 560px) { .userListHeader { display: none; } .userRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .userActions { justify-content: flex-end; } .permissionGrid { grid-template-columns: 1fr; } }
 @media(max-width: 900px) { .clientManager { grid-template-columns: 1fr; } .clientRow { flex-wrap: wrap; } }
 
 .appShell { grid-template-columns: 210px minmax(0, 1fr); }

@@ -20,7 +20,7 @@ test('legacy migration preserves records and creates stable ID links', () => {
   assert.equal(data.projects[0].ownerId, 30);
   assert.equal(data.tasks[0].slots[0].taskId, 10);
   assert.equal(data.tasks[0].slots[0].day, calendarDate('Utorok'));
-  assert.equal(data.tasks[0].due, 'Piatok');
+  assert.equal(data.tasks[0].due, '');
   assert.equal(data.tasks[0].note, 'Keep me');
   assert.equal(data.tasks[0].checklist[0].done, true);
   assert.deepEqual(data.tasks[0].activity, ['Created']);
@@ -225,5 +225,5 @@ test('moving one block preserves identity, other blocks and metadata', () => {
   assert.equal(moved.slots[1].id, 2);
   assert.equal(moved.slots[1].taskId, 7);
   assert.equal(moved.slots[1].startHour, 0);
-  assert.equal(moved.due, 'Keep'); assert.equal(moved.status, 'Backlog');
+  assert.equal(moved.due, ''); assert.equal(moved.status, 'Backlog');
 });

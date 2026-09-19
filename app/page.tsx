@@ -6,7 +6,8 @@ import Calendar from "./calendar";
 import Users from "./users";
 import { User, removeClient } from "./model";
 import { Entity, matchesAssignments, removeEntity } from "./model";
-import { localDate, timeLabel } from "./model";
+import { localDate, timeLabel, formatDeadline, departmentColors, appendCalendarSlot } from "./model";
+import SlotDialog from "./slot-dialog";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -21,7 +22,7 @@ const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
 const screens: Screen[] = ["Pracovna plocha", "Klienti", "Inbox", "Projekty", "Entity", "Tim"];
 const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
-const projectColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad2f1e", "#6b4bb8"];
+const projectColors = departmentColors;
 
 
 
@@ -52,7 +53,7 @@ const initialGoals: Goal[] = [
 ];
 
 function blankTask(): Task {
-  return { projectId: null, entityId: null, ownerId: null, clientId: null, id: newId(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
+  return { projectId: null, entityId: null, ownerId: null, clientId: null, id: newId(), name: "", project: "Produkt", owner: "Martin", status: "Backlog", priority: "Stredna", due: "", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] };
 }
 
 function blankProject(): Project {
@@ -76,6 +77,7 @@ export default function Home() {
   const [draft, setDraft] = useState<Task>(blankTask);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [slotRequest, setSlotRequest] = useState<{ task: Task; slot: CalendarSlot } | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "Vsetko">("Vsetko");
@@ -98,7 +100,7 @@ export default function Home() {
     setEntities(data.entities); setEntityFilter("all");
     setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
     setTasks(data.tasks); setProjects(data.projects); setTeam(data.users); setClients(data.clients); setGoals(data.goals);
-    setSelectedTask(null); setIsFormOpen(false); setEditingProject(null); setProjectDraft(blankProject());
+    setSelectedTask(null); setSlotRequest(null); setIsFormOpen(false); setEditingProject(null); setProjectDraft(blankProject());
     setEditingClient(false); setClientDraft({ id: newId(), name: "", email: "", note: "" });
     setEditingTask(null); setActivityNote("");
     setQuery(""); setStatusFilter("Vsetko"); setProjectFilter(null); setQuickFilter("Vsetko");
@@ -175,7 +177,7 @@ export default function Home() {
       const matchesProject = matchesAssignments(task, projectFilter, entityFilter);
       const matchesQuick =
         quickFilter === "Vsetko" ||
-        (quickFilter === "Dnes" && (task.status === "Dnes" || task.due.toLowerCase().includes("dnes"))) ||
+        (quickFilter === "Dnes" && (task.status === "Dnes" || task.due === localDate())) ||
         (quickFilter === "Vysoka" && task.priority === "Vysoka") ||
         (quickFilter === "Moje" && task.owner.toLowerCase().includes("martin")) ||
         (quickFilter === "Hotovo" && task.status === "Hotovo");
@@ -375,14 +377,11 @@ export default function Home() {
   }
 
   function duplicateTask(task: Task) {
-    setTasks((current) => [linkedTask({ ...task, id: newId(), name: `${task.name} kopia`, status: "Backlog", due: "Neskor", day: "Neskor", slots: [] }), ...current]);
+    setTasks((current) => [linkedTask({ ...task, id: newId(), name: `${task.name} kopia`, status: "Backlog", due: "", day: "Neskor", slots: [] }), ...current]);
   }
 
   function duplicateCalendarSlot(task: Task, slot: CalendarSlot) {
-    setDraft(normalizeTask({ ...task, slots: [...task.slots, { ...slot, id: newId() }] }));
-    setEditingTask(task);
-    setSelectedTask(null);
-    setIsFormOpen(true);
+    setSlotRequest({ task, slot });
   }
 
   function exportData() {
@@ -528,7 +527,7 @@ export default function Home() {
 
           {view === "Tabulka" ? (
           <section className="board">
-            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / klient</span><span>Entita</span><span>Vlastník</span><span>Status</span><span>Priorita</span><span>Termín</span><span>Čas</span><span>Akcie</span></div>
+            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / klient</span><span>Entita</span><span>Vlastník</span><span>Status</span><span>Priorita</span><span>Termín</span><span>Akcie</span></div>
             {visibleTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
@@ -539,9 +538,8 @@ export default function Home() {
                 <select className={`prioritySelect ${task.priority.toLowerCase()}`} value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as Priority, activity: [`Priorita zmenena na ${event.target.value}`, ...task.activity] })}>
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
-                <input value={task.due} onChange={(event) => updateTask(task.id, { due: event.target.value, activity: ["Termin zmeneny", ...task.activity] })} />
-                <span>{task.slots.length ? `${task.slots.reduce((sum, slot) => sum + slot.duration, 0)} h / ${task.slots.length} blok` : `${task.duration} h`}</span>
-                <div className="rowActions"><button className="ghost" onClick={() => openEditTask(task)}>Edit</button><button className="ghost" onClick={() => duplicateTask(task)}>Kopia</button><button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button></div>
+                <span>{formatDeadline(task.due)}</span>
+                <div className="rowActions"><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}>✎</button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}>⧉</button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}>×</button></div>
               </article>
             ))}
             {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
@@ -557,7 +555,7 @@ export default function Home() {
                     <button className="card" key={task.id} onClick={() => setSelectedTask(task)}>
                       <strong>{task.name}</strong>
                       <span>{task.project} · {task.owner}</span>
-                      <em>{task.priority} · {task.due}</em>
+                      <em>{task.priority} · {formatDeadline(task.due)}</em>
                     </button>
                   ))}
                   {columnTasks.length === 0 ? <p className="columnEmpty">Zatial prazdne</p> : null}
@@ -650,11 +648,11 @@ export default function Home() {
                 <option>Aktivny</option><option>Pozastaveny</option><option>Hotovy</option>
               </select>
               <textarea value={projectDraft.goal} onChange={(event) => setProjectDraft({ ...projectDraft, goal: event.target.value })} placeholder="Hlavny ciel oddelenia" />
-              <div className="colorChoices">
+              <fieldset className="colorPalette"><legend>Farba oddelenia</legend><div className="colorChoices">
                 {projectColors.map((color) => (
-                  <button key={color} type="button" className={projectDraft.color === color ? "selected" : ""} style={{ background: color }} aria-label={`Farba ${color}`} onClick={() => setProjectDraft({ ...projectDraft, color })} />
+                  <button key={color} type="button" className={projectDraft.color === color ? "selected" : ""} style={{ background: color }} aria-pressed={projectDraft.color === color} title={`Farba ${color}`} aria-label={`Farba ${color}`} onClick={() => setProjectDraft({ ...projectDraft, color })}>{projectDraft.color === color ? "✓" : ""}</button>
                 ))}
-              </div>
+              </div><button type="button" className="ghost paletteDefault" title="Predvolená farba" onClick={() => setProjectDraft({ ...projectDraft, color: projectColors[0] })}>Predvolené</button></fieldset>
               <button type="submit">{editingProject ? "Uložiť oddelenie" : "Pridať oddelenie"}</button>
               {editingProject ? <button type="button" className="ghost" onClick={cancelProjectEdit}>Zrusit upravu</button> : null}
             </form>
@@ -714,7 +712,7 @@ export default function Home() {
               <button type="button" className="ghost" onClick={() => removeDraftSlot(index + 1)}>Odstranit blok</button>
             </div>)}
             <button type="button" className="ghost" onClick={addDraftSlot}>Pridat casovy blok</button>
-            <label>Termin<input value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
+            <label>Termín · nepovinný<input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
             <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
             <button type="submit">{editingTask ? "Ulozit zmeny" : "Pridat ulohu"}</button>
@@ -733,7 +731,7 @@ export default function Home() {
             <dt>Vlastnik</dt><dd>{selectedTask.owner}</dd>
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
-            <dt>Termin</dt><dd>{selectedTask.due}</dd>
+            <dt>Termín</dt><dd>{formatDeadline(selectedTask.due)}</dd>
             <dt>Cas</dt><dd>{selectedTask.slots.length ? selectedTask.slots.map((slot) => `${slot.day} ${timeLabel(slot.startHour)} (${slot.duration} h)`).join(", ") : `${selectedTask.day}, ${selectedTask.startHour}:00 · ${selectedTask.duration} h`}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
@@ -766,6 +764,10 @@ export default function Home() {
           <button className="danger wide" onClick={() => deleteTask(selectedTask.id)}>Zmazat ulohu</button>
         </aside>
       ) : null}
+      {slotRequest ? <SlotDialog slot={slotRequest.slot} taskName={slotRequest.task.name} onClose={() => setSlotRequest(null)} onConfirm={timing => {
+        setTasks(current => current.map(task => task.id === slotRequest.task.id ? appendCalendarSlot(task, timing) : task));
+        setSlotRequest(null);
+      }} /> : null}
     </main>
   );
 }

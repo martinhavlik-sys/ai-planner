@@ -13,6 +13,7 @@ export default function Calendar({ tasks, onOpen, onEdit, onAdd, onMove }: {
   const [anchor, setAnchor] = useState("");
   const [month, setMonth] = useState("");
   const [range, setRange] = useState<CalendarRange>("work");
+  const [navigation, setNavigation] = useState(0);
   const [drag, setDrag] = useState<{ taskId: number; slotId: number } | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -22,17 +23,15 @@ export default function Calendar({ tasks, onOpen, onEdit, onAdd, onMove }: {
   }, []);
   useEffect(() => {
     if (!anchor || !scroll.current) return;
-    const current = new Date();
-    const hour = rangeDays(anchor, range).includes(localDate(current)) ? Math.max(0, current.getHours() - 1) : 8;
-    scroll.current.scrollTop = hour * hourHeight;
-  }, [anchor, range]);
+    scroll.current.scrollTop = 8 * hourHeight;
+  }, [anchor, range, navigation]);
   if (!now || !anchor || !month) return <p>Načítavam kalendár…</p>;
   const today = localDate(now), days = rangeDays(anchor, range);
   const monthDate = parseDate(month);
   const monthStart = localDate(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1, 12));
   const miniDays = Array.from({ length: 42 }, (_, i) => addDays(monday(monthStart), i));
-  const selectDate = (date: string) => { setAnchor(date); setMonth(date); };
-  const changeMonth = (offset: number) => setMonth(localDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + offset, 1, 12)));
+  const selectDate = (date: string) => { setAnchor(date); setMonth(date); setNavigation(value => value + 1); };
+  const changeMonth = (offset: number) => { setMonth(localDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + offset, 1, 12))); setNavigation(value => value + 1); };
   const dateTitle = (date: string) => parseDate(date).toLocaleDateString("sk-SK", { day: "numeric", month: "short", year: "numeric" });
   return <section className="realCalendar" aria-label="Kalendár úloh">
     <aside className="miniMonth">

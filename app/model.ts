@@ -157,6 +157,19 @@ export function parseDate(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day, 12);
 }
+export function deadline(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && localDate(parseDate(value)) === value ? value : "";
+}
+export function formatDeadline(value: string): string {
+  if (!deadline(value)) return "—";
+  const [year, month, day] = value.split("-").map(Number);
+  return `${day}. ${month}. ${year}`;
+}
+export const departmentColors = ["#1f7a5a", "#3467d6", "#8a5d00", "#ad1457", "#e3135b", "#e97d73", "#db0000", "#ff5120", "#f87900", "#f59600", "#fbc02d", "#e6c83e", "#c0cf30", "#7db343", "#008641", "#2eb77c", "#009e8f", "#00a5df", "#4285f4", "#7e87cc", "#4554bb", "#b39ddb", "#a168b0", "#9323a7", "#795548", "#616161", "#a69e91"];
+export function appendCalendarSlot(task: Task, timing: Pick<CalendarSlot, "day" | "startHour" | "duration">): Task {
+  if (!deadline(timing.day) || !Number.isFinite(timing.startHour) || timing.startHour < 0 || timing.startHour > 23.75 || !Number.isFinite(timing.duration) || timing.duration < .25 || timing.duration > 24) throw new Error("Neplatný dátum, čas alebo trvanie bloku.");
+  return normalizeTask({ ...task, slots: [...task.slots, { ...timing, taskId: task.id, id: newId() }] });
+}
 export function addDays(value: string, days: number): string {
   const date = parseDate(value); date.setDate(date.getDate() + days); return localDate(date);
 }
@@ -216,7 +229,7 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
     projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
-    due: text(value.due, "Neskor"), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
+    due: deadline(text(value.due)), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
     duration: slots[0]?.duration ?? num(value.duration, 1), slots, note: text(value.note),
     checklist: uniqueIds(rows(value.checklist ?? [])).map(item => ({ id: item.id, text: text(item.text), done: item.done === true })),
     activity: Array.isArray(value.activity) ? value.activity.filter((item): item is string => typeof item === "string") : []
