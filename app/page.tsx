@@ -460,10 +460,9 @@ export default function Home() {
       <aside className="sidebar">
         <div className="brand"><span>AP</span><strong>AI Planner</strong></div>
         <nav aria-label="Hlavné menu">
-          {menuOrder.map((screen, index) => (
+          {menuOrder.map((screen) => (
             <div className="navItem" key={screen} onDragOver={e => { if (dragMenu) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }} onDrop={e => { e.preventDefault(); if (dragMenu) setMenuOrder(current => moveMenuItem(current, dragMenu, screen)); setDragMenu(null); }}>
               <button draggable className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => setActiveScreen(screen)}>{screenLabel(screen)}</button>
-              <span className="navMove"><button className="ghost" title="Presunúť hore" aria-label={`${screenLabel(screen)} presunúť hore`} disabled={index === 0} onClick={() => setMenuOrder(current => moveMenuItem(current, screen, current[index - 1]))}>↑</button><button className="ghost" title="Presunúť dole" aria-label={`${screenLabel(screen)} presunúť dole`} disabled={index === menuOrder.length - 1} onClick={() => setMenuOrder(current => moveMenuItem(current, screen, current[index + 1]))}>↓</button></span>
             </div>
           ))}
         </nav>
@@ -540,8 +539,8 @@ export default function Home() {
 
           {view === "Tabulka" ? (
           <section className="board">
-            <div className="tableControls"><label>Triediť podľa <select value={sortKey} onChange={e => setSortKey(e.target.value as TaskSort)}><option value="name">Názov</option><option value="due">Deadline</option><option value="priority">Priorita</option><option value="people">Osoby</option><option value="department">Oddelenie</option></select></label><select aria-label="Smer triedenia" value={sortDirection} onChange={e => setSortDirection(e.target.value as "asc" | "desc")}><option value="asc">Vzostupne ↑</option><option value="desc">Zostupne ↓</option></select></div>
-            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / klient</span><span>Entita</span><span>Osoby</span><span>Status</span><span>Priorita</span><span>Deadline</span><span>Akcie</span></div>
+            <div className="tableControls"><label>Triediť podľa <select value={sortKey} onChange={e => setSortKey(e.target.value as TaskSort)}><option value="name">Názov</option><option value="due">Dátum dokončenia</option><option value="priority">Priorita</option><option value="people">Osoby</option><option value="department">Oddelenie</option></select></label><select aria-label="Smer triedenia" value={sortDirection} onChange={e => setSortDirection(e.target.value as "asc" | "desc")}><option value="asc">Vzostupne</option><option value="desc">Zostupne</option></select></div>
+            <div className="tableHeader"><span>Úloha</span><span>Oddelenie / klient</span><span>Entita</span><span>Osoby</span><span>Status</span><span>Priorita</span><span>Dátum dokončenia</span><span>Akcie</span></div>
             {tableTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
@@ -712,7 +711,7 @@ export default function Home() {
               <button type="button" className="ghost" onClick={() => removeDraftSlot(index + 1)}>Odstranit blok</button>
             </div>)}
             <button type="button" className="ghost" onClick={addDraftSlot}>Pridat casovy blok</button>
-            <label>Deadline · nepovinný<input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
+            <label>Dátum dokončenia · nepovinný<input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
             <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
             <button type="submit">{editingTask ? "Ulozit zmeny" : "Pridat ulohu"}</button>
@@ -731,7 +730,7 @@ export default function Home() {
             <dt>Osoby</dt><dd><People task={selectedTask} users={team} expanded /></dd>
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
-            <dt>Deadline</dt><dd>{formatDeadline(selectedTask.due)}</dd>
+            <dt>Dátum dokončenia</dt><dd>{formatDeadline(selectedTask.due)}</dd>
             <dt>Cas</dt><dd>{selectedTask.slots.length ? selectedTask.slots.map((slot) => `${slot.day} ${timeLabel(slot.startHour)} (${slot.duration} h)`).join(", ") : `${selectedTask.day}, ${selectedTask.startHour}:00 · ${selectedTask.duration} h`}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>
