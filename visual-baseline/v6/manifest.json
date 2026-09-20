@@ -1,0 +1,18 @@
+{
+  "checkpoint": "2026-09-20 pre-v7",
+  "v6_zip_sha256": "fa30eba916c9d2a396f0a9e85f2e83c4968ee7083e771015ff788ca9159ceb43",
+  "files": {
+    "app/repository.ts": "39d1e9c49b9a4a1e25e7aa46213b1ca1f8ec9aefa53cf72b5fb05d72398fc22f",
+    "app/record-picker.tsx": "bfa74317538d930becf2976793436af09d27a340d3985f2ef4d93077760534a4",
+    "app/slot-dialog.tsx": "db6c19ca7eaf518c6a6deafa6e9111dd1119da5bc5767adef88cac1591319650",
+    "app/supabase-client.ts": "2eaded138816e4ab9984e6e17331abd3c4946dd7e26041672ef86d6fdbbaf37a",
+    "app/model.ts": "303f48df2aefe2b6ac6c22c8d74ccc034206980f028d4260e4b764e40d1a8ca9",
+    "app/calendar.tsx": "a50e30e00d10b023848b7d0ef6dad0b6612690e33199c873cbacf10ee1ff37a6",
+    "app/users.tsx": "e706024c6ffe344c07928bb3041f30f7f8a318a9323be7ab8046eb5ee7179fe7",
+    "app/layout.tsx": "14b10650989872628bdc60ede7dbef1773b00b3ec4184619f6d25ae636661a5f",
+    "app/people.tsx": "66a6cdf2b82e13753ff39e7d2ad19c043c6f6ad45a239929aede99c72385897e",
+    "app/page.tsx": "eff1c3747d3b14feb84f8f78b6bd44239159ad996fe69ab57c4d9966bdecd808",
+    "app/globals.css": "5f5b4d25f660ba22eb69337268235a3a0b44d53989b4b86e16560c2f9308d674",
+    "app/task-dialog.tsx": "85deecf1e1daaf38da439bd89b31dd124d69c1ea7c6238bcaac6be2b384b34ed"
+  }
+}

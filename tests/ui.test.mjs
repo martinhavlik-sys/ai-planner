@@ -171,15 +171,15 @@ test('workspace filters and sorting combine; menu buttons and drag persist acros
   app.find(n => n.props['aria-label'] === 'Filtrovať osoby').props.onChange({ target: { value: String(data.users.find(u => u.name === 'Eva').id) } });
   app.find(n => n.props['aria-label'] === 'Hladat ulohy').props.onChange({ target: { value: 'al' } }); app.render();
   assert.deepEqual(rowNames(), ['Alfa']);
-  app.find(n => n.props.children === '▸ Doplnenia' || (Array.isArray(n.props.children) && n.props.children.includes(' Doplnenia'))).props.onClick(); app.render();
+  app.find(n => n.props['aria-label'] === 'Doplnenia').props.onClick(); app.render();
   const transfer = { setData() {} };
-  app.find(n => n.props.draggable && n.props.children === 'Používatelia').props.onDragStart({ dataTransfer: transfer }); app.render();
-  app.nodes().find(n => n.props.className === 'navItem' && n.props.children.props.children === 'Oddelenia').props.onDrop({ preventDefault() {} }); app.render();
+  app.find(n => n.props.draggable && n.props['aria-label'] === 'Používatelia').props.onDragStart({ dataTransfer: transfer }); app.render();
+  app.nodes().find(n => n.props.className === 'navItem' && n.props.children.props['aria-label'] === 'Oddelenia').props.onDrop({ preventDefault() {} }); app.render();
   const stored = JSON.parse(app.storage.get(model.workspaceKey));
   assert.ok(stored.menuOrder.indexOf('Tim') < stored.menuOrder.indexOf('Projekty'));
   assert.deepEqual(stored.tasks.map(t => t.id), [1, 2, 3]);
   const reloaded = mount('page.tsx', {}, 'default', stored);
-  assert.equal(reloaded.nodes().find(n => n.props.draggable).props.children, 'Pracovná plocha');
+  assert.equal(reloaded.nodes().find(n => n.props.draggable).props['aria-label'], 'Pracovná plocha');
   assert.ok(!app.nodes().some(n => n.props.children === 'Spravovať entity'));
 });
 
@@ -248,4 +248,30 @@ test('task editor uses native modal top layer, locks body scroll and routes Esca
   assert.equal(dialog.props['aria-labelledby'], 'task-dialog-title');
   dialog.props.onCancel({ preventDefault() { prevented = true; } });
   assert.equal(closed, 1); assert.equal(prevented, true);
+});
+
+test('v7 navigation keeps explicit accessible names and active state with decorative icons', options, () => {
+  const app = mount('page.tsx', {});
+  app.find(n => n.props['aria-label'] === 'Doplnenia').props.onClick(); app.render();
+  const nav = () => app.nodes().filter(n => n.props.draggable);
+  assert.deepEqual(nav().map(n => n.props['aria-label']).sort(), ['Pracovná plocha','Inbox','Oddelenia','Projekty','Entity','Používatelia'].sort());
+  for (const label of ['Inbox','Oddelenia','Projekty','Entity','Používatelia','Pracovná plocha']) {
+    nav().find(n => n.props['aria-label'] === label).props.onClick(); app.render();
+    assert.equal(nav().find(n => n.props['aria-current'] === 'page').props['aria-label'], label);
+  }
+  for (const n of app.nodes().filter(n => n.type === 'button' && n.props.className?.includes('iconButton'))) {
+    assert.ok(n.props['aria-label']?.length > 3);
+    assert.ok(n.props.title?.length > 0);
+  }
+});
+
+test('shared font and SVG icons are decorative and never keyboard stops', options, () => {
+  for (const name of ['dashboard','calendar','departments','projects','users','entity','inbox','settings','download','upload','plus','check','search','sort','right','left','up','down','close','filter','edit','trash','tasks','copy','archive','restore','table','kanban']) {
+    const app = mount('ui-icon.tsx', { name });
+    const icon = app.nodes()[0];
+    assert.equal(icon.props['aria-hidden'], 'true');
+    assert.equal(icon.props.tabIndex, undefined);
+    if (icon.type === 'svg') assert.equal(icon.props.focusable, 'false');
+    else assert.equal(icon.props.children.length, 1);
+  }
 });

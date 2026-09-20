@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "./fonts.css";
-import "./theme.css";
 
 export const metadata: Metadata = {
   title: "AI Planner",
@@ -14,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="sk" data-theme="procare">
+    <html lang="sk">
       <body>{children}</body>
     </html>
   );

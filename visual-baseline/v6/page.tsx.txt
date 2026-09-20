@@ -1,7 +1,5 @@
 "use client";
 
-import Icon, { IconName } from "./ui-icon";
-
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
 import { Campaign, projectLabel, campaignChoices, saveCampaign, resizeTaskSlot } from "./model";
@@ -29,7 +27,6 @@ const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
 const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Kampane: "Projekty", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
-const screenIcon: Record<Screen, IconName> = { "Pracovna plocha": "dashboard", Projekty: "departments", Kampane: "projects", Tim: "users", Klienti: "users", Inbox: "inbox", Entity: "entity" };
 const projectColors = departmentColors;
 
 
@@ -484,25 +481,25 @@ export default function Home() {
         <div className="brand"><span>AP</span><strong>AI Planner</strong></div>
         <nav aria-label="Hlavné menu">
           {(["top", "config"] as const).map(group => <div key={group}>
-            {group === "config" ? <button aria-label="Doplnenia" aria-expanded={extrasOpen} onClick={() => setExtrasOpen(!extrasOpen)}><Icon name={extrasOpen ? "down" : "right"} /><span>Doplnenia</span></button> : null}
+            {group === "config" ? <button aria-expanded={extrasOpen} onClick={() => setExtrasOpen(!extrasOpen)}>{extrasOpen ? "▾" : "▸"} Doplnenia</button> : null}
             {group === "top" || extrasOpen ? <>
           {menuOrder.filter(screen => group === "top" ? ["Pracovna plocha", "Inbox"].includes(screen) : !["Pracovna plocha", "Inbox"].includes(screen) && (screen !== "Klienti" || adminConfig)).map((screen) => (
             <div className="navItem" key={screen} onDragOver={e => { if (dragMenu) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }} onDrop={e => { e.preventDefault(); if (dragMenu) setMenuOrder(current => moveMenuItem(current, dragMenu, screen)); setDragMenu(null); }}>
-              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => setActiveScreen(screen)}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
+              <button draggable className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => setActiveScreen(screen)}>{screenLabel(screen)}</button>
             </div>
           ))}
             </> : null}
           </div>)}
         </nav>
         <section className="projectList">
-          <button aria-expanded={projectsOpen} aria-controls="departmentFilters" onClick={() => setProjectsOpen(!projectsOpen)}><Icon name={projectsOpen ? "down" : "right"} /><span>Oddelenia</span></button>
+          <button aria-expanded={projectsOpen} aria-controls="departmentFilters" onClick={() => setProjectsOpen(!projectsOpen)}>{projectsOpen ? "▾" : "▸"} Oddelenia</button>
           {projectsOpen ? <div id="departmentFilters" className="filterItems">
             <button aria-pressed={projectFilter === null} onClick={() => chooseProject(null)}>Všetky oddelenia</button>
             {projects.map(project => <button key={project.id} aria-pressed={projectFilter === project.id} onClick={() => chooseProject(project.id)} style={{ borderLeftColor: project.color }}>{project.name}</button>)}
           </div> : null}
         </section>
         <section className="projectList">
-          <button aria-expanded={entitiesOpen} aria-controls="entityFilters" onClick={() => setEntitiesOpen(!entitiesOpen)}><Icon name={entitiesOpen ? "down" : "right"} /><span>Entity</span></button>
+          <button aria-expanded={entitiesOpen} aria-controls="entityFilters" onClick={() => setEntitiesOpen(!entitiesOpen)}>{entitiesOpen ? "▾" : "▸"} Entity</button>
           {entitiesOpen ? <div id="entityFilters" className="filterItems">
             <button aria-pressed={entityFilter === "all"} onClick={() => chooseEntity("all")}>Všetky entity</button>
             <button aria-pressed={entityFilter === null} onClick={() => chooseEntity(null)}>Bez entity</button>
@@ -514,23 +511,23 @@ export default function Home() {
       <section className="content">
         <header className="header">
           <div><p className="eyebrow">Produktovy workspace</p><h1>{screenLabel(activeScreen)}</h1></div>
-          <div className="headerActions"><button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}><Icon name="settings" /><span>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</span></button>
-            <button className="ghost" onClick={exportData}><Icon name="download" /><span>Export</span></button>
+          <div className="headerActions"><button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</button>
+            <button className="ghost" onClick={exportData}>Export</button>
             <button className="ghost" title="Pripraví zálohu a počty; nič neposiela na server" onClick={() => {
               const plan = prepareImport({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals });
               const url = URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" }));
               const a = document.createElement("a"); a.href = url; a.download = `ai-planner-import-${localDate()}.json`; a.click(); URL.revokeObjectURL(url);
               setNotice(`Príprava importu: ${plan.counts.tasks} úloh, ${plan.counts.slots} blokov. Vzdialený zápis zostáva uzamknutý.`);
-            }}><Icon name="upload" /><span>Pripraviť prenos</span></button>
-            <button className="ghost" onClick={() => importRef.current?.click()}><Icon name="upload" /><span>Import</span></button>
+            }}>Pripraviť prenos</button>
+            <button className="ghost" onClick={() => importRef.current?.click()}>Import</button>
             <input ref={importRef} className="hiddenInput" type="file" accept="application/json" onChange={importData} />
-            <button onClick={openNewTask}><Icon name="plus" /><span>Nova uloha</span></button>
+            <button onClick={openNewTask}>Nova uloha</button>
           </div>
         </header>
 
         <p className="storageStatus" role="status">{remoteStatus()}</p>
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
-        {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}><Icon name="close" /><span>Zavriet</span></button></div> : null}
+        {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}>Zavriet</button></div> : null}
         <section className="stats" aria-label="Prehlad">
           <article><span>{tasks.length}</span><p>Uloh spolu</p></article>
           <article><span>{activeTasks.length}</span><p>Aktivne</p></article>
@@ -554,9 +551,9 @@ export default function Home() {
               {entities.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
             </select>
             <div className="viewSwitch" aria-label="Prepinanie zobrazenia">
-              <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}><Icon name="table" /><span>Tabulka</span></button>
-              <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}><Icon name="kanban" /><span>Kanban</span></button>
-              <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}><Icon name="calendar" /><span>Tyzden</span></button>
+              <button className={view === "Tabulka" ? "selected" : ""} onClick={() => setView("Tabulka")}>Tabulka</button>
+              <button className={view === "Kanban" ? "selected" : ""} onClick={() => setView("Kanban")}>Kanban</button>
+              <button className={view === "Tyžden" ? "selected" : ""} onClick={() => setView("Tyžden")}>Tyzden</button>
             </div>
           </section>
 
@@ -567,7 +564,7 @@ export default function Home() {
             ))}
 
             <span>Zobrazene: {visibleTasks.length} z {tasks.length} uloh</span>
-            <button className="ghost" onClick={clearFilters}><Icon name="filter" /><span>Vymazať filtre</span></button>
+            <button className="ghost" onClick={clearFilters}>Vymazať filtre</button>
           </section>
 
           {view === "Tabulka" ? (
@@ -585,7 +582,7 @@ export default function Home() {
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
                 <span>{formatDeadline(task.due)}</span>
-                <div className="rowActions"><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}><Icon name="edit" /></button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}><Icon name="copy" /></button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}><Icon name="trash" /></button></div>
+                <div className="rowActions"><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}>✎</button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}>⧉</button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}>×</button></div>
               </article>
             ))}
             {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
@@ -632,7 +629,7 @@ export default function Home() {
                     <button onClick={() => triageTask(task, "Dnes")}>Dnes</button>
                     <button className="ghost" onClick={() => triageTask(task, "Backlog")}>Backlog</button>
                     <button className="ghost" onClick={() => openEditTask(task)}>Doplnit</button>
-                    <button className="danger" onClick={() => deleteTask(task.id)}><Icon name="trash" /><span>Zmazat</span></button>
+                    <button className="danger" onClick={() => deleteTask(task.id)}>Zmazat</button>
                   </div>
                 </article>
               ))}
@@ -656,9 +653,9 @@ export default function Home() {
               {entities.map(entity => <div className="entityRow" role="row" key={entity.id}>
                 <strong role="cell">{entity.name}</strong><span role="cell">{tasks.filter(t => t.entityId === entity.id).length}</span>
                 <div className="recordActions" role="cell">
-                  <button className="ghost iconButton" title="Zobraziť úlohy" aria-label={`Úlohy entity ${entity.name}`} onClick={() => chooseEntity(entity.id)}><Icon name="tasks" /></button>
-                  <button className="ghost iconButton" title="Upraviť entitu" aria-label={`Upraviť entitu ${entity.name}`} onClick={() => { setEntityDraft(entity); setEditingEntity(true); }}><Icon name="edit" /></button>
-                  <button className="danger iconButton" title="Zmazať entitu" aria-label={`Zmazať entitu ${entity.name}`} onClick={() => deleteEntity(entity.id)}><Icon name="trash" /></button>
+                  <button className="ghost iconButton" title="Zobraziť úlohy" aria-label={`Úlohy entity ${entity.name}`} onClick={() => chooseEntity(entity.id)}>☷</button>
+                  <button className="ghost iconButton" title="Upraviť entitu" aria-label={`Upraviť entitu ${entity.name}`} onClick={() => { setEntityDraft(entity); setEditingEntity(true); }}>✎</button>
+                  <button className="danger iconButton" title="Zmazať entitu" aria-label={`Zmazať entitu ${entity.name}`} onClick={() => deleteEntity(entity.id)}>×</button>
                 </div>
               </div>)}
             </div>
@@ -679,8 +676,8 @@ export default function Home() {
               {clients.map(client => <article className="clientRow" key={client.id}>
                 <div><strong>{client.name}</strong></div>
                 <span>{projects.filter(p => p.clientId === client.id).length} oddelení · {tasks.filter(t => effectiveClientId(t, projects) === client.id).length} uloh</span>
-                <button className="ghost" onClick={() => { setClientDraft(client); setEditingClient(true); }}><Icon name="edit" /><span>Upravit</span></button>
-                <button className="danger" onClick={() => deleteClient(client)}><Icon name="trash" /><span>Zmazat</span></button>
+                <button className="ghost" onClick={() => { setClientDraft(client); setEditingClient(true); }}>Upravit</button>
+                <button className="danger" onClick={() => deleteClient(client)}>Zmazat</button>
               </article>)}
             </div>
           </section>
@@ -710,8 +707,8 @@ export default function Home() {
               <span role="cell">{projects.find(p => p.id === c.departmentId)?.name}</span>
               <span role="cell">{c.entityIds.map(id => entities.find(e => e.id === id)?.name).join(", ") || "Všetky entity"}</span>
               <div className="recordActions" role="cell">
-                <button className="ghost iconButton" title="Upraviť projekt" aria-label={`Upraviť projekt ${projectLabel(c)}`} onClick={() => setCampaignDraft(c)}><Icon name="edit" /></button>
-                <button className="ghost iconButton" title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} aria-label={`${c.archived ? "Obnoviť" : "Archivovať"} projekt ${projectLabel(c)}`} onClick={() => { const archived = !c.archived; setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived } : p)); setCampaignDraft(current => current.id === c.id ? { ...current, archived } : current); }}><Icon name={c.archived ? "restore" : "archive"} /></button>
+                <button className="ghost iconButton" title="Upraviť projekt" aria-label={`Upraviť projekt ${projectLabel(c)}`} onClick={() => setCampaignDraft(c)}>✎</button>
+                <button className="ghost iconButton" title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} aria-label={`${c.archived ? "Obnoviť" : "Archivovať"} projekt ${projectLabel(c)}`} onClick={() => { const archived = !c.archived; setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived } : p)); setCampaignDraft(current => current.id === c.id ? { ...current, archived } : current); }}>{c.archived ? "↶" : "▣"}</button>
               </div>
             </div>)}
           </div>
@@ -735,9 +732,9 @@ export default function Home() {
                     <div className="projectTitle"><h2>{project.name}</h2></div>
                     <p>{project.tasks.length} úloh</p>
                     <div className="projectActions">
-                      <button className="ghost" onClick={() => chooseProject(project.id)}><Icon name="tasks" /><span>Otvorit ulohy</span></button>
-                      <button className="ghost" onClick={() => editProject(project)}><Icon name="edit" /><span>Upravit</span></button>
-                      <button className="danger" disabled={!canDelete} title={canDelete ? "Zmazať oddelenie" : "Oddelenie má priradené úlohy alebo historické ciele"} onClick={() => deleteProject(project)}><Icon name="trash" /><span>Zmazat</span></button>
+                      <button className="ghost" onClick={() => chooseProject(project.id)}>Otvorit ulohy</button>
+                      <button className="ghost" onClick={() => editProject(project)}>Upravit</button>
+                      <button className="danger" disabled={!canDelete} title={canDelete ? "Zmazať oddelenie" : "Oddelenie má priradené úlohy alebo historické ciele"} onClick={() => deleteProject(project)}>Zmazat</button>
                     </div>
                   </article>
                 );
@@ -757,7 +754,7 @@ export default function Home() {
       {isFormOpen ? (
         <TaskDialog onClose={() => setIsFormOpen(false)}>
           <form className="modal" onSubmit={saveTask}>
-            <div className="modalHeader"><h2 id="task-dialog-title">{editingTask ? "Upraviť úlohu" : "Nová úloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}><Icon name="close" /><span>Zavriet</span></button></div>
+            <div className="modalHeader"><h2 id="task-dialog-title">{editingTask ? "Upraviť úlohu" : "Nová úloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}>Zavriet</button></div>
             <label>Názov úlohy<input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
               <RecordPicker label="Oddelenie" records={projects} value={draft.projectId} onChange={projectId => setDraft({ ...draft, projectId, campaignId: null })} />
@@ -778,7 +775,7 @@ export default function Home() {
               <label>Dlzka (h)<input type="number" min="0.25" max="24" step="0.25" value={slot.duration} onChange={e => setDraft({ ...draft, slots: draft.slots.map(s => s.id === slot.id ? { ...s, duration: Number(e.target.value) || 1 } : s) })} /></label>
               <button type="button" className="ghost" onClick={() => removeDraftSlot(index + 1)}>Odstranit blok</button>
             </div>)}
-            <button type="button" className="ghost" onClick={addDraftSlot}><Icon name="plus" /><span>Pridat casovy blok</span></button>
+            <button type="button" className="ghost" onClick={addDraftSlot}>Pridat casovy blok</button>
             <label>Dátum dokončenia · nepovinný<input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
             <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
@@ -789,7 +786,7 @@ export default function Home() {
 
       {selectedTask ? (
         <aside className="detailPanel">
-          <button className="ghost" onClick={() => setSelectedTask(null)}><Icon name="close" /><span>Zavriet</span></button>
+          <button className="ghost" onClick={() => setSelectedTask(null)}>Zavriet</button>
           <h2>{selectedTask.name}</h2>
           <dl>
             <dt>Oddelenie</dt><dd>{selectedTask.project || "Bez oddelenia"}</dd>
@@ -827,8 +824,8 @@ export default function Home() {
             </form>
             {(selectedTask.activity.length ? selectedTask.activity : ["Zatial bez aktivity."]).slice(0, 5).map((item) => <p key={item}>{item}</p>)}
           </section>
-          <button className="ghost wide" onClick={() => openEditTask(selectedTask)}><Icon name="edit" /><span>Upravit ulohu</span></button>
-          <button className="danger wide" onClick={() => deleteTask(selectedTask.id)}><Icon name="trash" /><span>Zmazat ulohu</span></button>
+          <button className="ghost wide" onClick={() => openEditTask(selectedTask)}>Upravit ulohu</button>
+          <button className="danger wide" onClick={() => deleteTask(selectedTask.id)}>Zmazat ulohu</button>
         </aside>
       ) : null}
       {slotRequest ? <SlotDialog slot={slotRequest.slot} taskName={slotRequest.task.name} onClose={() => setSlotRequest(null)} onConfirm={timing => {

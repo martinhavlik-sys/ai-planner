@@ -1,7 +1,5 @@
 "use client";
 
-import Icon from "./ui-icon";
-
 import { FormEvent, useState, useRef } from "react";
 import { User, UserRole, Task, Project, defaultPermissions, newId, permissionCatalog, saveUser, removeUser } from "./model";
 import { avatarProfile, initialsFromName, maxPhotoBytes, personTaskCount } from "./model";
@@ -69,7 +67,7 @@ export default function Users({ users, tasks, projects, onChange }: { users: Use
         <div className="userIdentity"><Avatar user={user} /><div><strong>{user.name}</strong><small>{user.email || "Email treba doplniť"}</small><small>{personTaskCount(tasks, user.id)} úloh</small></div></div>
         <div><span>{roleLabel(user.role)}</span><small>{user.status === "active" ? "Aktívny (lokálny záznam)" : "Pripravený na pozvanie"}</small></div>
         <details><summary>Oprávnenia ({user.permissions.length}/{permissionCatalog.length})</summary><ul>{permissionCatalog.filter(p => user.permissions.includes(p.key)).map(p => <li key={p.key}>{p.label}</li>)}</ul>{user.permissions.length === 0 ? <p>Žiadne oprávnenia</p> : null}</details>
-        <div className="userActions"><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${user.name}`} onClick={() => { photoRevision.current++; setDraft({ ...user, permissions: [...user.permissions] }); setCustomInitials(user.initials !== initialsFromName(user.name)); setEditing(true); setError(""); }}><Icon name="edit" /></button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${user.name}`} onClick={() => remove(user.id)}><Icon name="trash" /></button></div>
+        <div className="userActions"><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${user.name}`} onClick={() => { photoRevision.current++; setDraft({ ...user, permissions: [...user.permissions] }); setCustomInitials(user.initials !== initialsFromName(user.name)); setEditing(true); setError(""); }}>✎</button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${user.name}`} onClick={() => remove(user.id)}>×</button></div>
       </article>)}</div>
     </div>
   </section>;

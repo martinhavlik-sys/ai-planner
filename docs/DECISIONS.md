@@ -14,3 +14,8 @@ Schválené pravidlá implementované vo v6. Zmena týchto pravidiel vyžaduje v
 10. **Remote zostáva vypnuté.** Verejný anon kľúč nie je identita ani oprávnenie na zápis. Lokálny prepínač vlastníka a permissions nie sú bezpečnostná hranica. Bez Auth, členstva a overeného RLS nevytvárať zapisovacie policies ani automatický prenos údajov.
 11. **Kompaktná správa záznamov.** Jeden obal sekcie, zarovnaný formulár a stabilné stĺpce zoznamu; responzívne preskupenie namiesto vnorených kariet. Ikonové akcie majú title aj accessible label.
 12. **Dokumentácia spolu s kódom.** Každá zmena dát, ukladania, oprávnení, integrácie alebo deploymentu musí aktualizovať príslušný dokument. Rozlišovať lokálne overené fakty od predpokladov o Verceli/Supabase.
+
+
+## v7 · reversible local visual assets
+
+Keep globals.css byte-identical to v6, layer scoped ProCare styles above it, and retain source snapshots + original ZIP. Self-host official Montserrat WOFF2 under OFL 1.1; record the supplied proprietary MDX provenance without inventing license rights. Use accessible parent controls and original SVGs where the MDX mapping is unsuitable.

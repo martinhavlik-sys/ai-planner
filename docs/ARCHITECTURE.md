@@ -39,3 +39,8 @@ Kalendár je samostatný stacking context (`isolation: isolate`). Vnútri použ�
 Funkčná perzistencia: localStorage, súborový JSON import/export a obrázok používateľa ako limitovaný Data URL. Externý kalendár, emailové pozvánky, AI API a synchronizácia nie sú zapojené. Jediný pripravený fetch v `supabase-client.ts` číta workspaces, ale nemá volajúceho z UI. Verejné env premenné iba oznamujú prítomnosť konfigurácie, nekontrolujú zdravie spojenia.
 
 SQL členstvo, lokálna osoba a prihlásený účet sú odlišné pojmy. V súčasnosti neexistuje prihlásená identita. Detailné hranice sú v DATA_MODEL a ROADMAP.
+
+
+## v7 presentation boundary
+
+Theme tokens and selectors live in `app/theme.css`, activated only by the root data-theme attribute. Local font declarations and typed decorative icons are separate. No model, persistence or calendar geometry changes. See `VISUAL_THEME.md`.

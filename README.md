@@ -36,3 +36,10 @@ Pre produkčné zostavenie použite `pnpm build`, potom `pnpm typecheck`. Testy 
 Exportujte JSON zálohy. Verejné Supabase env premenné nemenia zdroj dát. Správa vlastníka je lokálny prepínač, nie prihlásenie; používateľské oprávnenia sa iba evidujú. „Pripraviť prenos“ sťahuje validovaný balík, nič neposiela do databázy.
 
 SQL migrácia je pripravená, ale nebola vykonaná ani testovaná na PostgreSQL. Zmeny neboli nasadené a dashboardy neboli upravené. Stav testov, produkčného buildu a nevykonanej prehliadačovej kontroly je uvedený v [DEPLOYMENT](docs/DEPLOYMENT.md#overenie-vydania-v6).
+
+
+## v7 · vizuálna vrstva
+
+Kompaktný vzhľad inšpirovaný ProCare, lokálny Montserrat a spoločné ikony. Funkčné jadro v6 a schéma 5 zostávajú zachované. Návrat k neutrálnemu vzhľadu a presný rollback: [docs/VISUAL_THEME.md](docs/VISUAL_THEME.md). Pôvod a licencie fontov: [public/fonts/SOURCES.md](public/fonts/SOURCES.md).
+
+Overenie v7: 65 testov bez vynechania, kontrola typov a produkčné zostavenie úspešné. Rozsah skutočnej vizuálnej kontroly: [docs/QA_V7.md](docs/QA_V7.md).

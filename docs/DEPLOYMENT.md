@@ -68,3 +68,8 @@ Finálny beh 19. 9. 2026: **61 testov, 61 úspešných, 0 preskočených** s dos
 ## Balenie
 
 ZIP má jeden koreňový priečinok `ai-planner-vercel`. Zahrnúť zdroje, tests, docs, SQL, manifest, lockfile, `.gitignore` a `.env.example`. Vylúčiť dependencies, `.next`, `.git`, `.env*` okrem príkladu, `.DS_Store`, `*.tsbuildinfo`, caches, logy a pracovné súbory. Integritu overiť rozčítaním všetkých ZIP položiek; finálny archív sám neznamená nasadenie.
+
+
+## v7 packaging
+
+No deployment was performed. Build does not fetch fonts: ship `public/fonts` alongside the app. Before a future public release, resolve the supplied MDX asset redistribution rights documented in `public/fonts/SOURCES.md`. Neutral theme and full v6 rollback are documented in `VISUAL_THEME.md`. The v7 ZIP excludes modules, build caches, .git and environment secrets.

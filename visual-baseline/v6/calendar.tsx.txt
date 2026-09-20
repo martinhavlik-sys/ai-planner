@@ -1,7 +1,5 @@
 "use client";
 
-import Icon from "./ui-icon";
-
 import { useEffect, useRef, useState } from "react";
 import { Task, CalendarSlot, CalendarRange, addDays, localDate, parseDate, monday, rangeDays, layoutSlots, timeLabel, calendarSegments } from "./model";
 import { User, Project, assignedUsers, resizedSlotDuration, departmentEventColors } from "./model";
@@ -50,7 +48,7 @@ export default function Calendar({ tasks, users = [], departments = [], onOpen, 
   const dateTitle = (date: string) => parseDate(date).toLocaleDateString("sk-SK", { day: "numeric", month: "short", year: "numeric" });
   return <section className="realCalendar" aria-label="Kalendár úloh">
     <aside className="miniMonth">
-      <div className="monthControls"><button className="ghost" aria-label="Predchádzajúci mesiac" onClick={() => changeMonth(-1)}><Icon name="left" /></button><strong>{monthDate.toLocaleDateString("sk-SK", { month: "long", year: "numeric" })}</strong><button className="ghost" aria-label="Ďalší mesiac" onClick={() => changeMonth(1)}><Icon name="right" /></button></div>
+      <div className="monthControls"><button className="ghost" aria-label="Predchádzajúci mesiac" onClick={() => changeMonth(-1)}>‹</button><strong>{monthDate.toLocaleDateString("sk-SK", { month: "long", year: "numeric" })}</strong><button className="ghost" aria-label="Ďalší mesiac" onClick={() => changeMonth(1)}>›</button></div>
       <div className="monthGrid">{["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map(day => <span key={day}>{day}</span>)}
         {miniDays.map(date => <button key={date} aria-label={dateTitle(date)} aria-current={date === today ? "date" : undefined} aria-pressed={date === anchor} className={`${date.slice(0, 7) !== month.slice(0, 7) ? "outside" : ""} ${date === today ? "today" : ""} ${days.includes(date) ? "inRange" : ""}`} onClick={() => selectDate(date)}>{parseDate(date).getDate()}</button>)}
       </div>
@@ -58,8 +56,8 @@ export default function Calendar({ tasks, users = [], departments = [], onOpen, 
     <div className="calendarMain">
       <div className="calendarToolbar">
         <button className="ghost" onClick={() => selectDate(today)}>Dnes</button>
-        <button className="ghost" aria-label="Predchádzajúci rozsah" onClick={() => selectDate(addDays(anchor, -(range === "work" || range === "week" ? 7 : Number(range))))}><Icon name="left" /></button>
-        <button className="ghost" aria-label="Ďalší rozsah" onClick={() => selectDate(addDays(anchor, range === "work" || range === "week" ? 7 : Number(range)))}><Icon name="right" /></button>
+        <button className="ghost" aria-label="Predchádzajúci rozsah" onClick={() => selectDate(addDays(anchor, -(range === "work" || range === "week" ? 7 : Number(range))))}>‹</button>
+        <button className="ghost" aria-label="Ďalší rozsah" onClick={() => selectDate(addDays(anchor, range === "work" || range === "week" ? 7 : Number(range)))}>›</button>
         <strong>{dateTitle(days[0])} – {dateTitle(days[days.length - 1])}</strong>
         <select aria-label="Rozsah kalendára" value={range} onChange={e => setRange(e.target.value as CalendarRange)}><option value="3">3 dni</option><option value="5">5 dní</option><option value="work">Pracovný týždeň</option><option value="week">Celý týždeň</option></select>
       </div>
@@ -85,7 +83,7 @@ export default function Calendar({ tasks, users = [], departments = [], onOpen, 
                 return <article key={`${task.id}-${slot.id}`} className={`timedEvent${preview?.taskId === task.id && preview.slotId === slot.id ? " isResizing" : ""}`} draggable={!preview} tabIndex={0} role="group" aria-keyshortcuts="Enter Space" aria-label={`${task.name}, ${dateTitle(day)}, ${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} title={`${task.name}\n${timeLabel(slot.startHour)} – ${timeLabel(slot.startHour + slot.duration)}`} onClick={() => { if (canOpen()) onOpen(task); }} onKeyDown={e => { if (canOpen() && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(task); } }} onDragStart={e => { if (resizing.current || (e.target as HTMLElement).closest?.(".resizeHandle")) { e.preventDefault(); return; } setDrag({ taskId: task.id, slotId: slot.id }); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `${task.id}:${slot.id}`); }} onDragEnd={() => setDrag(null)} style={{ ...colors, top: slot.startHour * hourHeight, height: slot.duration * hourHeight, left: `${column / columns * 100}%`, width: `${100 / columns}%` }}>
                   <strong>{task.name}</strong><small>{timeLabel(slot.startHour)}–{timeLabel(slot.startHour + slot.duration)}</small>
                   {assignedUsers(task, users).length ? <People task={task} users={users} /> : null}
-                  <div className="timedActions"><button aria-label="Upraviť úlohu a bloky" title="Upraviť" onClick={e => { e.stopPropagation(); onEdit(task); }}><Icon name="edit" /></button><button aria-label="Pridať ďalší blok tej istej úlohy" title="Pridať blok" onClick={e => { e.stopPropagation(); onAdd(task, task.slots.find(s => s.id === slot.id)!); }}><Icon name="plus" /></button></div>
+                  <div className="timedActions"><button aria-label="Upraviť úlohu a bloky" title="Upraviť" onClick={e => { e.stopPropagation(); onEdit(task); }}>✎</button><button aria-label="Pridať ďalší blok tej istej úlohy" title="Pridať blok" onClick={e => { e.stopPropagation(); onAdd(task, task.slots.find(s => s.id === slot.id)!); }}>+</button></div>
                   <button type="button" className="resizeHandle" draggable={false} role="slider"
                     aria-label={`Koniec bloku: ${task.name}`} aria-valuemin={slot.startHour + .25}
                     aria-valuemax={Math.min(24, day === original.day ? 24 : original.startHour)} aria-valuenow={slot.startHour + slot.duration}
