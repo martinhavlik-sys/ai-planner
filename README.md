@@ -6,6 +6,8 @@ Aktuálny zdroj pravdy: [úplná katalógová špecifikácia](docs/CATALOG_SOURC
 
 Report Etapa 1 pridáva iba navigačnú položku pod Inboxom, samostatnú cestu `/report`, slovenský nadpis a prázdny stav „Report zatiaľ neobsahuje žiadne údaje.“. Dáta, filtre, grafy, exporty, štatistiky, oprávnenia, migrácie a Supabase zostávajú mimo tejto etapy.
 
+Report Etapa 2 pridáva iba responzívny lokálny panel filtrov s predvoleným obdobím „Tento týždeň“, typom dátumu „Dátum dokončenia“, pripravenými klasifikačnými výbermi, stavom, prioritou a resetom. Výbery sa zatiaľ na nič nenapájajú, nemenia URL ani prázdny stav; zadávateľ nie je pridaný, pretože model eviduje priradené osoby, nie potvrdeného zadávateľa.
+
 ## Historické vydanie v6 · 19. 9. 2026
 
 Kompaktný plánovač úloh v slovenčine: tabuľka, Kanban, kalendár, oddelenia, entity, projekty a osoby. **Vydanie v6 používa nezmenenú lokálnu dátovú schému v5.** Dáta sa stále ukladajú do prehliadača; Supabase synchronizácia a autentifikácia nie sú zapnuté.

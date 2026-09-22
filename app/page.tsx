@@ -17,6 +17,7 @@ import { localDate, timeLabel, formatDeadline, departmentColors, appendCalendarS
 import SlotDialog from "./slot-dialog";
 import { People, PersonPicker, ColorPicker } from "./people";
 import { assignedUsers, sortTasks, TaskSort, defaultMenuOrder, MenuItem, moveMenuItem } from "./model";
+import ReportPanel from "./report-panel";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -539,7 +540,7 @@ export default function Home() {
           <article><span>{inboxTasks.length}</span><p>V inboxe</p></article>
         </section>
 
-        {activeScreen === "Report" ? <section className="reportEmpty" aria-label="Report"><h2>Report</h2><p>Report zatiaľ neobsahuje žiadne údaje.</p></section> : null}
+        {activeScreen === "Report" ? <><ReportPanel /><section className="reportEmpty" aria-label="Report"><h2>Report</h2><p>Report zatiaľ neobsahuje žiadne údaje.</p></section></> : null}
 
         {activeScreen === "Pracovna plocha" ? (
           <>

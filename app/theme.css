@@ -187,3 +187,10 @@ html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected);
 .reportEmpty { background: white; border: 1px solid var(--pc-border, #dfe5ea); border-radius: 8px; padding: 28px; text-align: center; }
 .reportEmpty h2 { margin: 0 0 8px; }
 .reportEmpty p { color: var(--pc-muted, #64707c); margin: 0; }
+.reportFilterPanel { background: white; border: 1px solid var(--pc-border, #dfe5ea); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+.reportFilterGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.reportFilterGrid label { display: grid; gap: 4px; min-width: 0; color: var(--pc-ink, #193c5c); font-size: 11px; }
+.reportFilterGrid select { width: 100%; min-width: 0; }
+.reportFilterReset { min-height: 32px; white-space: nowrap; }
+@media(max-width: 900px) { .reportFilterGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media(max-width: 640px) { .reportFilterGrid { grid-template-columns: minmax(0, 1fr); } .reportFilterPanel { padding: 10px; } }

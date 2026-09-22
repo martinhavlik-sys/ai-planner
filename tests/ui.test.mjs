@@ -266,6 +266,34 @@ test('v7 navigation keeps explicit accessible names and active state with decora
   }
 });
 
+test('Report Etapa 2 keeps filter controls local and resets them to defaults', options, () => {
+  const app = mount('report-panel.tsx', {});
+  const select = label => app.find(n => n.type === 'select' && n.props['aria-label'] === label);
+  assert.equal(select('Obdobie').props.value, 'Tento týždeň');
+  assert.equal(select('Typ dátumu').props.value, 'Dátum dokončenia');
+  assert.equal(select('Oddelenie').props.value, '');
+  assert.equal(select('Entita').props.value, '');
+  assert.equal(select('Projekt').props.value, '');
+  select('Obdobie').props.onChange({ target: { value: 'Tento rok' } });
+  select('Typ dátumu').props.onChange({ target: { value: 'Termín' } });
+  select('Oddelenie').props.onChange({ target: { value: 'department-1' } });
+  select('Stav úlohy').props.onChange({ target: { value: 'Hotovo' } });
+  select('Priorita').props.onChange({ target: { value: 'Vysoka' } });
+  app.render();
+  assert.equal(select('Obdobie').props.value, 'Tento rok');
+  assert.equal(select('Typ dátumu').props.value, 'Termín');
+  assert.equal(select('Oddelenie').props.value, 'department-1');
+  assert.equal(select('Stav úlohy').props.value, 'Hotovo');
+  assert.equal(select('Priorita').props.value, 'Vysoka');
+  app.find(n => n.type === 'button' && n.props.children === 'Zrušiť filtre').props.onClick();
+  app.render();
+  assert.equal(select('Obdobie').props.value, 'Tento týždeň');
+  assert.equal(select('Typ dátumu').props.value, 'Dátum dokončenia');
+  assert.equal(select('Oddelenie').props.value, '');
+  assert.equal(select('Stav úlohy').props.value, '');
+  assert.equal(select('Priorita').props.value, '');
+});
+
 test('shared font and SVG icons are decorative and never keyboard stops', options, () => {
   for (const name of ['dashboard','calendar','departments','projects','users','entity','inbox','settings','download','upload','plus','check','search','sort','right','left','up','down','close','filter','edit','trash','tasks','copy','archive','restore','table','kanban']) {
     const app = mount('ui-icon.tsx', { name });
