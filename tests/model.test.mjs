@@ -34,7 +34,7 @@ test('normalization and JSON roundtrip are idempotent', () => {
 
 test('migration creates missing legacy projects and owners only once', () => {
   const data = normalizeWorkspace({ tasks: [...legacy().tasks, { id: 11, project: 'Project', owner: 'Owner', day: 'Neskor' }] });
-  assert.equal(data.projects.length, 1); assert.equal(data.users.length, 2);
+  assert.equal(data.projects.filter(p => !p.seedKey).length, 1); assert.equal(data.users.length, 2);
   assert.equal(data.tasks[0].projectId, data.tasks[1].projectId);
   assert.equal(data.tasks[0].ownerId, data.tasks[1].ownerId);
 });
@@ -107,8 +107,8 @@ test('schema 1 migrates tasks to no entity without losing existing data', () => 
   old.tasks.forEach(task => delete task.entityId);
   const before = JSON.stringify(old);
   const migrated = normalizeWorkspace(old, '2026-09-18');
-  assert.equal(migrated.schemaVersion, 5);
-  assert.deepEqual(migrated.entities, []);
+  assert.equal(migrated.schemaVersion, 6);
+  assert.equal(migrated.entities.length, 32);
   assert.equal(migrated.tasks[0].entityId, null);
   const restored = JSON.parse(JSON.stringify(migrated));
   restored.schemaVersion = 1; delete restored.entities;
@@ -131,7 +131,7 @@ test('department and entity filters combine independently, including no entity',
 
 test('entity export/import and rename preserve independent IDs and client links', () => {
   const data = normalizeWorkspace(legacy());
-  data.entities = [{ id: 50, name: 'Nemocnica Bory' }, { id: 51, name: 'ProCare Betliarska' }];
+  data.entities = normalizeWorkspace({...data, entities: [{ id: 50, name: 'Nemocnica Bory' }, { id: 51, name: 'ProCare Betliarska' }]}).entities;
   data.clients = [{ id: 60, name: 'Separate client', email: '', note: '' }];
   data.tasks[0].entityId = 50; data.tasks[0].clientId = 60;
   assert.deepEqual(normalizeWorkspace(JSON.parse(JSON.stringify(data))), data);
@@ -155,9 +155,9 @@ test('entity deletion is blocked until all tasks, including completed ones, are 
   assert.deepEqual(removeEntity(entities, tasks, 50), [entities[1]]);
 });
 
-test('empty workspace remains empty and generated IDs are unique safe integers', () => {
+test('empty workspace gains only catalogs, no tasks and generated IDs are unique safe integers', () => {
   const data = normalizeWorkspace({ schemaVersion: 1, tasks: [], projects: [], team: [], clients: [], goals: [] });
-  assert.deepEqual(data.tasks, []); assert.deepEqual(data.projects, []);
+  assert.deepEqual(data.tasks, []); assert.equal(data.projects.length, 17);
   const ids = Array.from({ length: 2000 }, newId);
   assert.equal(new Set(ids).size, ids.length); assert.ok(ids.every(Number.isSafeInteger));
 });

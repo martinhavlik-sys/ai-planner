@@ -1,5 +1,6 @@
 "use client";
 
+import { catalogChoices } from "./model";
 import Icon, { IconName } from "./ui-icon";
 
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
@@ -68,7 +69,7 @@ function blankProject(): Project {
   return normalizeProject({ name: "", owner: "" });
 }
 
-function blankCampaign(): Campaign { return { id: newId(), name: "", departmentId: 0, entityIds: [], edition: "", archived: false }; }
+function blankCampaign(): Campaign { return { id: newId(), name: "", departmentId: null, entityIds: [], edition: "", year: null, archived: false }; }
 
 export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -138,8 +139,9 @@ export default function Home() {
         team: legacy(teamStorageKey, initialTeam), goals: legacy(goalsStorageKey, initialGoals), clients: []
       };
       const normalized = normalizeWorkspace(data);
-      if (saved && data.schemaVersion !== 5 && !window.localStorage.getItem("ai-planner-before-v5")) window.localStorage.setItem("ai-planner-before-v5", saved);
+      if (saved && data.schemaVersion !== 6 && !window.localStorage.getItem("ai-planner-before-v6")) window.localStorage.setItem("ai-planner-before-v6", saved);
       applyWorkspace(normalized);
+      if (data.schemaVersion !== 6) setNotice(`Číselníky boli doplnené bez prepisovania väzieb. Nezaradené oddelenie: ${normalized.tasks.filter(t => t.projectId === null).length}, entita: ${normalized.tasks.filter(t => t.entityId === null).length}, projekt: ${normalized.tasks.filter(t => t.campaignId === null).length}. Historické záznamy mimo katalógu zostávajú zachované.`);
       setLoaded(true);
     } catch {
       setStorageError("Data sa nepodarilo nacitat. Povodne ulozene data zostali nedotknute. Obnovte platnu JSON zalohu cez Import.");
@@ -149,7 +151,7 @@ export default function Home() {
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals })));
+      window.localStorage.setItem(workspaceKey, JSON.stringify(normalizeWorkspace({ schemaVersion: 6, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals })));
       setStorageError("");
     } catch {
       setStorageError("Zmeny sa nepodarilo ulozit. Stiahnite Export pred zatvorenim aplikacie.");
@@ -165,7 +167,7 @@ export default function Home() {
     if (entities.some(e => e.id !== entityDraft.id && e.name.toLocaleLowerCase("sk") === name.toLocaleLowerCase("sk"))) {
       setNotice("Entita s týmto názvom už existuje."); return;
     }
-    const entity = { ...entityDraft, name };
+    const entity = { ...entityDraft, name, updatedAt: new Date().toISOString(), createdAt: entityDraft.createdAt || new Date().toISOString() };
     setEntities(current => editingEntity ? current.map(e => e.id === entity.id ? entity : e) : [...current, entity]);
     setEditingEntity(false); setEntityDraft({ id: newId(), name: "" });
   }
@@ -244,7 +246,7 @@ export default function Home() {
   }
 
   function openNewTask() {
-    setDraft(linkedTask({ ...blankTask(), projectId: projectFilter ?? projects[0]?.id ?? null, entityId: entityFilter === "all" ? null : entityFilter, ownerIds: typeof personFilter === "number" ? [personFilter] : [] }));
+    setDraft(linkedTask({ ...blankTask(), projectId: projects.find(p => p.id === projectFilter && !p.archived)?.id ?? null, entityId: entities.find(e => e.id === entityFilter && !e.archived)?.id ?? null, ownerIds: typeof personFilter === "number" ? [personFilter] : [] }));
     setEditingTask(null);
     setIsFormOpen(true);
   }
@@ -310,7 +312,7 @@ export default function Home() {
   function saveTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.name.trim()) return;
-    try { normalizeWorkspace({ schemaVersion: 5, campaigns, menuOrder, tasks: [...tasks.filter(t => t.id !== draft.id), draft], projects, entities, users: team, clients, goals }); } catch (error) { setNotice((error as Error).message); return; }
+    try { normalizeWorkspace({ schemaVersion: 6, campaigns, menuOrder, tasks: [...tasks.filter(t => t.id !== draft.id), draft], projects, entities, users: team, clients, goals }); } catch (error) { setNotice((error as Error).message); return; }
     const slots = draftSlots();
     const taskToSave = linkedTask({ ...draft, name: draft.name.trim(), checklist: draft.checklist.filter(item => item.text.trim()), slots: slots.map(slot => ({ ...slot, taskId: draft.id })) });
 
@@ -372,13 +374,13 @@ export default function Home() {
 
     if (editingProject) {
       const previousName = editingProject.name;
-      const nextProject = { ...projectDraft, name: nextName, ownerId: team.find(m => m.id === projectDraft.ownerId)?.id ?? null, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" };
+      const nextProject = { ...projectDraft, updatedAt: new Date().toISOString(), createdAt: projectDraft.createdAt || new Date().toISOString(), name: nextName, ownerId: team.find(m => m.id === projectDraft.ownerId)?.id ?? null, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" };
       setProjects((current) => current.map((project) => (project.id === editingProject.id ? nextProject : project)));
       setTasks((current) => current.map((task) => (task.projectId === editingProject.id ? { ...task, project: nextName, activity: [`Oddelenie zmenené na ${nextName}`, ...task.activity] } : task)));
       setGoals((current) => current.map((goal) => (goal.project === previousName ? { ...goal, project: nextName } : goal)));
       setSelectedTask(current => current?.projectId === editingProject.id ? { ...current, project: nextName } : current);
     } else {
-      setProjects((current) => [{ ...projectDraft, id: newId(), name: nextName, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" }, ...current]);
+      setProjects((current) => [{ ...projectDraft, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(), id: newId(), name: nextName, owner: team.find(m => m.id === projectDraft.ownerId)?.name ?? "" }, ...current]);
     }
 
     setProjectDraft(blankProject());
@@ -417,7 +419,7 @@ export default function Home() {
   }
 
   function exportData() {
-    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals }), null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(normalizeWorkspace({ schemaVersion: 6, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals }), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -439,7 +441,7 @@ export default function Home() {
         const data = normalizeWorkspace(input);
         if (!window.confirm("Import nahradi aktualne data. Pred pokracovanim odporucame Export. Pokracovat?")) return;
         const previous = window.localStorage.getItem(workspaceKey);
-        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals }));
+        window.localStorage.setItem("ai-planner-before-import", previous ?? JSON.stringify({ schemaVersion: 6, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals }));
         window.localStorage.setItem(workspaceKey, JSON.stringify(data));
         applyWorkspace(data); setLoaded(true); setNotice("Zaloha bola nacitana.");
       } catch {
@@ -517,7 +519,7 @@ export default function Home() {
           <div className="headerActions"><button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}><Icon name="settings" /><span>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</span></button>
             <button className="ghost" onClick={exportData}><Icon name="download" /><span>Export</span></button>
             <button className="ghost" title="Pripraví zálohu a počty; nič neposiela na server" onClick={() => {
-              const plan = prepareImport({ schemaVersion: 5, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals });
+              const plan = prepareImport({ schemaVersion: 6, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals });
               const url = URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" }));
               const a = document.createElement("a"); a.href = url; a.download = `ai-planner-import-${localDate()}.json`; a.click(); URL.revokeObjectURL(url);
               setNotice(`Príprava importu: ${plan.counts.tasks} úloh, ${plan.counts.slots} blokov. Vzdialený zápis zostáva uzamknutý.`);
@@ -577,7 +579,7 @@ export default function Home() {
             {tableTasks.map((task) => (
               <article className="taskRow" key={task.id}>
                 <button className="taskName" onClick={() => setSelectedTask(task)}>{task.name}</button>
-                <span className="taskClassification"><span>{task.project || "Bez oddelenia"}</span>{task.campaignId !== null ? <small className="taskProject">{projectLabel(campaigns.find(c => c.id === task.campaignId))}</small> : null}{adminConfig ? <small className="clientLabel">{clientName(task)}</small> : null}</span><span>{entityName(task)}</span><People task={task} users={team} />
+                <span className="taskClassification"><span>{task.project || "Bez oddelenia"}{task.departmentDetail ? ` · ${task.departmentDetail}` : ""}</span>{task.campaignId !== null ? <small className="taskProject">{projectLabel(campaigns.find(c => c.id === task.campaignId))}{task.projectDetail ? ` · ${task.projectDetail}` : ""}</small> : null}{adminConfig ? <small className="clientLabel">{clientName(task)}</small> : null}</span><span>{entityName(task)}{task.entityDetail ? ` · ${task.entityDetail}` : ""}</span><People task={task} users={team} />
                 <select className={`statusSelect ${task.status.toLowerCase().replaceAll(" ", "-")}`} value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as Status, activity: [`Status zmeneny na ${event.target.value}`, ...task.activity] })}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
@@ -644,7 +646,7 @@ export default function Home() {
         {activeScreen === "Entity" ? (
           <section className="recordManager" aria-label="Správa entít">
             <form className="recordForm entityForm" onSubmit={saveEntity}>
-              <h2>{editingEntity ? "Upraviť entitu" : "Nová entita"}</h2>
+              <h2>{editingEntity ? "Upraviť entitu" : "Nová entita"}</h2><label>Poradie<input type="number" value={entityDraft.sortOrder ?? 0} onChange={e => setEntityDraft({ ...entityDraft, sortOrder: Number(e.target.value) })} /></label><label><input type="checkbox" checked={!!entityDraft.archived} onChange={e => setEntityDraft({ ...entityDraft, archived: e.target.checked })} />Neaktívna entita</label>
               <label>Názov<input required value={entityDraft.name} placeholder="Napríklad: Nemocnica Bory" onChange={e => setEntityDraft({ ...entityDraft, name: e.target.value })} /></label>
               <div className="recordFormActions"><button type="submit">{editingEntity ? "Uložiť" : "Pridať entitu"}</button>
                 {editingEntity ? <button type="button" className="ghost" onClick={() => { setEditingEntity(false); setEntityDraft({ id: newId(), name: "" }); }}>Zrušiť</button> : null}
@@ -689,17 +691,14 @@ export default function Home() {
         {activeScreen === "Kampane" ? <section className="recordManager" aria-label="Správa projektov">
           <form className="recordForm campaignForm" onSubmit={e => { e.preventDefault(); try {
             const next = saveCampaign(campaigns, campaignDraft);
-            const normalized = normalizeWorkspace({ schemaVersion: 5, campaigns: next, menuOrder, tasks, projects, entities, users: team, clients, goals });
+            const normalized = normalizeWorkspace({ schemaVersion: 6, campaigns: next, menuOrder, tasks, projects, entities, users: team, clients, goals });
             setCampaigns(normalized.campaigns); setCampaignDraft(blankCampaign());
           } catch (error) { setNotice((error as Error).message); } }}>
             <h2>{campaigns.some(c => c.id === campaignDraft.id) ? "Upraviť projekt" : "Nový projekt"}</h2>
             <label>Názov projektu<input required value={campaignDraft.name} placeholder="Najzamestnávateľ" onChange={e => setCampaignDraft({ ...campaignDraft, name: e.target.value })} /></label>
-            <RecordPicker label="Oddelenie" required records={projects} value={campaignDraft.departmentId || null} onChange={id => setCampaignDraft({ ...campaignDraft, departmentId: id ?? 0 })} />
-            <label>Ročník / edícia<input value={campaignDraft.edition} placeholder="2026 · nepovinné" onChange={e => setCampaignDraft({ ...campaignDraft, edition: e.target.value })} /></label>
-            <fieldset className="entityChoices"><legend>Entity <span>· bez výberu platí pre všetky</span></legend>
-              <div>{entities.map(entity => <label key={entity.id}><input type="checkbox" checked={campaignDraft.entityIds.includes(entity.id)} onChange={e => setCampaignDraft({ ...campaignDraft, entityIds: e.target.checked ? [...campaignDraft.entityIds, entity.id] : campaignDraft.entityIds.filter(id => id !== entity.id) })} /><span>{entity.name}</span></label>)}</div>
-              {!entities.length ? <p>Entity môžete pridať v sekcii Entity.</p> : null}
-            </fieldset>
+            <p className="hint">Projekt je nezávislý od oddelenia a entity. Historické väzby zostávajú zachované.</p>
+            <label>Ročník · nepovinný<input type="number" min="1000" max="9999" value={campaignDraft.year ?? ""} placeholder="2026" onChange={e => setCampaignDraft({ ...campaignDraft, year: e.target.value ? Number(e.target.value) : null, edition: "" })} /></label>
+            {campaignDraft.edition && !campaignDraft.year ? <p>Historická edícia: {campaignDraft.edition}</p> : null}
             <div className="recordFormActions"><button type="submit">Uložiť projekt</button><button type="button" className="ghost" onClick={() => setCampaignDraft(blankCampaign())}>Zrušiť</button></div>
           </form>
           <div className="recordList" role="table" aria-label="Projekty">
@@ -708,10 +707,10 @@ export default function Home() {
             {campaigns.map(c => <div className={`campaignRow${c.archived ? " archivedRecord" : ""}`} role="row" key={c.id}>
               <div role="cell"><strong>{projectLabel(c)}</strong>{c.archived ? <small>Archivovaný</small> : null}</div>
               <span role="cell">{projects.find(p => p.id === c.departmentId)?.name}</span>
-              <span role="cell">{c.entityIds.map(id => entities.find(e => e.id === id)?.name).join(", ") || "Všetky entity"}</span>
+              <span role="cell">{c.entityIds.map(id => entities.find(e => e.id === id)?.name).join(", ") || "Bez väzby"}</span>
               <div className="recordActions" role="cell">
                 <button className="ghost iconButton" title="Upraviť projekt" aria-label={`Upraviť projekt ${projectLabel(c)}`} onClick={() => setCampaignDraft(c)}><Icon name="edit" /></button>
-                <button className="ghost iconButton" title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} aria-label={`${c.archived ? "Obnoviť" : "Archivovať"} projekt ${projectLabel(c)}`} onClick={() => { const archived = !c.archived; setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived } : p)); setCampaignDraft(current => current.id === c.id ? { ...current, archived } : current); }}><Icon name={c.archived ? "restore" : "archive"} /></button>
+                <button className="ghost iconButton" title={c.archived ? "Obnoviť projekt" : "Archivovať projekt"} aria-label={`${c.archived ? "Obnoviť" : "Archivovať"} projekt ${projectLabel(c)}`} onClick={() => { const archived = !c.archived; setCampaigns(campaigns.map(p => p.id === c.id ? { ...p, archived, updatedAt: new Date().toISOString() } : p)); setCampaignDraft(current => current.id === c.id ? { ...current, archived } : current); }}><Icon name={c.archived ? "restore" : "archive"} /></button>
               </div>
             </div>)}
           </div>
@@ -722,6 +721,7 @@ export default function Home() {
             <form className="projectForm" onSubmit={saveProject}>
               <h2>{editingProject ? "Upraviť oddelenie" : "Nové oddelenie"}</h2>
               <label>Názov oddelenia<input required value={projectDraft.name} onChange={(event) => setProjectDraft({ ...projectDraft, name: event.target.value })} /></label>
+              <label>Poradie<input type="number" value={projectDraft.sortOrder ?? 0} onChange={e => setProjectDraft({ ...projectDraft, sortOrder: Number(e.target.value) })} /></label><label><input type="checkbox" checked={!!projectDraft.archived} onChange={e => setProjectDraft({ ...projectDraft, archived: e.target.checked })} />Neaktívne oddelenie</label>
               <ColorPicker key={projectDraft.id} label="Farba oddelenia" value={projectDraft.color} onChange={color => setProjectDraft({ ...projectDraft, color })} />
               <button type="submit">{editingProject ? "Uložiť oddelenie" : "Pridať oddelenie"}</button>
               {editingProject ? <button type="button" className="ghost" onClick={cancelProjectEdit}>Zrusit upravu</button> : null}
@@ -760,9 +760,12 @@ export default function Home() {
             <div className="modalHeader"><h2 id="task-dialog-title">{editingTask ? "Upraviť úlohu" : "Nová úloha"}</h2><button type="button" className="ghost" onClick={() => setIsFormOpen(false)}><Icon name="close" /><span>Zavriet</span></button></div>
             <label>Názov úlohy<input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
-              <RecordPicker label="Oddelenie" records={projects} value={draft.projectId} onChange={projectId => setDraft({ ...draft, projectId, campaignId: null })} />
-              <RecordPicker label="Entita" records={entities} value={draft.entityId} onChange={entityId => setDraft({ ...draft, entityId, campaignId: null })} />
+              <RecordPicker label="Oddelenie" records={catalogChoices(projects, draft.projectId)} value={draft.projectId} onChange={projectId => setDraft({ ...draft, projectId })} />
+              <RecordPicker label="Entita" records={catalogChoices(entities, draft.entityId)} value={draft.entityId} onChange={entityId => setDraft({ ...draft, entityId })} />
               <RecordPicker label="Projekt" records={campaignChoices(campaigns, draft.projectId, draft.entityId, draft.campaignId)} value={draft.campaignId} onChange={campaignId => setDraft({ ...draft, campaignId })} />
+              {projects.find(p => p.id === draft.projectId)?.name === "Iné" ? <label>Spresnenie oddelenia<input value={draft.departmentDetail ?? ""} onChange={e => setDraft({ ...draft, departmentDetail: e.target.value })} /></label> : null}
+              {entities.find(p => p.id === draft.entityId)?.name === "Iné" ? <label>Spresnenie entity<input value={draft.entityDetail ?? ""} onChange={e => setDraft({ ...draft, entityDetail: e.target.value })} /></label> : null}
+              {campaigns.find(p => p.id === draft.campaignId)?.name === "Iné" ? <label>Spresnenie projektu<input value={draft.projectDetail ?? ""} onChange={e => setDraft({ ...draft, projectDetail: e.target.value })} /></label> : null}
               <PersonPicker users={team} ids={draft.ownerIds} onChange={ownerIds => setDraft({ ...draft, ownerIds })} />
               {adminConfig ? <label>Klient<select value={draft.clientId ?? ""} onChange={event => setDraft({ ...draft, clientId: event.target.value ? Number(event.target.value) : null })}><option value="">Z oddelenia: {clients.find(c => c.id === projects.find(p => p.id === draft.projectId)?.clientId)?.name || "Bez klienta"}</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label> : null}
               <label>Status<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
@@ -799,6 +802,9 @@ export default function Home() {
             <dt>Status</dt><dd>{selectedTask.status}</dd>
             <dt>Priorita</dt><dd>{selectedTask.priority}</dd>
             <dt>Dátum dokončenia</dt><dd>{formatDeadline(selectedTask.due)}</dd>
+            {selectedTask.departmentDetail ? <><dt>Spresnenie oddelenia</dt><dd>{selectedTask.departmentDetail}</dd></> : null}
+            {selectedTask.entityDetail ? <><dt>Spresnenie entity</dt><dd>{selectedTask.entityDetail}</dd></> : null}
+            {selectedTask.projectDetail ? <><dt>Spresnenie projektu</dt><dd>{selectedTask.projectDetail}</dd></> : null}
             <dt>Cas</dt><dd>{selectedTask.slots.length ? selectedTask.slots.map((slot) => `${slot.day} ${timeLabel(slot.startHour)} (${slot.duration} h)`).join(", ") : `${selectedTask.day}, ${selectedTask.startHour}:00 · ${selectedTask.duration} h`}</dd>
           </dl>
           <p>{selectedTask.note || "Bez poznamky."}</p>

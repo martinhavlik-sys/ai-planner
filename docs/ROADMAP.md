@@ -1,3 +1,5 @@
+> **Aktuálne v9 (22. 9. 2026):** katalógová vrstva a voliteľné nezávislé zaradenia úloh sú implementované. Report, grafy, exporty a analytika zostávajú mimo tohto vydania.
+
 # Stav a bezpečné pokračovanie
 
 ## Implementované

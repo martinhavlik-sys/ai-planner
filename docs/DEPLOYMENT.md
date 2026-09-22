@@ -1,3 +1,5 @@
+> **Aktuálne v9 (22. 9. 2026):** SQL migrácia pripravuje iba katalógové metadata, nepovinné nezávislé väzby a projektový rok. Supabase sa v tejto fáze nespúšťa; lokálny režim používa localStorage. Pred budúcim použitím treba migráciu overiť na stagingu.
+
 # Spustenie, overenie a nasadenie
 
 ## Závislosti

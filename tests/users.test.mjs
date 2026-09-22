@@ -8,7 +8,7 @@ const draft = (id = 32) => ({ id, name: 'Jana', email: ' Jana@Example.com ', rol
 test('schema 2 migrates members to users preserving IDs, assignments, capacity and client legacy data', () => {
   const old = oldWorkspace(); const snapshot = JSON.stringify(old);
   const data = normalizeWorkspace(old);
-  assert.equal(data.schemaVersion, 5);
+  assert.equal(data.schemaVersion, 6);
   assert.equal(data.users[0].id, 30); assert.equal(data.users[0].role, 'admin');
   assert.equal(data.users[0].status, 'active'); assert.equal(data.users[0].email, '');
   assert.equal(data.users[1].role, 'user'); assert.equal(data.users[1].legacyRole, 'Designer');

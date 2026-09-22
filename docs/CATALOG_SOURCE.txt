@@ -1,0 +1,282 @@
+MASTER DATA AND CLASSIFICATION
+
+The Report implementation must also establish the initial master data for:
+
+- Departments
+- Entities
+- Projects
+
+These values must be stored in the database as editable master data.
+
+Do not hard-code the lists only inside UI components, filters, validation schemas or reporting queries.
+
+Each master-data record should have, where appropriate:
+
+- stable unique ID,
+- display name,
+- optional short code,
+- sort order,
+- active/inactive status,
+- createdAt,
+- updatedAt.
+
+Use stable IDs in task relations and reporting. Do not use the visible display name as a database identifier.
+
+Existing tasks and reports must continue working if a record is renamed.
+
+Inactive records:
+- must remain visible on historical tasks and reports,
+- must not be offered for newly created tasks by default,
+- must not be deleted if they are already used.
+
+The initial version does not require a complete administration interface for these lists, but the database architecture must allow records to be added, renamed, reordered or deactivated later.
+
+Do not implement Department, Entity or Project as a fixed enum if that would require a code deployment whenever a new value is added.
+
+DEPARTMENTS
+
+Seed the following departments in the database:
+
+1. Finančný úsek
+2. Projektový tím
+3. Marketing
+4. Medicínsky úsek
+5. IT úsek
+6. HR úsek
+7. PR úsek
+8. Oddelenie právnych služieb
+9. Obchodný úsek
+10. Úsek prevádzky
+11. Pracovná zdravotná služba
+12. Dopravná zdravotná služba
+13. Dlhodobá starostlivosť
+14. PH International
+15. Darcovské centrum
+16. Pôrodnice
+17. Iné
+
+For version 1, a task can have one primary Department.
+
+The primary Department is used in filters, charts, exports and reporting totals.
+
+If “Iné” is selected, provide an optional text field called “Spresnenie oddelenia”.
+
+Keep the optional short-code field in the database, but short codes do not need to be defined or displayed in version 1.
+
+ENTITIES
+
+Use the term “Entity” consistently throughout the application, database-facing domain model, Report filters, task table and exports.
+
+Replace the earlier “Hospital / workplace” Report filter and column with “Entity”.
+
+Seed the following entities:
+
+1. NEM Medissimo
+2. NEM Dunajská Streda
+3. NEM Topoľčany
+4. NEM Rimavská Sobota
+5. NEM Spišská Nová Ves
+6. NEM Trebišov
+7. NEM Svidník
+8. NEM Humenné
+9. NEM Galanta
+10. NEM Partizánske
+11. NEM Rožňava
+12. NEM Michalovce
+13. NEM Vranov nad Topľou
+14. NEM Stropkov
+15. PLK Central
+16. PLK Central Tower
+17. PLK Bory
+18. PLK Betliarska
+19. PLK Devínska Nová Ves
+20. PLK Vlčie Hrdlo
+21. PLK Sereď
+22. PLK Nitra
+23. PLK Prešov
+24. PLK Košice
+25. SEN Pohoda Seniorov
+26. SEN SeniorCare Galanta
+27. SEN SeniorCare Kaskády
+28. SEN SČSS Stropkov
+29. Sportclinic
+30. HQ Bratislava
+31. HQ Košice
+32. Iné
+
+For version 1, a task can have one primary Entity.
+
+The primary Entity is used in filters, charts, exports and reporting totals. This ensures that one task is counted only once and chart totals reconcile with summary and table totals.
+
+Entity may remain empty when the task is not related to one specific entity. In reports, empty values must be displayed as “Nezaradené”.
+
+If “Iné” is selected, provide an optional text field called “Spresnenie entity”.
+
+Keep the data model extensible so that support for multiple related entities may be added later without redefining the primary reporting Entity.
+
+PROJECTS
+
+Seed the following base projects:
+
+1. Najzamestnávateľ
+2. Ružový október
+3. Movember
+4. Vianočný večierok
+5. Teambuilding
+6. Strategická konferencia
+7. Deň sestier
+8. Deň lekárov
+9. Deň OZP
+10. Hokejová kvapka krvi
+11. Futbalová kvapka krvi
+12. Týždeň dojčenia
+13. Piknik s laktačnou poradkyňou
+14. Bezpečnosť pacienta
+15. Svetový deň srdca
+16. Top sestra
+17. Absolventi
+18. Biele srdce
+19. Intranet
+20. Klientská zóna
+21. Re/Branding
+22. Iné
+
+Projects must remain separate from Requesters.
+
+A Project represents the initiative, campaign or long-running work container.
+
+A Requester represents the person, department or organizational source that requested the task.
+
+Do not use projects as substitutes for requesters.
+
+PROJECT YEAR
+
+Prepare the Project data model for annual project editions.
+
+Add an optional year field to projects.
+
+Examples:
+
+- Najzamestnávateľ 2026
+- Ružový október 2026
+- Vianočný večierok 2026
+- Teambuilding 2026
+
+Do not store the year only as an uncontrolled part of the project name.
+
+Recommended structure:
+
+- baseName
+- optional year
+- generated or consistently formatted displayName
+
+If the year is empty, display only the base name.
+
+Examples:
+
+- baseName: “Najzamestnávateľ”
+- year: 2026
+- displayName: “Najzamestnávateľ 2026”
+
+Persistent projects such as “Intranet”, “Klientská zóna” or “Re/Branding” may remain without a year.
+
+Prevent accidental duplicate project editions with the same base project and year.
+
+If “Iné” is selected, provide an optional text field called “Spresnenie projektu”.
+
+TASK RELATIONS
+
+Check the current task schema before adding new fields.
+
+Where equivalent fields already exist:
+- reuse or migrate them,
+- preserve existing data,
+- do not create duplicate parallel fields.
+
+The task should support these separate relations:
+
+- departmentId
+- entityId
+- projectId
+- requesterId or the equivalent existing requester relation
+
+For version 1:
+
+- Department: one primary value
+- Entity: zero or one primary value
+- Project: zero or one project
+- Requester: preserve the existing requester logic
+
+These relations must be available consistently in:
+
+- task creation,
+- task editing,
+- task detail,
+- Report filters,
+- Report charts,
+- Report task table,
+- XLSX export,
+- CSV export,
+- PDF export,
+- image exports,
+- API validation.
+
+REPORT CHANGES
+
+Update the Report specification as follows:
+
+1. Department chart:
+- use the seeded Department master data,
+- group tasks by their primary Department,
+- display missing values as “Nezaradené”.
+
+2. Entity chart:
+- replace the previous Hospital / workplace chart,
+- group tasks by their primary Entity,
+- display missing values as “Nezaradené”,
+- show the top eight entities and group the rest as “Ostatné”.
+
+3. Project chart:
+- group tasks by project edition,
+- display the project year where available,
+- display missing values as “Nezaradené”.
+
+4. Filters:
+- Department
+- Entity
+- Project
+
+Filters must load active values from the database rather than from a hard-coded frontend list.
+
+Historical inactive values must remain available when they occur in existing filtered report results.
+
+DATA MIGRATION
+
+Before creating or changing the schema:
+
+1. Inspect existing organization, department, hospital, workplace, project and requester fields.
+2. Identify duplicate concepts and naming inconsistencies.
+3. Prepare a safe migration or mapping strategy.
+4. Preserve all existing task data.
+5. Do not silently map uncertain legacy values.
+6. Report unmapped values after migration.
+7. Make the migration idempotent where practical.
+
+If existing data contains names that appear similar but are not exact matches, do not merge them without an explicit and reviewable mapping.
+
+TESTS
+
+Add tests confirming that:
+
+- seeded Departments, Entities and Projects are created,
+- seed operations do not create duplicates,
+- inactive master-data records remain visible on historical tasks,
+- inactive records are excluded from new-task selection,
+- renaming a record does not break task relations,
+- Report filters load values from the database,
+- “Nezaradené” values remain included in report totals,
+- “Iné” may contain an optional specification,
+- annual project editions remain distinct,
+- duplicate project editions with the same baseName and year are prevented,
+- charts, task tables and exports use the same classification values,
+- Report totals still reconcile after filtering.

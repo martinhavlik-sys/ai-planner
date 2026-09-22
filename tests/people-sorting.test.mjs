@@ -11,7 +11,7 @@ const fixture = () => normalizeWorkspace({ schemaVersion: 3,
 
 test('schema 3 ownerId migrates to one-person array while preserving task and department data', () => {
   const data = fixture(), task = data.tasks[0];
-  assert.equal(data.schemaVersion, 5); assert.deepEqual(task.ownerIds, [1]);
+  assert.equal(data.schemaVersion, 6); assert.deepEqual(task.ownerIds, [1]);
   assert.equal(task.due, '2026-09-20'); assert.equal(task.note, 'Note');
   assert.deepEqual(task.activity, ['Created']); assert.equal(task.checklist[0].done, true);
   assert.deepEqual(task.slots.map(s => s.id), [20, 21]);

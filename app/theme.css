@@ -181,3 +181,6 @@ html[data-theme="procare"] button.card { background: white; color: var(--pc-navy
 html[data-theme="procare"] .card > :is(span,em) { font-size: 11px; color: var(--pc-muted); font-weight: 400; }
 html[data-theme="procare"] .card .avatar > span { color: white; font-size: 10px; }
 html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected); color: var(--pc-navy); border-radius: 4px; padding: 4px 8px; }
+/* Seeded catalogs remain scrollable without pushing the workspace off screen. */
+.sidebar .filterItems { max-height:220px; overflow-y:auto; }
+@media(max-width:640px) { .sidebar .filterItems { max-height:130px; } }

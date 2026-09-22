@@ -1,4 +1,10 @@
-# AI Planner · v6 · 19. 9. 2026
+# AI Planner · v9 · 22. 9. 2026
+
+Katalógová aktualizácia pridáva presné editovateľné seed dáta pre 17 oddelení, 32 entít a 22 projektov. Zaradenia úloh sú voliteľné a nezávislé, projekt má samostatný nepovinný rok a historické väzby zostávajú zachované. Lokálne ukladanie zostáva primárne; Supabase ani Auth sa nezapínajú.
+
+Aktuálny zdroj pravdy: [úplná katalógová špecifikácia](docs/CATALOG_SOURCE.txt). Implementačné rozhodnutia a migrácia sú v [DATA_MODEL](docs/DATA_MODEL.md), [ARCHITECTURE](docs/ARCHITECTURE.md) a [DEPLOYMENT](docs/DEPLOYMENT.md). [Overenie v9](docs/QA_V9.md).
+
+## Historické vydanie v6 · 19. 9. 2026
 
 Kompaktný plánovač úloh v slovenčine: tabuľka, Kanban, kalendár, oddelenia, entity, projekty a osoby. **Vydanie v6 používa nezmenenú lokálnu dátovú schému v5.** Dáta sa stále ukladajú do prehliadača; Supabase synchronizácia a autentifikácia nie sú zapnuté.
 

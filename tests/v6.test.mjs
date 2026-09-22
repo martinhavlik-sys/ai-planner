@@ -56,7 +56,7 @@ test('project labels and picker distinguish editions, legacy duplicates and curr
   assert.match(campaignChoices(campaigns, 2, 3, 3)[2].name, /2025 \(archív\)/);
   const duplicate = campaignChoices([...campaigns, { ...campaigns[0], id: 4 }], 2, 3, null);
   assert.equal(new Set(duplicate.map(c=>c.name)).size, duplicate.length);
-  assert.deepEqual(campaignChoices(campaigns, 2, 99, null), []);
+  assert.deepEqual(campaignChoices(campaigns, 2, 99, null).map(c=>c.id), [1,2]);
 });
 test('project save rejects duplicate identity while preserving existing records and edition flexibility', () => {
   const a = { id: 1, name: 'Project', edition: '2026', departmentId: 2, entityIds: [], archived: false };

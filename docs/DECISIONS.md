@@ -1,3 +1,5 @@
+> **Aktuálne v9 (22. 9. 2026):** katalógy a voliteľné nezávislé zaradenia úloh sú jediný nový rozsah. Oddelenie, entita, projekt a submitter zostávajú odlišné; žiadne automatické mapovanie sa nerobí. Report, grafy, exporty, analytika a skutočné splnenie do tohto vydania nepatria.
+
 # Dôležité rozhodnutia
 
 Schválené pravidlá implementované vo v6. Zmena týchto pravidiel vyžaduje vysvetlenie dopadu a prípadný migračný plán.

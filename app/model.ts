@@ -1,3 +1,4 @@
+export type CatalogMeta = { code?: string; sortOrder?: number; archived?: boolean; createdAt?: string; updatedAt?: string; seedKey?: string };
 export type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 
 export type Priority = "Nizka" | "Stredna" | "Vysoka";
@@ -17,6 +18,9 @@ export type Task = {
   status: Status;
   priority: Priority;
   due: string;
+  departmentDetail?: string;
+  entityDetail?: string;
+  projectDetail?: string;
   day: string;
   startHour: number;
   duration: number;
@@ -34,7 +38,7 @@ export type CalendarSlot = {
   duration: number;
 };
 
-export type Project = {
+export type Project = CatalogMeta & {
   ownerId: number | null;
   clientId: number | null;
   id: number;
@@ -134,7 +138,7 @@ export function removeClient(clients: Client[], tasks: Task[], projects: Project
   return clients.filter(c => c.id !== id);
 }
 export type Client = { id: number; name: string; email?: string; note?: string };
-export type Entity = { id: number; name: string };
+export type Entity = CatalogMeta & { id: number; name: string };
 export const defaultMenuOrder = ["Pracovna plocha", "Inbox", "Projekty", "Kampane", "Entity", "Klienti", "Tim"] as const;
 export type MenuItem = typeof defaultMenuOrder[number];
 export function normalizeMenuOrder(value: unknown): MenuItem[] {
@@ -146,8 +150,8 @@ export function moveMenuItem(order: MenuItem[], item: MenuItem, target: MenuItem
   if (from < 0 || to < 0 || from === to) return next;
   next.splice(from, 1); next.splice(to, 0, item); return next;
 }
-export type Campaign = { id: number; name: string; departmentId: number; entityIds: number[]; edition: string; archived: boolean };
-export type Workspace = { schemaVersion: 5; campaigns: Campaign[]; menuOrder: MenuItem[]; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
+export type Campaign = CatalogMeta & { id: number; name: string; departmentId: number | null; entityIds: number[]; edition: string; year?: number | null; archived: boolean };
+export type Workspace = { schemaVersion: 6; campaigns: Campaign[]; menuOrder: MenuItem[]; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
 export const workspaceKey = "ai-planner-workspace-v1";
 // Keep existing numeric IDs; new IDs are safe integers with collision protection in this session.
 let lastId = 0;
@@ -260,14 +264,14 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
     campaignId: value.campaignId ?? null, projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
-    due: deadline(text(value.due)), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
+    due: deadline(text(value.due)), departmentDetail: text(value.departmentDetail), entityDetail: text(value.entityDetail), projectDetail: text(value.projectDetail), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
     duration: slots[0]?.duration ?? num(value.duration, 1), slots, note: text(value.note),
     checklist: uniqueIds(rows(value.checklist ?? [])).map(item => ({ id: item.id, text: text(item.text), done: item.done === true })),
     activity: Array.isArray(value.activity) ? value.activity.filter((item): item is string => typeof item === "string") : []
   };
 }
 export function normalizeProject(value: Partial<Project>, index = 0): Project {
-  return { id: value.id ?? newId(), name: text(value.name, "Nové oddelenie"), owner: text(value.owner, "Martin"),
+  return { ...catalogMeta(value), id: value.id ?? newId(), name: text(value.name, "Nové oddelenie"), owner: text(value.owner, "Martin"),
     ownerId: value.ownerId ?? null, clientId: value.clientId ?? null,
     status: (["Aktivny", "Pozastaveny", "Hotovy"] as unknown[]).includes(value.status) ? value.status! : "Aktivny",
     goal: text(value.goal), color: /^#[0-9a-f]{6}$/i.test(value.color ?? "") ? value.color! : defaultColor };
@@ -275,7 +279,7 @@ export function normalizeProject(value: Partial<Project>, index = 0): Project {
 // ID links are authoritative. Name fields are compatibility labels for the existing UI.
 export function normalizeWorkspace(input: unknown, anchor = localDate()): Workspace {
   const data = record(input);
-  if (data.schemaVersion !== undefined && ![1, 2, 3, 4, 5].includes(data.schemaVersion as number)) throw new Error("Nepodporovaná verzia zálohy.");
+  if (data.schemaVersion !== undefined && ![1, 2, 3, 4, 5, 6].includes(data.schemaVersion as number)) throw new Error("Nepodporovaná verzia zálohy.");
   // Reserve imported IDs before generating IDs for missing legacy records.
   const reserve = (value: unknown): void => {
     if (Array.isArray(value)) { value.forEach(reserve); return; }
@@ -288,7 +292,7 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
   const entities: Entity[] = uniqueIds(rows(data.entities ?? [])).map(e => {
     const name = text(e.name).trim();
     if (!name) throw new Error("Entita musí mať názov.");
-    return { id: e.id, name };
+    return { ...catalogMeta(e), id: e.id, name };
   });
   const clients: Client[] = uniqueIds(rows(data.clients ?? [])).map(c => {
     const name = text(c.name, "Klient").trim();
@@ -331,16 +335,16 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
   });
   const campaigns: Campaign[] = uniqueIds(rows(data.campaigns ?? [])).map(c => {
     const name = text(c.name).trim();
-    if (!name || !projects.some(p => p.id === c.departmentId)) throw new Error("Projekt potrebuje názov a existujúce oddelenie.");
+    if (!name || (c.departmentId != null && !projects.some(p => p.id === c.departmentId))) throw new Error("Projekt potrebuje názov a existujúce oddelenie.");
     if (!Array.isArray(c.entityIds) || c.entityIds.some(id => !entities.some(e => e.id === id))) throw new Error("Neplatné entity projektu.");
-    return { id: c.id, name, departmentId: c.departmentId as number, entityIds: [...new Set(c.entityIds)] as number[], edition: text(c.edition), archived: c.archived === true };
+    return { ...catalogMeta(c), id: c.id, name, year: projectYear(c.year, c.edition), departmentId: (c.departmentId ?? null) as number | null, entityIds: [...new Set(c.entityIds)] as number[], edition: text(c.edition), archived: c.archived === true };
   });
   const tasks = uniqueIds(rows(data.tasks)).map(raw => {
     const task = normalizeTask(raw, anchor);
     if (task.entityId !== null && !entities.some(e => e.id === task.entityId)) throw new Error("Entita neexistuje.");
     if (task.campaignId !== null) {
       const campaign = campaigns.find(c => c.id === task.campaignId);
-      if (!campaign || campaign.departmentId !== task.projectId || (campaign.entityIds.length > 0 && (task.entityId === null || !campaign.entityIds.includes(task.entityId)))) throw new Error("Projekt nezodpovedá oddeleniu alebo entite úlohy.");
+      if (!campaign) throw new Error("Projekt nezodpovedá oddeleniu alebo entite úlohy.");
     }
     const legacyProject = data.schemaVersion === undefined && raw.projectId == null;
     let project = legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
@@ -359,7 +363,8 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
   if (migrating && !team.some(u => u.role === "admin")) team.push({ id: newId(), name: "Martin", ...avatarProfile({ name: "Martin" }), email: "", role: "admin", status: "active", permissions: defaultPermissions("admin"), capacity: 80 });
   validateUsers(team, true);
   if (team.reduce((sum, u) => sum + u.photo.length, 0) > 1024 * 1024) throw new Error("Fotografie spolu môžu zaberať najviac 1 MB.");
-  return { schemaVersion: 5, campaigns, menuOrder: normalizeMenuOrder(data.menuOrder), tasks, projects, entities, users: team, clients, goals };
+  if (data.schemaVersion !== 6) seedCatalog(projects, entities, campaigns);
+  return { schemaVersion: 6, campaigns, menuOrder: normalizeMenuOrder(data.menuOrder), tasks, projects, entities, users: team, clients, goals };
 }
 export function assignedUsers(task: Task, users: User[]): User[] { return task.ownerIds.map(id => users.find(u => u.id === id)).filter((u): u is User => !!u); }
 export function personTaskCount(tasks: Task[], id: number): number { return tasks.filter(t => t.ownerIds.includes(id)).length; }
@@ -391,11 +396,11 @@ export function effectiveClientId(task: Task, projects: Project[]): number | nul
 }
 
 // v6 interaction helpers; persisted workspace format remains v5.
-export function projectLabel(project?: Pick<Campaign, "name" | "edition">): string {
-  return project ? [project.name.trim(), project.edition.trim()].filter(Boolean).join(" · ") : "";
+export function projectLabel(project?: Pick<Campaign, "name" | "edition" | "year">): string {
+  return project ? [project.name.trim(), project.year != null ? String(project.year) : project.edition.trim()].filter(Boolean).join(" · ") : "";
 }
 export function campaignChoices(campaigns: Campaign[], departmentId: number | null, entityId: number | null, currentId: number | null) {
-  const eligible = campaigns.filter(c => c.id === currentId || (!c.archived && c.departmentId === departmentId && (!c.entityIds.length || (entityId !== null && c.entityIds.includes(entityId)))));
+  const eligible = campaigns.filter(c => c.id === currentId || !c.archived);
   return eligible.map(c => {
     const label = projectLabel(c);
     const duplicate = eligible.some(other => other.id !== c.id && projectLabel(other).toLocaleLowerCase("sk") === label.toLocaleLowerCase("sk"));
@@ -404,9 +409,9 @@ export function campaignChoices(campaigns: Campaign[], departmentId: number | nu
   });
 }
 export function saveCampaign(campaigns: Campaign[], draft: Campaign): Campaign[] {
-  const next = { ...draft, name: draft.name.trim(), edition: draft.edition.trim(), entityIds: [...new Set(draft.entityIds)] };
+  const next = { ...draft, ...catalogMeta(draft), updatedAt: new Date().toISOString(), createdAt: draft.createdAt || new Date().toISOString(), year: projectYear(draft.year, draft.edition), name: draft.name.trim(), edition: draft.edition.trim(), entityIds: [...new Set(draft.entityIds)] };
   if (!next.name) throw new Error("Vyplňte názov projektu.");
-  if (campaigns.some(c => c.id !== next.id && c.departmentId === next.departmentId && c.name.trim().toLocaleLowerCase("sk") === next.name.toLocaleLowerCase("sk") && c.edition.trim().toLocaleLowerCase("sk") === next.edition.toLocaleLowerCase("sk"))) throw new Error("Projekt s týmto názvom, oddelením a edíciou už existuje.");
+  if (campaigns.some(c => c.id !== next.id && c.name.trim().toLocaleLowerCase("sk") === next.name.toLocaleLowerCase("sk") && (c.year ?? projectYear(undefined, c.edition)) === next.year && (next.year !== null || c.edition.trim().toLocaleLowerCase("sk") === next.edition.toLocaleLowerCase("sk")))) throw new Error("Projekt s týmto názvom a ročníkom alebo edíciou už existuje.");
   return campaigns.some(c => c.id === next.id) ? campaigns.map(c => c.id === next.id ? next : c) : [...campaigns, next];
 }
 
@@ -435,4 +440,35 @@ export function departmentEventColors(color?: string) {
   const background = `#${tint.map(channel => channel.toString(16).padStart(2, "0")).join("")}`;
   const luminance = tint.map(channel => { const c = channel / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; }).reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
   return { borderLeftColor: border, backgroundColor: background, color: luminance > .179 ? "#17202a" : "#ffffff" };
+}
+
+// v8 catalog source: user-provided MASTER DATA AND CLASSIFICATION, 2026-09-21.
+export const catalogNames = {"departments": ["Finančný úsek", "Projektový tím", "Marketing", "Medicínsky úsek", "IT úsek", "HR úsek", "PR úsek", "Oddelenie právnych služieb", "Obchodný úsek", "Úsek prevádzky", "Pracovná zdravotná služba", "Dopravná zdravotná služba", "Dlhodobá starostlivosť", "PH International", "Darcovské centrum", "Pôrodnice", "Iné"], "entities": ["NEM Medissimo", "NEM Dunajská Streda", "NEM Topoľčany", "NEM Rimavská Sobota", "NEM Spišská Nová Ves", "NEM Trebišov", "NEM Svidník", "NEM Humenné", "NEM Galanta", "NEM Partizánske", "NEM Rožňava", "NEM Michalovce", "NEM Vranov nad Topľou", "NEM Stropkov", "PLK Central", "PLK Central Tower", "PLK Bory", "PLK Betliarska", "PLK Devínska Nová Ves", "PLK Vlčie Hrdlo", "PLK Sereď", "PLK Nitra", "PLK Prešov", "PLK Košice", "SEN Pohoda Seniorov", "SEN SeniorCare Galanta", "SEN SeniorCare Kaskády", "SEN SČSS Stropkov", "Sportclinic", "HQ Bratislava", "HQ Košice", "Iné"], "projects": ["Najzamestnávateľ", "Ružový október", "Movember", "Vianočný večierok", "Teambuilding", "Strategická konferencia", "Deň sestier", "Deň lekárov", "Deň OZP", "Hokejová kvapka krvi", "Futbalová kvapka krvi", "Týždeň dojčenia", "Piknik s laktačnou poradkyňou", "Bezpečnosť pacienta", "Svetový deň srdca", "Top sestra", "Absolventi", "Biele srdce", "Intranet", "Klientská zóna", "Re/Branding", "Iné"]} as const;
+export function catalogMeta(input: unknown): CatalogMeta {
+  const value = (input ?? {}) as CatalogMeta;
+  return { code: typeof value.code === "string" ? value.code : "", sortOrder: Number.isFinite(value.sortOrder) ? value.sortOrder : 0, archived: value.archived === true, createdAt: typeof value.createdAt === "string" ? value.createdAt : "", updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : "", seedKey: typeof value.seedKey === "string" ? value.seedKey : "" };
+}
+export function projectYear(year: unknown, edition: unknown): number | null {
+  if (year == null && typeof edition === "string" && /^[1-9]\d{3}$/.test(edition.trim())) return Number(edition.trim());
+  if (year == null || year === "") return null;
+  if (!Number.isInteger(year) || Number(year) < 1000 || Number(year) > 9999) throw new Error("Ročník musí byť štvorciferný rok.");
+  return Number(year);
+}
+export function catalogChoices<T extends { id: number; archived?: boolean; sortOrder?: number }>(records: T[], currentId: number | null = null): T[] {
+  return records.filter(r => !r.archived || r.id === currentId).sort((a,b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+export function seedCatalog(departments: Project[], entities: Entity[], campaigns: Campaign[]) {
+  const stamp = "2026-09-21T00:00:00.000Z";
+  const groups = [departments, entities, campaigns] as Array<Array<Project | Entity | Campaign>>;
+  Object.entries(catalogNames).forEach(([kind, names], group) => names.forEach((name, index) => {
+    const rows = groups[group], seedKey = `${kind}:${index + 1}`;
+    if (rows.some(r => r.seedKey === seedKey)) return;
+    // Exact catalog identity only; never fuzzy-match or overwrite user edits.
+    const match = rows.find(r => r.name === name && (group !== 2 || (!(r as Campaign).edition && !(r as Campaign).year)));
+    if (match) { match.seedKey = seedKey; return; }
+    let id = 8000000 + group * 1000 + index + 1;
+    if (rows.some(r => r.id === id)) id = newId();
+    const base = { id, name, seedKey, code: "", sortOrder: index + 1, archived: false, createdAt: stamp, updatedAt: stamp };
+    rows.push(group === 0 ? normalizeProject({ ...base, owner: "", ownerId: null }) : group === 1 ? base : { ...base, departmentId: null, entityIds: [], edition: "", year: null });
+  }));
 }

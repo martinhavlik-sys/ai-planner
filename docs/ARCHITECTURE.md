@@ -1,3 +1,5 @@
+> **Aktuálne v9 (22. 9. 2026):** katalogizačná vrstva schémy 6, 17 oddelení, 32 entít a 22 projektov s nezávislými voliteľnými väzbami úloh. Historické časti v6/v7 zostávajú nižšie označené; aktuálna SQL príprava je `supabase/migrations/202609210001_catalog.sql` a lokálna aplikácia naďalej používa localStorage.
+
 # Architektúra
 
 Stav overený zo zdrojov vydania v6, 19. 9. 2026. Živá infraštruktúra nebola kontrolovaná.

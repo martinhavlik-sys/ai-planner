@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 const read = name => readFileSync(new URL(`../${name}`, import.meta.url));
 
-test('v7 retains byte-identical v6 data, persistence and neutral CSS source', () => {
-  for (const name of ['model.ts','repository.ts','supabase-client.ts','globals.css']) {
+test('v8 retains byte-identical remote persistence boundary and neutral CSS source', () => {
+  for (const name of ['repository.ts','supabase-client.ts','globals.css']) {
     const suffix = name.endsWith('.ts') ? '.txt' : '';
     assert.deepEqual(read(`app/${name}`), read(`visual-baseline/v6/${name}${suffix}`), name);
   }

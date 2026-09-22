@@ -1,3 +1,5 @@
+> **Aktuálne v9 (22. 9. 2026):** schéma 6 pridáva katalógové metadata, presné seed dáta pre oddelenia/entity/projekty, voliteľné nezávislé task links a nepovinný rok projektu. Report, analytika a skutočné splnenie nie sú súčasťou tohto vydania.
+
 # Dátový model a migrácie
 
 ## Verzie a slovník
