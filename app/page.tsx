@@ -29,8 +29,8 @@ const teamStorageKey = "ai-planner-team-v1";
 const goalsStorageKey = "ai-planner-goals-v1";
 const statuses: Status[] = ["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"];
 const priorities: Priority[] = ["Nizka", "Stredna", "Vysoka"];
-const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Kampane: "Projekty", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Entity: "Entity" })[screen];
-const screenIcon: Record<Screen, IconName> = { "Pracovna plocha": "dashboard", Projekty: "departments", Kampane: "projects", Tim: "users", Klienti: "users", Inbox: "inbox", Entity: "entity" };
+const screenLabel = (screen: Screen) => ({ "Pracovna plocha": "Pracovná plocha", Projekty: "Oddelenia", Kampane: "Projekty", Tim: "Používatelia", Klienti: "Klienti", Inbox: "Inbox", Report: "Report", Entity: "Entity" })[screen];
+const screenIcon: Record<Screen, IconName> = { "Pracovna plocha": "dashboard", Projekty: "departments", Kampane: "projects", Tim: "users", Klienti: "users", Inbox: "inbox", Report: "report", Entity: "entity" };
 const projectColors = departmentColors;
 
 
@@ -104,7 +104,7 @@ export default function Home() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [menuOrder, setMenuOrder] = useState<MenuItem[]>([...defaultMenuOrder]);
   const [dragMenu, setDragMenu] = useState<MenuItem | null>(null);
-  const [activeScreen, setActiveScreen] = useState<Screen>("Pracovna plocha");
+  const [activeScreen, setActiveScreen] = useState<Screen>(() => typeof window !== "undefined" && window.location?.search?.includes("screen=Report") ? "Report" : "Pracovna plocha");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [projectDraft, setProjectDraft] = useState<Project>(blankProject);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -488,9 +488,9 @@ export default function Home() {
           {(["top", "config"] as const).map(group => <div key={group}>
             {group === "config" ? <button aria-label="Doplnenia" aria-expanded={extrasOpen} onClick={() => setExtrasOpen(!extrasOpen)}><Icon name={extrasOpen ? "down" : "right"} /><span>Doplnenia</span></button> : null}
             {group === "top" || extrasOpen ? <>
-          {menuOrder.filter(screen => group === "top" ? ["Pracovna plocha", "Inbox"].includes(screen) : !["Pracovna plocha", "Inbox"].includes(screen) && (screen !== "Klienti" || adminConfig)).map((screen) => (
+          {menuOrder.filter(screen => group === "top" ? ["Pracovna plocha", "Inbox", "Report"].includes(screen) : !["Pracovna plocha", "Inbox", "Report"].includes(screen) && (screen !== "Klienti" || adminConfig)).map((screen) => (
             <div className="navItem" key={screen} onDragOver={e => { if (dragMenu) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }} onDrop={e => { e.preventDefault(); if (dragMenu) setMenuOrder(current => moveMenuItem(current, dragMenu, screen)); setDragMenu(null); }}>
-              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => setActiveScreen(screen)}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
+              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => { if (screen === "Report") window.history?.pushState?.({}, "", "/report"); else if (window.location?.pathname === "/report") window.history?.pushState?.({}, "", "/"); setActiveScreen(screen); }}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
             </div>
           ))}
             </> : null}
@@ -538,6 +538,8 @@ export default function Home() {
           <article><span>{activeTasks.length}</span><p>Aktivne</p></article>
           <article><span>{inboxTasks.length}</span><p>V inboxe</p></article>
         </section>
+
+        {activeScreen === "Report" ? <section className="reportEmpty" aria-label="Report"><h2>Report</h2><p>Report zatiaľ neobsahuje žiadne údaje.</p></section> : null}
 
         {activeScreen === "Pracovna plocha" ? (
           <>

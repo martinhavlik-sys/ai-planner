@@ -4,6 +4,8 @@ Katalógová aktualizácia pridáva presné editovateľné seed dáta pre 17 odd
 
 Aktuálny zdroj pravdy: [úplná katalógová špecifikácia](docs/CATALOG_SOURCE.txt). Implementačné rozhodnutia a migrácia sú v [DATA_MODEL](docs/DATA_MODEL.md), [ARCHITECTURE](docs/ARCHITECTURE.md) a [DEPLOYMENT](docs/DEPLOYMENT.md). [Overenie v9](docs/QA_V9.md).
 
+Report Etapa 1 pridáva iba navigačnú položku pod Inboxom, samostatnú cestu `/report`, slovenský nadpis a prázdny stav „Report zatiaľ neobsahuje žiadne údaje.“. Dáta, filtre, grafy, exporty, štatistiky, oprávnenia, migrácie a Supabase zostávajú mimo tejto etapy.
+
 ## Historické vydanie v6 · 19. 9. 2026
 
 Kompaktný plánovač úloh v slovenčine: tabuľka, Kanban, kalendár, oddelenia, entity, projekty a osoby. **Vydanie v6 používa nezmenenú lokálnu dátovú schému v5.** Dáta sa stále ukladajú do prehliadača; Supabase synchronizácia a autentifikácia nie sú zapnuté.

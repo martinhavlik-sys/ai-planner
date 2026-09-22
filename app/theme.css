@@ -184,3 +184,6 @@ html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected);
 /* Seeded catalogs remain scrollable without pushing the workspace off screen. */
 .sidebar .filterItems { max-height:220px; overflow-y:auto; }
 @media(max-width:640px) { .sidebar .filterItems { max-height:130px; } }
+.reportEmpty { background: white; border: 1px solid var(--pc-border, #dfe5ea); border-radius: 8px; padding: 28px; text-align: center; }
+.reportEmpty h2 { margin: 0 0 8px; }
+.reportEmpty p { color: var(--pc-muted, #64707c); margin: 0; }

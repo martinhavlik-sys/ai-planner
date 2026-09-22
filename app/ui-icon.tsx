@@ -11,6 +11,7 @@ export const iconGlyphs = {
   filter: "\ue920", edit: "\ue924", trash: "\ue929",
 } as const;
 const paths = {
+  report: "M4 3v18h17 M8 17v-5 M13 17V8 M18 17V4",
   tasks: "M8 5h13 M8 12h13 M8 19h13 M3 5h.1 M3 12h.1 M3 19h.1",
   copy: "M8 8h12v12H8z M16 8V4H4v12h4",
   archive: "M3 4h18v4H3z M5 8v12h14V8 M9 12h6",

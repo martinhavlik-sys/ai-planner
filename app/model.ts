@@ -139,11 +139,13 @@ export function removeClient(clients: Client[], tasks: Task[], projects: Project
 }
 export type Client = { id: number; name: string; email?: string; note?: string };
 export type Entity = CatalogMeta & { id: number; name: string };
-export const defaultMenuOrder = ["Pracovna plocha", "Inbox", "Projekty", "Kampane", "Entity", "Klienti", "Tim"] as const;
+export const defaultMenuOrder = ["Pracovna plocha", "Inbox", "Report", "Projekty", "Kampane", "Entity", "Klienti", "Tim"] as const;
 export type MenuItem = typeof defaultMenuOrder[number];
 export function normalizeMenuOrder(value: unknown): MenuItem[] {
   const saved = Array.isArray(value) ? value.filter((item): item is MenuItem => defaultMenuOrder.includes(item)) : [];
-  return [...new Set([...saved, ...defaultMenuOrder])];
+  const order = [...new Set([...saved, ...defaultMenuOrder])];
+  if (!saved.includes("Report")) { order.splice(order.indexOf("Report"), 1); order.splice(order.indexOf("Inbox") + 1, 0, "Report"); }
+  return order;
 }
 export function moveMenuItem(order: MenuItem[], item: MenuItem, target: MenuItem): MenuItem[] {
   const next = [...order], from = next.indexOf(item), to = next.indexOf(target);

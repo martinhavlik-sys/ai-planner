@@ -254,10 +254,11 @@ test('v7 navigation keeps explicit accessible names and active state with decora
   const app = mount('page.tsx', {});
   app.find(n => n.props['aria-label'] === 'Doplnenia').props.onClick(); app.render();
   const nav = () => app.nodes().filter(n => n.props.draggable);
-  assert.deepEqual(nav().map(n => n.props['aria-label']).sort(), ['Pracovná plocha','Inbox','Oddelenia','Projekty','Entity','Používatelia'].sort());
-  for (const label of ['Inbox','Oddelenia','Projekty','Entity','Používatelia','Pracovná plocha']) {
+  assert.deepEqual(nav().map(n => n.props['aria-label']).sort(), ['Pracovná plocha','Inbox','Report','Oddelenia','Projekty','Entity','Používatelia'].sort());
+  for (const label of ['Inbox','Report','Oddelenia','Projekty','Entity','Používatelia','Pracovná plocha']) {
     nav().find(n => n.props['aria-label'] === label).props.onClick(); app.render();
     assert.equal(nav().find(n => n.props['aria-current'] === 'page').props['aria-label'], label);
+    if (label === 'Report') assert.ok(app.nodes().some(n => n.type === 'p' && n.props.children === 'Report zatiaľ neobsahuje žiadne údaje.'));
   }
   for (const n of app.nodes().filter(n => n.type === 'button' && n.props.className?.includes('iconButton'))) {
     assert.ok(n.props['aria-label']?.length > 3);
