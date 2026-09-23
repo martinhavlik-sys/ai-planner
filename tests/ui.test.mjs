@@ -285,6 +285,15 @@ test('Report Etapa 2 keeps filter controls local and resets them to defaults', o
   assert.equal(select('Oddelenie').props.value, 'department-1');
   assert.equal(select('Stav úlohy').props.value, 'Hotovo');
   assert.equal(select('Priorita').props.value, 'Vysoka');
+  select('Obdobie').props.onChange({ target: { value: 'Vlastné obdobie' } });
+  app.render();
+  assert.ok(app.find(n => n.type === 'input' && n.props['aria-label'] === 'Od'));
+  assert.ok(app.find(n => n.type === 'input' && n.props['aria-label'] === 'Do'));
+  assert.equal(app.find(n => n.type === 'p' && n.props.role === 'alert').props.children, 'Vyberte dátum Od aj Do.');
+  app.find(n => n.type === 'input' && n.props['aria-label'] === 'Od').props.onChange({ target: { value: '2026-09-10' } });
+  app.find(n => n.type === 'input' && n.props['aria-label'] === 'Do').props.onChange({ target: { value: '2026-09-08' } });
+  app.render();
+  assert.equal(app.find(n => n.type === 'p' && n.props.role === 'alert').props.children, 'Dátum Do nesmie byť pred dátumom Od.');
   app.find(n => n.type === 'button' && n.props.children === 'Zrušiť filtre').props.onClick();
   app.render();
   assert.equal(select('Obdobie').props.value, 'Tento týždeň');
@@ -292,6 +301,7 @@ test('Report Etapa 2 keeps filter controls local and resets them to defaults', o
   assert.equal(select('Oddelenie').props.value, '');
   assert.equal(select('Stav úlohy').props.value, '');
   assert.equal(select('Priorita').props.value, '');
+  assert.equal(app.find(n => n.type === 'input' && n.props['aria-label'] === 'Od'), undefined);
 });
 
 test('shared font and SVG icons are decorative and never keyboard stops', options, () => {

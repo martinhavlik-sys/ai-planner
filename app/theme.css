@@ -192,5 +192,10 @@ html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected);
 .reportFilterGrid label { display: grid; gap: 4px; min-width: 0; color: var(--pc-ink, #193c5c); font-size: 11px; }
 .reportFilterGrid select { width: 100%; min-width: 0; }
 .reportFilterReset { min-height: 32px; white-space: nowrap; }
+.reportCustomRange { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.reportCustomRange label { display: grid; gap: 4px; color: var(--pc-ink, #193c5c); font-size: 11px; }
+.reportCustomRange input { width: 100%; }
+.reportPeriodStatus { color: var(--pc-muted, #5f7182); font-size: 11px; margin: 10px 0 0; }
+.reportPeriodStatus[role="alert"] { color: var(--pc-danger, #b62323); }
 @media(max-width: 900px) { .reportFilterGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media(max-width: 640px) { .reportFilterGrid { grid-template-columns: minmax(0, 1fr); } .reportFilterPanel { padding: 10px; } }
+@media(max-width: 640px) { .reportFilterGrid, .reportCustomRange { grid-template-columns: minmax(0, 1fr); } .reportFilterPanel { padding: 10px; } }

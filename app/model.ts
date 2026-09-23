@@ -209,6 +209,26 @@ export function addDays(value: string, days: number): string {
   const date = parseDate(value); date.setDate(date.getDate() + days); return localDate(date);
 }
 export function monday(value: string): string { return addDays(value, -(parseDate(value).getDay() + 6) % 7); }
+export const reportPeriodOptions = ["Tento týždeň", "Minulý týždeň", "Tento mesiac", "Minulý mesiac", "Tento rok", "Vlastné obdobie"] as const;
+export type ReportPeriod = typeof reportPeriodOptions[number];
+export type ReportPeriodRange = { start: string | null; end: string | null; valid: boolean; error: string };
+export function calculateReportPeriod(period: ReportPeriod, reference = new Date(), customFrom = "", customTo = ""): ReportPeriodRange {
+  const valid = (start: string, end: string): ReportPeriodRange => ({ start, end, valid: true, error: "" });
+  const anchor = localDate(reference);
+  if (period === "Vlastné obdobie") {
+    if (!customFrom || !customTo) return { start: null, end: null, valid: false, error: "Vyberte dátum Od aj Do." };
+    if (!deadline(customFrom) || !deadline(customTo)) return { start: null, end: null, valid: false, error: "Zadajte platné dátumy Od aj Do." };
+    if (customTo < customFrom) return { start: null, end: null, valid: false, error: "Dátum Do nesmie byť pred dátumom Od." };
+    return valid(customFrom, customTo);
+  }
+  const weekStart = monday(anchor);
+  if (period === "Tento týždeň") return valid(weekStart, addDays(weekStart, 6));
+  if (period === "Minulý týždeň") { const start = addDays(weekStart, -7); return valid(start, addDays(start, 6)); }
+  const current = parseDate(anchor);
+  if (period === "Tento mesiac") { const start = localDate(new Date(current.getFullYear(), current.getMonth(), 1, 12)); return valid(start, localDate(new Date(current.getFullYear(), current.getMonth() + 1, 0, 12))); }
+  if (period === "Minulý mesiac") { const start = localDate(new Date(current.getFullYear(), current.getMonth() - 1, 1, 12)); return valid(start, localDate(new Date(current.getFullYear(), current.getMonth(), 0, 12))); }
+  return valid(`${current.getFullYear()}-01-01`, `${current.getFullYear()}-12-31`);
+}
 export function calendarDate(value: string, anchor = localDate()): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value) && localDate(parseDate(value)) === value) return value;
   const name = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { calculateReportPeriod, reportPeriodOptions, ReportPeriod } from "./model";
 
 const defaults = {
   period: "Tento týždeň",
@@ -16,11 +17,15 @@ type FilterState = typeof defaults;
 
 export default function ReportPanel() {
   const [filters, setFilters] = useState<FilterState>({ ...defaults });
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const set = (key: keyof FilterState, value: string) => setFilters(current => ({ ...current, [key]: value }));
+  const range = calculateReportPeriod(filters.period as ReportPeriod, new Date(), customFrom, customTo);
+  const reset = () => { setFilters({ ...defaults }); setCustomFrom(""); setCustomTo(""); };
   return <section className="reportFilterPanel" aria-label="Filtre reportu">
     <div className="reportFilterGrid">
       <label>Obdobie<select aria-label="Obdobie" value={filters.period} onChange={event => set("period", event.target.value)}>
-        <option>Tento týždeň</option><option>Minulý týždeň</option><option>Tento mesiac</option><option>Minulý mesiac</option><option>Tento rok</option><option>Vlastné obdobie</option>
+        {reportPeriodOptions.map(option => <option key={option}>{option}</option>)}
       </select></label>
       <label>Typ dátumu<select aria-label="Typ dátumu" value={filters.dateType} onChange={event => set("dateType", event.target.value)}>
         <option>Dátum dokončenia</option><option>Dátum vytvorenia</option><option>Termín</option><option>Dátum pracovného bloku</option>
@@ -40,7 +45,12 @@ export default function ReportPanel() {
       <label>Priorita<select aria-label="Priorita" value={filters.priority} onChange={event => set("priority", event.target.value)}>
         <option value="">Všetky priority</option><option>Nizka</option><option>Stredna</option><option>Vysoka</option>
       </select></label>
-      <button type="button" className="ghost reportFilterReset" onClick={() => setFilters({ ...defaults })}>Zrušiť filtre</button>
+      <button type="button" className="ghost reportFilterReset" onClick={reset}>Zrušiť filtre</button>
     </div>
+    {filters.period === "Vlastné obdobie" ? <div className="reportCustomRange">
+      <label>Od<input aria-label="Od" type="date" value={customFrom} onChange={event => setCustomFrom(event.target.value)} /></label>
+      <label>Do<input aria-label="Do" type="date" value={customTo} onChange={event => setCustomTo(event.target.value)} /></label>
+    </div> : null}
+    <p className="reportPeriodStatus" role={range.valid ? "status" : "alert"}>{range.valid ? `Vybrané obdobie: ${range.start} – ${range.end}` : range.error}</p>
   </section>;
 }

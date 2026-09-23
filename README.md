@@ -8,6 +8,8 @@ Report Etapa 1 pridáva iba navigačnú položku pod Inboxom, samostatnú cestu 
 
 Report Etapa 2 pridáva iba responzívny lokálny panel filtrov s predvoleným obdobím „Tento týždeň“, typom dátumu „Dátum dokončenia“, pripravenými klasifikačnými výbermi, stavom, prioritou a resetom. Výbery sa zatiaľ na nič nenapájajú, nemenia URL ani prázdny stav; zadávateľ nie je pridaný, pretože model eviduje priradené osoby, nie potvrdeného zadávateľa.
 
+Report Etapa 3 pridáva iba lokálny výpočet zvoleného obdobia a typu dátumu. Týždeň používa pondelok až nedeľu, vlastné obdobie zobrazuje polia Od/Do a neplatný alebo neúplný rozsah zobrazí slovenskú chybu. Predvolené obdobie je „Tento týždeň“ a dátum „Dátum dokončenia“; žiadne úlohy sa ešte nenačítavajú ani nefiltrujú.
+
 ## Historické vydanie v6 · 19. 9. 2026
 
 Kompaktný plánovač úloh v slovenčine: tabuľka, Kanban, kalendár, oddelenia, entity, projekty a osoby. **Vydanie v6 používa nezmenenú lokálnu dátovú schému v5.** Dáta sa stále ukladajú do prehliadača; Supabase synchronizácia a autentifikácia nie sú zapnuté.
@@ -53,3 +55,7 @@ SQL migrácia je pripravená, ale nebola vykonaná ani testovaná na PostgreSQL.
 Kompaktný vzhľad inšpirovaný ProCare, lokálny Montserrat a spoločné ikony. Funkčné jadro v6 a schéma 5 zostávajú zachované. Návrat k neutrálnemu vzhľadu a presný rollback: [docs/VISUAL_THEME.md](docs/VISUAL_THEME.md). Pôvod a licencie fontov: [public/fonts/SOURCES.md](public/fonts/SOURCES.md).
 
 Overenie v7: 65 testov bez vynechania, kontrola typov a produkčné zostavenie úspešné. Rozsah skutočnej vizuálnej kontroly: [docs/QA_V7.md](docs/QA_V7.md).
+
+## Medzikrok · viac entít pri úlohe
+
+Formulár úlohy podporuje pôvodný výber jednej entity aj výber viacerých konkrétnych entít (najviac 20) cez slovenský vyhľadateľný zoznam, štítky, odstránenie a potvrdenie/zrušenie. Existujúce pole `entityId` zostáva hlavnou väzbou; nové voliteľné `entityIds` uchováva stabilné ID ďalších väzieb. Staršie úlohy bez `entityIds` sa načítajú bez zmeny. Report, databáza a migrácie neboli upravené.
