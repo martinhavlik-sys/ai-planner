@@ -91,6 +91,10 @@ export default function Home() {
   const [storageError, setStorageError] = useState("");
   const [notice, setNotice] = useState("");
   const [draft, setDraft] = useState<Task>(blankTask);
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
+  const [entityPickerIds, setEntityPickerIds] = useState<number[]>([]);
+  const [entityPickerQuery, setEntityPickerQuery] = useState("");
+  const [entityPickerError, setEntityPickerError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [slotRequest, setSlotRequest] = useState<{ task: Task; slot: CalendarSlot } | null>(null);
@@ -249,7 +253,25 @@ export default function Home() {
   function openNewTask() {
     setDraft(linkedTask({ ...blankTask(), projectId: projects.find(p => p.id === projectFilter && !p.archived)?.id ?? null, entityId: entities.find(e => e.id === entityFilter && !e.archived)?.id ?? null, ownerIds: typeof personFilter === "number" ? [personFilter] : [] }));
     setEditingTask(null);
+    setEntityPickerOpen(false); setEntityPickerError("");
     setIsFormOpen(true);
+  }
+
+  function openEntityPicker() {
+    setEntityPickerIds([...(draft.entityIds ?? (draft.entityId == null ? [] : [draft.entityId]))]);
+    setEntityPickerQuery(""); setEntityPickerError(""); setEntityPickerOpen(true);
+  }
+
+  function setEntitySelection(ids: number[]) {
+    const next = [...new Set(ids)];
+    if (next.length > 20) { setEntityPickerError("Vyberte najviac 20 entít."); return; }
+    setEntityPickerError(""); setEntityPickerIds(next);
+  }
+
+  function confirmEntityPicker() {
+    const ids = [...new Set(entityPickerIds)].slice(0, 20);
+    setDraft(current => ({ ...current, entityId: ids[0] ?? null, entityIds: ids }));
+    setEntityPickerOpen(false); setEntityPickerError("");
   }
 
   function captureInbox(event: FormEvent<HTMLFormElement>) {
@@ -764,7 +786,22 @@ export default function Home() {
             <label>Názov úlohy<input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Napriklad: pripravit prihlasenie" required /></label>
             <div className="formGrid">
               <RecordPicker label="Oddelenie" records={catalogChoices(projects, draft.projectId)} value={draft.projectId} onChange={projectId => setDraft({ ...draft, projectId })} />
-              <RecordPicker label="Entita" records={catalogChoices(entities, draft.entityId)} value={draft.entityId} onChange={entityId => setDraft({ ...draft, entityId })} />
+              <div className="entityPickerField">
+                <RecordPicker label="Entita" records={catalogChoices(entities, draft.entityId)} value={draft.entityId} onChange={entityId => setDraft({ ...draft, entityId, entityIds: entityId == null ? [] : [entityId] })} />
+                <button type="button" className="ghost entityMultiTrigger" onClick={openEntityPicker}>Viac entít…</button>
+                {(draft.entityIds?.length ?? 0) > 1 ? <div className="entityChips" aria-label="Vybrané entity">{draft.entityIds!.map(id => <span className="entityChip" key={id}>{entities.find(entity => entity.id === id)?.name ?? id}<button type="button" aria-label={`Odstrániť ${entities.find(entity => entity.id === id)?.name ?? id}`} onClick={() => { const ids = (draft.entityIds ?? []).filter(entityId => entityId !== id); setDraft({ ...draft, entityIds: ids, entityId: ids[0] ?? null }); }}>×</button></span>)}</div> : null}
+                {entityPickerOpen ? <section className="entityMultiPanel" aria-label="Vyberte entity">
+                  <div className="entityMultiHeader"><strong>Vyberte entity</strong><span>{entityPickerIds.length}/20</span></div>
+                  <input aria-label="Hľadať entity" placeholder="Hľadať entity" value={entityPickerQuery} onChange={event => setEntityPickerQuery(event.target.value)} />
+                  <div className="entityGroupActions">
+                    {[['Všetky nemocnice', 'NEM '], ['Všetky polikliniky', 'PLK '], ['Všetky Senevida', 'SEN ']].map(([label, prefix]) => <button type="button" className="ghost" key={label} onClick={() => { const ids = entities.filter(entity => entity.name.startsWith(prefix)).map(entity => entity.id); if (entityPickerIds.length + ids.filter(id => !entityPickerIds.includes(id)).length > 20) setEntityPickerError("Vyberte najviac 20 entít."); else setEntitySelection([...entityPickerIds, ...ids]); }}>{label}</button>)}
+                  </div>
+                  <div className="entityMultiList">{entities.filter(entity => entity.name.toLocaleLowerCase("sk").includes(entityPickerQuery.toLocaleLowerCase("sk"))).map(entity => <label className="entityMultiOption" key={entity.id}><input type="checkbox" checked={entityPickerIds.includes(entity.id)} onChange={event => setEntitySelection(event.target.checked ? [...entityPickerIds, entity.id] : entityPickerIds.filter(id => id !== entity.id))} /><span>{entity.name}</span></label>)}</div>
+                  {entityPickerIds.length ? <div className="entityChips">{entityPickerIds.map(id => <span className="entityChip" key={id}>{entities.find(entity => entity.id === id)?.name ?? id}<button type="button" aria-label={`Odstrániť ${entities.find(entity => entity.id === id)?.name ?? id}`} onClick={() => setEntitySelection(entityPickerIds.filter(entityId => entityId !== id))}>×</button></span>)}</div> : null}
+                  {entityPickerError ? <p className="formError" role="alert">{entityPickerError}</p> : null}
+                  <div className="entityMultiFooter"><button type="button" className="ghost" onClick={() => setEntityPickerOpen(false)}>Zrušiť výber</button><button type="button" onClick={confirmEntityPicker}>Potvrdiť výber</button></div>
+                </section> : null}
+              </div>
               <RecordPicker label="Projekt" records={campaignChoices(campaigns, draft.projectId, draft.entityId, draft.campaignId)} value={draft.campaignId} onChange={campaignId => setDraft({ ...draft, campaignId })} />
               {projects.find(p => p.id === draft.projectId)?.name === "Iné" ? <label>Spresnenie oddelenia<input value={draft.departmentDetail ?? ""} onChange={e => setDraft({ ...draft, departmentDetail: e.target.value })} /></label> : null}
               {entities.find(p => p.id === draft.entityId)?.name === "Iné" ? <label>Spresnenie entity<input value={draft.entityDetail ?? ""} onChange={e => setDraft({ ...draft, entityDetail: e.target.value })} /></label> : null}

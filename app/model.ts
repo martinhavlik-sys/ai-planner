@@ -9,6 +9,8 @@ export type Task = {
   projectId: number | null; // Legacy department ID, preserved for compatibility.
   campaignId: number | null;
   entityId: number | null;
+  /** Concrete entity links; entityId remains the primary/backward-compatible link. */
+  entityIds?: number[];
   ownerId: number | null;
   // Authoritative assignments; ownerId/owner below remain compatibility mirrors.
   ownerIds: number[];
@@ -281,9 +283,17 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
     return { id: slot.id, taskId: id, day: calendarDate(text(slot.day, "Dnes"), anchor), startHour,
       duration: Math.min(24, Math.max(0.25, num(slot.duration, 1))) };
   });
+  const hasEntityLinks = Array.isArray(value.entityIds);
+  const rawEntityIds = hasEntityLinks ? value.entityIds! : [];
+  if (rawEntityIds.some(id => !Number.isSafeInteger(id) || id < 1)) throw new Error("Neplatné priradenie entít.");
+  const uniqueEntityIds = [...new Set(rawEntityIds)];
+  if (uniqueEntityIds.length > 20) throw new Error("Úloha môže mať najviac 20 entít.");
+  const entityIds = uniqueEntityIds;
+  const primaryEntityId = value.entityId != null ? value.entityId : entityIds[0] ?? null;
+  if (hasEntityLinks && primaryEntityId !== null && !entityIds.includes(primaryEntityId)) entityIds.unshift(primaryEntityId);
   return {
     id, name: text(value.name, "Nova uloha"), project: text(value.project, "Produkt"), owner: text(value.owner, "Martin"),
-    campaignId: value.campaignId ?? null, projectId: value.projectId ?? null, entityId: value.entityId ?? null, ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
+    campaignId: value.campaignId ?? null, projectId: value.projectId ?? null, entityId: primaryEntityId, ...(hasEntityLinks ? { entityIds } : {}), ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
     due: deadline(text(value.due)), departmentDetail: text(value.departmentDetail), entityDetail: text(value.entityDetail), projectDetail: text(value.projectDetail), day: slots[0]?.day ?? "Neskor", startHour: slots[0]?.startHour ?? num(value.startHour, 9),
@@ -363,7 +373,8 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
   });
   const tasks = uniqueIds(rows(data.tasks)).map(raw => {
     const task = normalizeTask(raw, anchor);
-    if (task.entityId !== null && !entities.some(e => e.id === task.entityId)) throw new Error("Entita neexistuje.");
+    const entityLinks = task.entityIds?.length ? task.entityIds : [task.entityId];
+    if (entityLinks.some(id => id !== null && !entities.some(e => e.id === id))) throw new Error("Entita neexistuje.");
     if (task.campaignId !== null) {
       const campaign = campaigns.find(c => c.id === task.campaignId);
       if (!campaign) throw new Error("Projekt nezodpovedá oddeleniu alebo entite úlohy.");
@@ -407,10 +418,11 @@ export function sortTasks(tasks: Task[], key: TaskSort, direction: "asc" | "desc
   }).map(item => item.task);
 }
 export function matchesAssignments(task: Task, projectId: number | null, entityId: number | null | "all"): boolean {
-  return (projectId === null || task.projectId === projectId) && (entityId === "all" || task.entityId === entityId);
+  const links = task.entityIds?.length ? task.entityIds : [task.entityId];
+  return (projectId === null || task.projectId === projectId) && (entityId === "all" || links.includes(entityId));
 }
 export function removeEntity(entities: Entity[], tasks: Task[], id: number): Entity[] {
-  if (tasks.some(task => task.entityId === id)) throw new Error("Entita je priradená k úlohe. Najprv zmeňte priradenie úloh na inú entitu alebo na Bez entity.");
+  if (tasks.some(task => (task.entityIds?.length ? task.entityIds : [task.entityId]).includes(id))) throw new Error("Entita je priradená k úlohe. Najprv zmeňte priradenie úloh na inú entitu alebo na Bez entity.");
   return entities.filter(entity => entity.id !== id);
 }
 export function effectiveClientId(task: Task, projects: Project[]): number | null {

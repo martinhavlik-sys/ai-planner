@@ -155,6 +155,18 @@ test('entity deletion is blocked until all tasks, including completed ones, are 
   assert.deepEqual(removeEntity(entities, tasks, 50), [entities[1]]);
 });
 
+test('task entity links support one or many stable IDs without duplicates or overflow', () => {
+  const single = normalizeTask({ id: 501, entityId: 8000001, name: 'Single' });
+  assert.equal(single.entityId, 8000001);
+  assert.equal(single.entityIds, undefined);
+  const multi = normalizeTask({ id: 502, entityId: 8000002, entityIds: [8000002, 8000003, 8000002], name: 'Multi' });
+  assert.deepEqual(multi.entityIds, [8000002, 8000003]);
+  assert.equal(multi.entityId, 8000002);
+  assert.throws(() => normalizeTask({ entityIds: Array.from({ length: 21 }, (_, i) => i + 1) }), /najviac 20/);
+  assert.equal(matchesAssignments(multi, null, 8000003), true);
+  assert.equal(matchesAssignments(multi, null, 8000004), false);
+});
+
 test('empty workspace gains only catalogs, no tasks and generated IDs are unique safe integers', () => {
   const data = normalizeWorkspace({ schemaVersion: 1, tasks: [], projects: [], team: [], clients: [], goals: [] });
   assert.deepEqual(data.tasks, []); assert.equal(data.projects.length, 17);
