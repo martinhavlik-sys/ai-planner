@@ -10,6 +10,9 @@ test('entity picker uses compact vertical rows with an internal scroll region an
   assert.match(css, /\.entityMultiList\s*\{[^}]*flex-direction:\s*column/);
   assert.match(css, /\.entityMultiList\s*\{[^}]*overflow-y:\s*auto/);
   assert.match(css, /\.entityMultiList\s*\{[^}]*max-height:\s*260px/);
+  assert.match(css, /\.modal \.entityMultiOption\s*\{[^}]*display:\s*flex/);
+  assert.match(css, /\.modal \.entityMultiOption\s*\{[^}]*flex-direction:\s*row/);
+  assert.match(css, /\.modal \.entityMultiOption\s*\{[^}]*gap:\s*6px/);
   const page = read('app/page.tsx');
   assert.match(page, /Zrušiť výber/);
   assert.match(page, /Potvrdiť výber/);
