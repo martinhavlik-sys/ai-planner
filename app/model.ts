@@ -157,6 +157,11 @@ export function moveMenuItem(order: MenuItem[], item: MenuItem, target: MenuItem
 export type Campaign = CatalogMeta & { id: number; name: string; departmentId: number | null; entityIds: number[]; edition: string; year?: number | null; archived: boolean };
 export type Workspace = { schemaVersion: 6; campaigns: Campaign[]; menuOrder: MenuItem[]; tasks: Task[]; projects: Project[]; entities: Entity[]; users: User[]; clients: Client[]; goals: Goal[] };
 export const workspaceKey = "ai-planner-workspace-v1";
+export const removedDepartmentNames = ["Produkt", "Plánovanie", "UX", "Technológia", "Inbox"] as const;
+// Older local snapshots used the unaccented spellings below; these are the same
+// exact catalog entries and are migrated by stable name without fuzzy matching.
+const removedDepartmentSet = new Set<string>([...removedDepartmentNames, "Planovanie", "Technologia"]);
+export function isRemovedDepartmentName(name: string): boolean { return removedDepartmentSet.has(name.trim()); }
 // Keep existing numeric IDs; new IDs are safe integers with collision protection in this session.
 let lastId = 0;
 const reservedIds = new Set<number>();
@@ -292,7 +297,7 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
   const primaryEntityId = value.entityId != null ? value.entityId : entityIds[0] ?? null;
   if (hasEntityLinks && primaryEntityId !== null && !entityIds.includes(primaryEntityId)) entityIds.unshift(primaryEntityId);
   return {
-    id, name: text(value.name, "Nova uloha"), project: text(value.project, "Produkt"), owner: text(value.owner, "Martin"),
+    id, name: text(value.name, "Nova uloha"), project: text(value.project, "HR úsek"), owner: text(value.owner, "Martin"),
     campaignId: value.campaignId ?? null, projectId: value.projectId ?? null, entityId: primaryEntityId, ...(hasEntityLinks ? { entityIds } : {}), ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",
     priority: (["Nizka", "Stredna", "Vysoka"] as unknown[]).includes(value.priority) ? value.priority! : "Stredna",
@@ -361,18 +366,26 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
     if (!clients.some(c => c.id === id)) throw new Error("Klient neexistuje.");
     return id as number;
   };
-  const projects = uniqueIds(rows(data.projects ?? [])).map((p, i) => {
+  const allProjects = uniqueIds(rows(data.projects ?? [])).map((p, i) => {
     const project = normalizeProject(p, i); const member = owner(project.ownerId, project.owner, data.schemaVersion === undefined && p.ownerId == null);
     return { ...project, ownerId: member?.id ?? null, owner: member?.name ?? "", clientId: clientId(project.clientId) };
   });
+  if (data.schemaVersion !== 6) seedCatalog(allProjects, [], []);
+  const hrProject = allProjects.find(project => project.name === "HR úsek");
+  if (!hrProject) throw new Error("Kanonické oddelenie HR úsek neexistuje.");
+  const removedDepartmentIds = new Set(allProjects.filter(project => isRemovedDepartmentName(project.name)).map(project => project.id));
+  const projects = allProjects.filter(project => !isRemovedDepartmentName(project.name));
   const campaigns: Campaign[] = uniqueIds(rows(data.campaigns ?? [])).map(c => {
     const name = text(c.name).trim();
-    if (!name || (c.departmentId != null && !projects.some(p => p.id === c.departmentId))) throw new Error("Projekt potrebuje názov a existujúce oddelenie.");
+    const departmentId = removedDepartmentIds.has(c.departmentId as number) ? hrProject.id : c.departmentId;
+    if (!name || (departmentId != null && !projects.some(p => p.id === departmentId))) throw new Error("Projekt potrebuje názov a existujúce oddelenie.");
     if (!Array.isArray(c.entityIds) || c.entityIds.some(id => !entities.some(e => e.id === id))) throw new Error("Neplatné entity projektu.");
-    return { ...catalogMeta(c), id: c.id, name, year: projectYear(c.year, c.edition), departmentId: (c.departmentId ?? null) as number | null, entityIds: [...new Set(c.entityIds)] as number[], edition: text(c.edition), archived: c.archived === true };
+    return { ...catalogMeta(c), id: c.id, name, year: projectYear(c.year, c.edition), departmentId: (departmentId ?? null) as number | null, entityIds: [...new Set(c.entityIds)] as number[], edition: text(c.edition), archived: c.archived === true };
   });
   const tasks = uniqueIds(rows(data.tasks)).map(raw => {
     const task = normalizeTask(raw, anchor);
+    const rawProjectName = text(raw.project).trim();
+    const inboxTask = raw.projectId == null && rawProjectName === "Inbox";
     const entityLinks = task.entityIds?.length ? task.entityIds : [task.entityId];
     if (entityLinks.some(id => id !== null && !entities.some(e => e.id === id))) throw new Error("Entita neexistuje.");
     if (task.campaignId !== null) {
@@ -380,17 +393,20 @@ export function normalizeWorkspace(input: unknown, anchor = localDate()): Worksp
       if (!campaign) throw new Error("Projekt nezodpovedá oddeleniu alebo entite úlohy.");
     }
     const legacyProject = data.schemaVersion === undefined && raw.projectId == null;
-    let project = legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
+    const removedByName = rawProjectName && isRemovedDepartmentName(rawProjectName) && rawProjectName !== "Inbox";
+    let project = removedDepartmentIds.has(raw.projectId as number) || removedByName
+      ? hrProject
+      : legacyProject ? projects.find(p => p.name.toLowerCase() === task.project.toLowerCase()) : projects.find(p => p.id === task.projectId);
     if (!legacyProject && task.projectId !== null && !project) throw new Error("Oddelenie neexistuje.");
     const legacyPerson = raw.ownerIds === undefined && data.schemaVersion === undefined && raw.ownerId == null && typeof raw.owner === "string" && !!raw.owner.trim();
-    if (!project && task.project && legacyProject) {
+    if (!project && task.project && legacyProject && !inboxTask && !removedByName) {
       const member = owner(task.ownerId, legacyPerson ? task.owner : "", legacyPerson);
       project = normalizeProject({ name: task.project, owner: member?.name ?? "", ownerId: member?.id ?? null }); projects.push(project);
     }
     const members = legacyPerson
       ? [owner(null, task.owner, true)].filter((m): m is User => !!m)
       : task.ownerIds.map(id => owner(id, "", false)!);
-    return { ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerIds: members.map(m => m.id), ownerId: members[0]?.id ?? null, owner: members.map(m => m.name).join(", "), clientId: clientId(task.clientId) };
+    return { ...task, projectId: project?.id ?? null, project: project?.name ?? (inboxTask ? "Inbox" : ""), ownerIds: members.map(m => m.id), ownerId: members[0]?.id ?? null, owner: members.map(m => m.name).join(", "), clientId: clientId(task.clientId) };
   });
   const goals: Goal[] = uniqueIds(rows(data.goals ?? [])).map(g => ({ id: g.id, title: text(g.title), project: text(g.project), quarter: text(g.quarter, "Neskor"), confidence: num(g.confidence, 60), outcome: text(g.outcome) }));
   if (migrating && !team.some(u => u.role === "admin")) team.push({ id: newId(), name: "Martin", ...avatarProfile({ name: "Martin" }), email: "", role: "admin", status: "active", permissions: defaultPermissions("admin"), capacity: 80 });

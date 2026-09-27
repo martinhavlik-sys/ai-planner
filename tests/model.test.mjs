@@ -167,6 +167,32 @@ test('task entity links support one or many stable IDs without duplicates or ove
   assert.equal(matchesAssignments(multi, null, 8000004), false);
 });
 
+test('removed department entries migrate exact task links to the existing HR identifier and preserve task data', () => {
+  const input = {
+    projects: [
+      { id: 10, name: 'Produkt', ownerId: null, owner: '', status: 'Aktivny', goal: '', color: '#111111' },
+      { id: 11, name: 'HR úsek', ownerId: null, owner: '', status: 'Aktivny', goal: '', color: '#222222' },
+      { id: 12, name: 'Marketing', ownerId: null, owner: '', status: 'Aktivny', goal: '', color: '#333333' }
+    ],
+    tasks: [{ id: 21, name: 'Zachovaj ma', projectId: 10, project: 'Produkt', entityId: 900, ownerIds: [], owner: '', status: 'Hotovo', priority: 'Vysoka', due: '2026-09-23', note: 'Poznámka', slots: [] }],
+    entities: [{ id: 900, name: 'Entity' }], clients: [], campaigns: [], goals: []
+  };
+  const data = normalizeWorkspace(input);
+  assert.equal(data.projects.some(project => ['Produkt', 'Plánovanie', 'UX', 'Technológia', 'Inbox'].includes(project.name)), false);
+  assert.equal(data.tasks[0].projectId, 11);
+  assert.equal(data.tasks[0].project, 'HR úsek');
+  assert.equal(data.tasks[0].name, 'Zachovaj ma');
+  assert.equal(data.tasks[0].note, 'Poznámka');
+  assert.equal(data.tasks[0].entityId, 900);
+});
+
+test('Inbox remains an application task bucket without a removed department catalog row', () => {
+  const data = normalizeWorkspace({ projects: [{ id: 11, name: 'HR úsek', ownerId: null, owner: '', status: 'Aktivny', goal: '', color: '#222222' }], tasks: [{ id: 31, name: 'Inbox item', projectId: null, project: 'Inbox', ownerIds: [], owner: '', status: 'Backlog', priority: 'Stredna', due: '', slots: [] }], entities: [], clients: [], campaigns: [], goals: [] });
+  assert.equal(data.tasks[0].project, 'Inbox');
+  assert.equal(data.tasks[0].projectId, null);
+  assert.equal(data.projects.some(project => project.name === 'Inbox'), false);
+});
+
 test('empty workspace gains only catalogs, no tasks and generated IDs are unique safe integers', () => {
   const data = normalizeWorkspace({ schemaVersion: 1, tasks: [], projects: [], team: [], clients: [], goals: [] });
   assert.deepEqual(data.tasks, []); assert.equal(data.projects.length, 17);

@@ -1,6 +1,6 @@
 "use client";
 
-import { catalogChoices } from "./model";
+import { catalogChoices, catalogNames, isRemovedDepartmentName } from "./model";
 import Icon, { IconName } from "./ui-icon";
 
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
@@ -37,10 +37,10 @@ const projectColors = departmentColors;
 
 
 function initialTasks(): Task[] { return [
-  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "Produkt", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, slots: [{ id: 101, day: "Dnes", startHour: 9, duration: 1 }], note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
-  { id: 2, name: "Navrhnut strukturu oddelení a kapacit", project: "Planovanie", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a oddelenia.", checklist: [{ id: 21, text: "Zoznam oddelení", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
-  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "UX", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, slots: [{ id: 301, day: "Streda", startHour: 13, duration: 2 }], note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
-  { id: 4, name: "Doplnit prihlasenie a databazu", project: "Technologia", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, slots: [], note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
+  { id: 1, name: "Spustit prvu verziu AI Planneru", project: "HR úsek", owner: "Martin", status: "Robi sa", priority: "Vysoka", due: "Dnes", day: "Dnes", startHour: 9, duration: 1, slots: [{ id: 101, day: "Dnes", startHour: 9, duration: 1 }], note: "Prvy verejny deploy uz bezi na Verceli.", checklist: [{ id: 11, text: "Overit deploy", done: true }, { id: 12, text: "Doplnit interaktivitu", done: false }], activity: ["Uloha vznikla pri prvom nasadeni."] },
+  { id: 2, name: "Navrhnut strukturu oddelení a kapacit", project: "HR úsek", owner: "Martin", status: "Dnes", priority: "Vysoka", due: "Utorok", day: "Utorok", startHour: 10, duration: 2, slots: [{ id: 201, day: "Utorok", startHour: 10, duration: 2 }], note: "Zaklad pre timove kapacity a oddelenia.", checklist: [{ id: 21, text: "Zoznam oddelení", done: true }, { id: 22, text: "Kapacitny pohlad", done: false }], activity: ["Pridane do dnesneho fokusu."] },
+  { id: 3, name: "Pripravit tabulku uloh v style Monday", project: "HR úsek", owner: "AI", status: "Robi sa", priority: "Stredna", due: "Streda", day: "Streda", startHour: 13, duration: 2, slots: [{ id: 301, day: "Streda", startHour: 13, duration: 2 }], note: "Pridat pracovny dashboard, filtre a prehlady.", checklist: [{ id: 31, text: "Tabulka", done: true }, { id: 32, text: "Kanban", done: true }, { id: 33, text: "Detail ulohy", done: false }], activity: ["Rozsirene o viacero zobrazeni."] },
+  { id: 4, name: "Doplnit prihlasenie a databazu", project: "HR úsek", owner: "AI", status: "Backlog", priority: "Stredna", due: "Neskor", day: "Neskor", startHour: 9, duration: 3, slots: [], note: "Dalsia etapa po lokalnom ukladani.", checklist: [{ id: 41, text: "Vybrat databazu", done: false }, { id: 42, text: "Navrhnut prihlasenie", done: false }], activity: ["Zatial v backlogu."] }
 ].map(task => normalizeTask({ ...task, ownerIds: task.owner === "Martin" ? [1] : [2] } as Partial<Task>)); }
 
 const initialTeam: TeamMember[] = [
@@ -48,22 +48,16 @@ const initialTeam: TeamMember[] = [
   { id: 2, name: "AI", role: "Asistent planovania", capacity: 65 }
 ];
 
-const initialProjects: Project[] = [
-  { id: 1, name: "Produkt", owner: "Martin", status: "Aktivny", goal: "Dostat AI Planner do pouzitelnej prvej verzie.", color: "#1f7a5a" },
-  { id: 2, name: "Planovanie", owner: "Martin", status: "Aktivny", goal: "Udrzat jasny plan bez mikromanazmentu.", color: "#3467d6" },
-  { id: 3, name: "UX", owner: "AI", status: "Aktivny", goal: "Priblizit rozhranie pracovnym nastrojom typu Monday.", color: "#8a5d00" },
-  { id: 4, name: "Technologia", owner: "AI", status: "Pozastaveny", goal: "Pripravit zaklad pre databazu, prihlasenie a zdielanie.", color: "#6b4bb8" },
-  { id: 5, name: "Inbox", owner: "Martin", status: "Aktivny", goal: "Zachytavat napady pred roztriedenim.", color: "#ad2f1e" }
-].map(project => normalizeProject(project as Partial<Project>));
+const initialProjects: Project[] = catalogNames.departments.map((name, index) => normalizeProject({ id: 8000001 + index, name, owner: "", status: "Aktivny", goal: "", color: projectColors[index % projectColors.length] }));
 
 const initialGoals: Goal[] = [
-  { id: 1, title: "Pouzitelny pracovny dashboard", project: "Produkt", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
-  { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "Planovanie", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky oddelení." },
-  { id: 3, title: "Technicky zaklad pre realne pouzitie", project: "Technologia", quarter: "Neskor", confidence: 35, outcome: "Prihlasenie, databaza a zdielanie medzi ludmi." }
+  { id: 1, title: "Pouzitelny pracovny dashboard", project: "HR úsek", quarter: "Teraz", confidence: 75, outcome: "Pouzivatel vie vytvorit ulohu, zmenit stav a sledovat fokus." },
+  { id: 2, title: "Timove planovanie bez mikromanazmentu", project: "HR úsek", quarter: "Dalsi krok", confidence: 55, outcome: "Planner ukazuje kapacity, rizika a dalsie kroky oddelení." },
+  { id: 3, title: "Technicky zaklad pre realne pouzitie", project: "HR úsek", quarter: "Neskor", confidence: 35, outcome: "Prihlasenie, databaza a zdielanie medzi ludmi." }
 ];
 
 function blankTask(): Task {
-  return normalizeTask({ projectId: null, entityId: null, ownerIds: [], clientId: null, id: newId(), name: "", project: "", owner: "", status: "Backlog", priority: "Stredna", due: "", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] });
+  return normalizeTask({ projectId: null, entityId: null, ownerIds: [], clientId: null, id: newId(), name: "", project: "HR úsek", owner: "", status: "Backlog", priority: "Stredna", due: "", day: "Neskor", startHour: 9, duration: 1, slots: [], note: "", checklist: [], activity: [] });
 }
 
 function blankProject(): Project {
@@ -194,7 +188,7 @@ export default function Home() {
   function linkedTask(task: Task): Task {
     const project = projects.find(p => p.id === task.projectId);
     const people = assignedUsers(task, team);
-    return normalizeTask({ ...task, projectId: project?.id ?? null, project: project?.name ?? "", ownerIds: people.map(u => u.id), owner: people.map(u => u.name).join(", ") });
+    return normalizeTask({ ...task, projectId: project?.id ?? null, project: project?.name ?? "HR úsek", ownerIds: people.map(u => u.id), owner: people.map(u => u.name).join(", ") });
   }
 
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== "Hotovo"), [tasks]);
@@ -278,18 +272,12 @@ export default function Home() {
     event.preventDefault();
     const items = inboxText.split("\n").map((item) => item.trim()).filter(Boolean);
     if (!items.length) return;
-    let inbox = projects.find(project => project.name === "Inbox");
-    if (!inbox) {
-      inbox = normalizeProject({ name: "Inbox", owner: "", ownerId: null });
-      setProjects(current => [...current, inbox!]);
-    }
-    const inboxId = inbox.id;
     const captured = items.map((name) => ({
       ...blankTask(),
       id: newId(),
       name,
       project: "Inbox",
-      projectId: inboxId,
+      projectId: null,
       ownerIds: [],
       owner: "",
       status: "Backlog" as Status,
@@ -300,7 +288,7 @@ export default function Home() {
     setInboxText("");
   }
 
-  function triageTask(task: Task, status: Status, project = task.project === "Inbox" ? "Planovanie" : task.project) {
+  function triageTask(task: Task, status: Status, project = task.project === "Inbox" ? "HR úsek" : task.project) {
     const target = projects.find(p => p.name === project);
     updateTask(task.id, { status, projectId: target?.id ?? task.projectId, activity: [`Roztriedene do ${target?.name ?? task.project} / ${status}`, ...task.activity] });
   }
@@ -392,6 +380,7 @@ export default function Home() {
     event.preventDefault();
     const nextName = projectDraft.name.trim();
     if (!nextName) return;
+    if (isRemovedDepartmentName(nextName)) { setNotice("Toto oddelenie už nie je v katalógu."); return; }
     const duplicateName = projects.some((project) => project.name.toLowerCase() === nextName.toLowerCase() && project.id !== editingProject?.id);
     if (duplicateName) { setNotice("Oddelenie s týmto názvom uz existuje."); return; }
 

@@ -59,3 +59,9 @@ Overenie v7: 65 testov bez vynechania, kontrola typov a produkčné zostavenie �
 ## Medzikrok · viac entít pri úlohe
 
 Formulár úlohy podporuje pôvodný výber jednej entity aj výber viacerých konkrétnych entít (najviac 20) cez slovenský vyhľadateľný zoznam, štítky, odstránenie a potvrdenie/zrušenie. Existujúce pole `entityId` zostáva hlavnou väzbou; nové voliteľné `entityIds` uchováva stabilné ID ďalších väzieb. Staršie úlohy bez `entityIds` sa načítajú bez zmeny. Report, databáza a migrácie neboli upravené.
+
+## Medzikrok · kompaktné entity a čistenie oddelení
+
+Zoznam 32 entít používa kompaktné vertikálne riadky s vnútorným posúvaním; vyhľadávanie, skupiny, max. 20, stabilné ID a potvrdenie/zrušenie zostali zachované. Z katalógu oddelení boli odstránené Produkt, Plánovanie, UX, Technológia a Inbox; existujúce presné väzby na tieto položky sa pri normalizácii idempotentne presunú na existujúce HR úsek ID. Seed úlohy boli upravené na HR úsek (4 záznamy), Inbox zostáva samostatnou časťou aplikácie bez oddelenia Inbox v katalógu. Dátový model entít sa nemenil.
+
+Supabase e-mail znamená možné automatické pozastavenie projektu pri dlhšej neaktivite. Táto lokálna úprava tým nie je priamo ovplyvnená; Supabase patrí až do samostatnej etapy databázového napojenia a pred ňou treba podľa potreby manuálne skontrolovať projekt v Supabase Dashboarde.
