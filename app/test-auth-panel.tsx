@@ -18,6 +18,7 @@ export default function TestAuthPanel() {
       const session = await signInWithPassword(email.trim(), password);
       const remote = await readTestTasks(session.access_token);
       setTasks(remote as RemoteTask[]);
+      onTasksLoaded?.(remote as RemoteTask[]);
       setMessage(`Prihlásenie úspešné. Načítané úlohy: ${remote.length}.`);
       setPassword("");
     } catch (error) { setMessage((error as Error).message); }
