@@ -2,7 +2,7 @@
 
 import { catalogChoices, catalogNames, isRemovedDepartmentName } from "./model";
 import Icon, { IconName } from "./ui-icon";
-
+import TestAuthPanel from "./test-auth-panel";
 import { Task, Project, Client, CalendarSlot, ChecklistItem, TeamMember, Goal, Status, Priority, normalizeTask, normalizeProject, normalizeWorkspace, workspaceKey, newId, effectiveClientId } from "./model";
 
 import { Campaign, projectLabel, campaignChoices, saveCampaign, resizeTaskSlot } from "./model";
@@ -543,6 +543,7 @@ export default function Home() {
         </header>
 
         <p className="storageStatus" role="status">{remoteStatus()}</p>
+        <TestAuthPanel />
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
         {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}><Icon name="close" /><span>Zavriet</span></button></div> : null}
         <section className="stats" aria-label="Prehlad">
