@@ -230,8 +230,17 @@ export default function Home() {
   }, [projectFilter, entityFilter, query, quickFilter, statusFilter, tasks, clients, projects, entities, team, personFilter]);
   const tableTasks = useMemo(() => {
     if (!remoteTasks.length) return sortTasks(visibleTasks, sortKey, sortDirection, team, projects);
-    return databaseViewTasks;
-  }, [remoteTasks, databaseViewTasks, visibleTasks, sortKey, sortDirection, team, projects]);
+    const filteredRemote = databaseViewTasks.filter((task) => {
+      const haystack = `${task.name} ${task.project} ${task.status} ${task.priority}`.toLowerCase();
+      const matchesQuery = haystack.includes(query.toLowerCase());
+      const matchesStatus = statusFilter === "Vsetko" || task.status === statusFilter;
+      const matchesPriority = quickFilter !== "Vysoka" || task.priority === "Vysoka";
+      const matchesToday = quickFilter !== "Dnes" || task.status === "Dnes";
+      const matchesDone = quickFilter !== "Hotovo" || task.status === "Hotovo";
+      return matchesQuery && matchesStatus && matchesPriority && matchesToday && matchesDone;
+    });
+    return sortTasks(filteredRemote, sortKey, sortDirection, team, projects);
+  }, [remoteTasks, databaseViewTasks, visibleTasks, query, statusFilter, quickFilter, sortKey, sortDirection, team, projects]);
 
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
