@@ -113,6 +113,23 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [inboxText, setInboxText] = useState("");
   const [remoteTasks, setRemoteTasks] = useState<RemoteTask[]>([]);
+  const databaseViewTasks = useMemo(() => remoteTasks.map((task) => normalizeTask({
+    id: task.id,
+    name: task.title,
+    project: "HR úsek",
+    owner: "",
+    ownerIds: [],
+    status: (statuses.includes(task.status as Status) ? task.status : "Backlog") as Status,
+    priority: (priorities.includes(task.priority as Priority) ? task.priority : "Stredna") as Priority,
+    due: "",
+    day: "Neskor",
+    startHour: 9,
+    duration: 1,
+    slots: [],
+    note: "Read-only databázová úloha",
+    checklist: [],
+    activity: [],
+  } as Partial<Task>)), [remoteTasks]);
   const [activityNote, setActivityNote] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -211,7 +228,10 @@ export default function Home() {
       return matchesQuery && matchesStatus && matchesProject && matchesQuick && matchesPerson;
     });
   }, [projectFilter, entityFilter, query, quickFilter, statusFilter, tasks, clients, projects, entities, team, personFilter]);
-  const tableTasks = useMemo(() => sortTasks(visibleTasks, sortKey, sortDirection, team, projects), [visibleTasks, sortKey, sortDirection, team, projects]);
+  const tableTasks = useMemo(() => {
+    if (!remoteTasks.length) return sortTasks(visibleTasks, sortKey, sortDirection, team, projects);
+    return databaseViewTasks;
+  }, [remoteTasks, databaseViewTasks, visibleTasks, sortKey, sortDirection, team, projects]);
 
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
@@ -609,7 +629,7 @@ export default function Home() {
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
                 <span>{formatDeadline(task.due)}</span>
-                <div className="rowActions"><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}><Icon name="edit" /></button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}><Icon name="copy" /></button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}><Icon name="trash" /></button></div>
+                <div className="rowActions">{remoteTasks.length ? <span className="muted">Read-only</span> : <><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}><Icon name="edit" /></button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}><Icon name="copy" /></button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}><Icon name="trash" /></button></>}</div>
               </article>
             ))}
             {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}
