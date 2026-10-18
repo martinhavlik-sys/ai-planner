@@ -3,9 +3,11 @@
 import { FormEvent, useState } from "react";
 import { readTestTasks, signInWithPassword } from "./supabase-auth";
 
-type RemoteTask = { id: number; title: string; status: string | null; priority: string | null };
+export type RemoteTask = { id: number; title: string; status: string | null; priority: string | null };
 
-export default function TestAuthPanel() {
+type Props = { onTasksLoaded?: (tasks: RemoteTask[]) => void };
+
+export default function TestAuthPanel({ onTasksLoaded }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tasks, setTasks] = useState<RemoteTask[]>([]);
