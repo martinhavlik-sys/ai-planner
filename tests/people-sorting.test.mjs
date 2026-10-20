@@ -98,13 +98,15 @@ test('menu repairs old and incomplete data and moves in either direction without
   assert.deepEqual(moveMenuItem(before, 'Entity', 'Entity'), before);
 });
 
-test('department UI has only name/color and task UI uses Deadline and Osoby', () => {
+test('department UI has only name/color and task UI distinguishes due date from actual completion', () => {
   assert.equal(normalizeProject({}).color, '#4285F4');
   const page = readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
   const section = page.slice(page.indexOf('{activeScreen === "Projekty" ?'), page.indexOf('{activeScreen === "Tim" ?'));
   for (const hidden of ['projectDraft.owner', 'projectDraft.client', 'projectDraft.goal', 'project.goal', 'project.owner', 'project.client', 'project.status', 'project.next']) assert.ok(!section.includes(hidden), hidden);
   assert.ok(section.includes('ColorPicker'));
-  assert.ok(!/Vlastn[íi]k|Termín/.test(page));
+  assert.ok(!/Vlastn[íi]k/.test(page));
+  assert.ok(page.includes("Termín · nepovinný"));
+  assert.ok(!page.includes("Dátum dokončenia · nepovinný"));
   assert.ok(!page.includes('Spravovať entity'));
   assert.match(page, /tableTasks.map/); assert.match(page, /sortTasks\(visibleTasks/);
   assert.match(page, /menuOrder.filter/); assert.match(page, /moveMenuItem/);

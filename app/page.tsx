@@ -18,6 +18,7 @@ import SlotDialog from "./slot-dialog";
 import { People, PersonPicker, ColorPicker } from "./people";
 import { assignedUsers, sortTasks, TaskSort, defaultMenuOrder, MenuItem, moveMenuItem } from "./model";
 import ReportPanel from "./report-panel";
+import { recordTaskDates } from "./model";
 import TestAuthPanel, { RemoteTask } from "./test-auth-panel";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -303,7 +304,7 @@ export default function Home() {
     event.preventDefault();
     const items = inboxText.split("\n").map((item) => item.trim()).filter(Boolean);
     if (!items.length) return;
-    const captured = items.map((name) => ({
+    const captured = items.map((name) => recordTaskDates(normalizeTask({
       ...blankTask(),
       id: newId(),
       name,
@@ -314,7 +315,7 @@ export default function Home() {
       status: "Backlog" as Status,
       note: "Rychlo zachytene v inboxe.",
       activity: [`Zachytene ${new Date().toLocaleDateString("sk-SK")}`]
-    }));
+    })));
     setTasks((current) => [...captured, ...current]);
     setInboxText("");
   }
@@ -356,7 +357,7 @@ export default function Home() {
     if (!draft.name.trim()) return;
     try { normalizeWorkspace({ schemaVersion: 6, campaigns, menuOrder, tasks: [...tasks.filter(t => t.id !== draft.id), draft], projects, entities, users: team, clients, goals }); } catch (error) { setNotice((error as Error).message); return; }
     const slots = draftSlots();
-    const taskToSave = linkedTask({ ...draft, name: draft.name.trim(), checklist: draft.checklist.filter(item => item.text.trim()), slots: slots.map(slot => ({ ...slot, taskId: draft.id })) });
+    const taskToSave = recordTaskDates(linkedTask({ ...draft, name: draft.name.trim(), checklist: draft.checklist.filter(item => item.text.trim()), slots: slots.map(slot => ({ ...slot, taskId: draft.id })) }), editingTask ?? undefined);
 
     if (editingTask) {
       setTasks((current) => current.map((task) => (task.id === editingTask.id ? { ...taskToSave, activity: [`Upravene ${new Date().toLocaleDateString("sk-SK")}`, ...draft.activity] } : task)));
@@ -370,8 +371,9 @@ export default function Home() {
   }
 
   function updateTask(id: number, patch: Partial<Task>) {
-    setTasks((current) => current.map((task) => (task.id === id ? linkedTask({ ...task, ...patch }) : task)));
-    setSelectedTask((current) => (current?.id === id ? linkedTask({ ...current, ...patch }) : current));
+    const now = new Date().toISOString();
+    setTasks((current) => current.map((task) => (task.id === id ? recordTaskDates(linkedTask({ ...task, ...patch }), task, now) : task)));
+    setSelectedTask((current) => (current?.id === id ? recordTaskDates(linkedTask({ ...current, ...patch }), current, now) : current));
   }
 
   function moveCalendarSlot(task: Task, slotId: number, day: string, startHour: number) {
@@ -454,7 +456,7 @@ export default function Home() {
   }
 
   function duplicateTask(task: Task) {
-    setTasks((current) => [linkedTask({ ...task, id: newId(), name: `${task.name} kopia`, status: "Backlog", due: "", day: "Neskor", slots: [] }), ...current]);
+    setTasks((current) => [recordTaskDates(linkedTask({ ...task, id: newId(), name: `${task.name} kópia`, status: "Backlog", due: "", day: "Neskor", slots: [] })), ...current]);
   }
 
   function duplicateCalendarSlot(task: Task, slot: CalendarSlot) {
@@ -588,7 +590,7 @@ export default function Home() {
           <article><span>{inboxTasks.length}</span><p>V inboxe</p></article>
         </section>
 
-        {activeScreen === "Report" ? <><ReportPanel /><section className="reportEmpty" aria-label="Report"><h2>Report</h2><p>Report zatiaľ neobsahuje žiadne údaje.</p></section></> : null}
+        {activeScreen === "Report" ? <ReportPanel tasks={tasks} departments={projects} entities={entities} projects={campaigns} /> : null}
 
         {activeScreen === "Pracovna plocha" ? (
           <>
@@ -848,7 +850,7 @@ export default function Home() {
               <button type="button" className="ghost" onClick={() => removeDraftSlot(index + 1)}>Odstranit blok</button>
             </div>)}
             <button type="button" className="ghost" onClick={addDraftSlot}><Icon name="plus" /><span>Pridat casovy blok</span></button>
-            <label>Dátum dokončenia · nepovinný<input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
+            <label>Termín · nepovinný<input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} /></label>
             <label>Poznamka<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Volitelny kontext k ulohe" /></label>
             <label>Kontrolny zoznam<textarea value={draft.checklist.map((item) => item.text).join("\n")} onChange={(event) => updateDraftChecklist(event.target.value)} placeholder="Kazdy bod daj na novy riadok" /></label>
             <button type="submit">{editingTask ? "Ulozit zmeny" : "Pridat ulohu"}</button>

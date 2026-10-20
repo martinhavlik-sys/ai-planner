@@ -55,3 +55,15 @@ Doménové tabuľky majú zložený PK `(workspace_id,id)` a zodpovedajúce FK, 
 RLS povoľuje authenticated členom len SELECT vlastného priestoru, klientské tabuľky iba owner/admin. Anon nemá granty. Browser zápisy, zmeny členstiev ani automatické provisioning nie sú povolené. SECURITY DEFINER helper s pevným prázdnym search_path overuje členstvo bez rekurzie; neposkytuje zapisovacie API. Archivované riadky sa samotnou RLS neschovávajú.
 
 Pred aktiváciou chýba: mapovanie lokálnych rolí na SQL roly, ID pre link tabuľky, bezpečné uloženie legacy/goals/menu, jednoznačnosť Auth↔profile, transakčný import do nového priestoru, kontrola počtov a konfliktov. SQL samostatné FK zatiaľ nevynucujú celý lokálny súlad projekt–oddelenie–entita. Neoslabovať RLS ako náhradu za tieto kroky.
+
+## Lokálny report · 20. 10. 2026
+
+Úloha má voliteľné ISO okamihy `createdAt` a `completedAt` s explicitným časovým pásmom, normalizované do UTC. Schéma workspace zostáva 6 a kľúč localStorage sa nemení. Normalizácia a JSON import/export zachovávajú platné dátumy; chýbajúce a neplatné dátumy nenahrádzajú dnešným dátumom. Staré zálohy zostávajú načítateľné.
+
+`recordTaskDates` sa používa pri používateľskom uložení: nová úloha (aj Inbox) dostane dátum vytvorenia, prechod do Hotovo dostane dátum dokončenia. Úprava hotovej úlohy ho nemení; opätovné otvorenie ho vymaže a ďalšie dokončenie nastaví nový. Historická hotová úloha bez dátumu zostáva bez neho aj po úprave. Duplikát je nová úloha v zásobníku s novým dátumom vytvorenia a bez dátumu dokončenia. Import ani seed nie sú vytvorením novej úlohy.
+
+Report používa iba lokálne úlohy aktuálneho workspace. Oddelenie = `projectId`, projekt = `campaignId`, entity = zjednotenie `entityId` a `entityIds`. Filtre sa kombinujú cez AND a porovnávajú ID, nie názvy. Počíta sa jedna úloha na ID, aj pri viacerých entitách a blokoch.
+
+Predvolené obdobie je Tento týždeň a typ dátumu Dátum dokončenia. ISO okamihy sa vyhodnocujú v Europe/Bratislava; termíny a dni blokov sú kalendárne dátumy v tomto pásme. Týždeň je pondelok–nedeľa, oba krajné dni sú zahrnuté. Pracovný blok sa započíta pri prekrytí obdobia; presný koniec o polnoci nezahŕňa ďalší deň. Bloky majú existujúcu kalendárnu (nástennú) časovú sémantiku, nie evidenciu skutočne odpracovaného času.
+
+Úlohy bez zvoleného dátumu sú mimo výsledkov obdobia; informačný počet rešpektuje ostatné filtre. Pri type Dokončenie sa používa skutočný `completedAt`, nikdy termín. Pri ostatných typoch metrika Hotovo znamená aktuálne hotové úlohy s príslušným dátumom v období, nie počet dokončení v období. Toto nie je história všetkých opakovaných dokončení ani historický stav workspace.

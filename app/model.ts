@@ -4,6 +4,8 @@ export type Status = "Backlog" | "Dnes" | "Robi sa" | "Caka" | "Hotovo";
 export type Priority = "Nizka" | "Stredna" | "Vysoka";
 
 export type Task = {
+  createdAt?: string;
+  completedAt?: string;
   id: number;
   name: string;
   projectId: number | null; // Legacy department ID, preserved for compatibility.
@@ -277,6 +279,22 @@ export function layoutSlots(slots: CalendarSlot[]): { slot: CalendarSlot; column
   }
   return result;
 }
+/** Accept only explicit ISO instants; never invent dates during normalization/import. */
+export function taskTimestamp(value: unknown): string | undefined {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return undefined;
+  if (!deadline(value.slice(0, 10)) || !Number.isFinite(Date.parse(value))) return undefined;
+  return new Date(value).toISOString();
+}
+
+/** Called only for user saves, never for restored/seed/remote tasks. */
+export function recordTaskDates(next: Task, previous?: Task, now = new Date().toISOString()): Task {
+  const createdAt = previous ? previous.createdAt : now;
+  const completedAt = next.status === "Hotovo"
+    ? previous?.status === "Hotovo" ? previous.completedAt : now
+    : undefined;
+  return normalizeTask({ ...next, createdAt, completedAt });
+}
+
 export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task {
   const id = value.id ?? newId();
   const ownerIds = value.ownerIds === undefined ? (value.ownerId == null ? [] : [value.ownerId]) : value.ownerIds;
@@ -297,6 +315,8 @@ export function normalizeTask(value: Partial<Task>, anchor = localDate()): Task 
   const primaryEntityId = value.entityId != null ? value.entityId : entityIds[0] ?? null;
   if (hasEntityLinks && primaryEntityId !== null && !entityIds.includes(primaryEntityId)) entityIds.unshift(primaryEntityId);
   return {
+    ...(taskTimestamp(value.createdAt) ? { createdAt: taskTimestamp(value.createdAt) } : {}),
+    ...(taskTimestamp(value.completedAt) ? { completedAt: taskTimestamp(value.completedAt) } : {}),
     id, name: text(value.name, "Nova uloha"), project: text(value.project, "HR úsek"), owner: text(value.owner, "Martin"),
     campaignId: value.campaignId ?? null, projectId: value.projectId ?? null, entityId: primaryEntityId, ...(hasEntityLinks ? { entityIds } : {}), ownerIds: [...new Set(ownerIds)], ownerId: ownerIds[0] ?? null, clientId: value.clientId ?? null,
     status: (["Backlog", "Dnes", "Robi sa", "Caka", "Hotovo"] as unknown[]).includes(value.status) ? value.status! : "Backlog",

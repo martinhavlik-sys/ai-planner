@@ -4,6 +4,8 @@ import { createRequire } from 'node:module';
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import * as model from '../app/model.ts';
+import * as reportModel from '../app/report-model.ts';
+import * as supabaseAuth from '../app/supabase-auth.ts';
 
 // Optional offline component harness. Set BABEL_BUNDLE to Playwright's bundled
 // babelBundle.js. It executes handlers/effects, but does not replace browser QA.
@@ -43,6 +45,8 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === './model') return model;
+    if (name === './report-model') return reportModel;
+    if (name === './supabase-auth') return supabaseAuth;
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
@@ -258,7 +262,7 @@ test('v7 navigation keeps explicit accessible names and active state with decora
   for (const label of ['Inbox','Report','Oddelenia','Projekty','Entity','Používatelia','Pracovná plocha']) {
     nav().find(n => n.props['aria-label'] === label).props.onClick(); app.render();
     assert.equal(nav().find(n => n.props['aria-current'] === 'page').props['aria-label'], label);
-    if (label === 'Report') assert.ok(app.nodes().some(n => n.type === 'p' && n.props.children === 'Report zatiaľ neobsahuje žiadne údaje.'));
+    if (label === 'Report') assert.ok(app.nodes().some(n => Array.isArray(n.props.tasks) && Array.isArray(n.props.departments)));
   }
   for (const n of app.nodes().filter(n => n.type === 'button' && n.props.className?.includes('iconButton'))) {
     assert.ok(n.props['aria-label']?.length > 3);
@@ -266,7 +270,7 @@ test('v7 navigation keeps explicit accessible names and active state with decora
   }
 });
 
-test('Report Etapa 2 keeps filter controls local and resets them to defaults', options, () => {
+test('local report controls reset all filters to defaults', options, () => {
   const app = mount('report-panel.tsx', {});
   const select = label => app.find(n => n.type === 'select' && n.props['aria-label'] === label);
   assert.equal(select('Obdobie').props.value, 'Tento týždeň');
@@ -313,4 +317,55 @@ test('shared font and SVG icons are decorative and never keyboard stops', option
     if (icon.type === 'svg') assert.equal(icon.props.focusable, 'false');
     else assert.equal(icon.props.children.length, 1);
   }
+});
+
+test('local report filters actual tasks, counts secondary entities once, and hides results for invalid dates', options, () => {
+  const tasks = [model.normalizeTask({ id: 1, name: 'Započítaná', status: 'Hotovo', completedAt: '2026-10-20T10:00:00Z', projectId: 10, campaignId: 20, entityId: 30, entityIds: [30, 31], slots: [] }), model.normalizeTask({ id: 2, name: 'Historická', status: 'Hotovo', projectId: 10, campaignId: 20, entityId: 31, slots: [] })];
+  const app = mount('report-panel.tsx', { tasks, departments: [{ id: 10, name: 'Oddelenie' }], entities: [{ id: 31, name: 'Entita', archived: true }], projects: [{ id: 20, name: 'Projekt', edition: '', archived: false }] });
+  const change = (label, value) => { app.find(n => n.props['aria-label'] === label).props.onChange({ target: { value } }); app.render(); };
+  change('Obdobie', 'Vlastné obdobie'); change('Od', '2026-10-19'); change('Do', '2026-10-25');
+  change('Oddelenie', '10'); change('Entita', '31'); change('Projekt', '20'); change('Stav úlohy', 'Hotovo');
+  assert.ok(app.nodes().some(n => n.type === 'strong' && n.props.children === 'Započítaná'));
+  assert.ok(!app.nodes().some(n => n.type === 'strong' && n.props.children === 'Historická'));
+  assert.ok(app.nodes().some(n => n.type === 'p' && JSON.stringify(n.props.children).includes('Historické dátumy')));
+  const summary = app.find(n => n.props['aria-label'] === 'Súhrn reportu');
+  assert.deepEqual(Array.from(summary.props.children, n => n.props.children[0].props.children), [1, 0, 1]);
+  change('Priorita', 'Vysoka');
+  assert.ok(app.nodes().some(n => n.props.children === 'Zvoleným filtrom nevyhovuje žiadna úloha.'));
+  change('Do', '2026-10-01');
+  assert.equal(app.find(n => n.props['aria-label'] === 'Súhrn reportu'), undefined);
+});
+
+test('workspace status handlers persist dates; editing historical done tasks never backfills; duplicates are new backlog', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [{ id: 1, name: 'Historická', status: 'Hotovo', owner: '', slots: [] }] });
+  const app = mount('page.tsx', {}, 'default', data);
+  const stored = () => JSON.parse(app.storage.get(model.workspaceKey));
+  const status = () => app.find(n => n.type === 'select' && String(n.props.className).includes('statusSelect'));
+  status().props.onChange({ target: { value: 'Hotovo' } }); app.render();
+  assert.equal(stored().tasks[0].completedAt, undefined);
+  status().props.onChange({ target: { value: 'Dnes' } }); app.render();
+  status().props.onChange({ target: { value: 'Hotovo' } }); app.render();
+  assert.ok(stored().tasks[0].completedAt);
+  app.find(n => n.props['aria-label'] === 'Duplikovať Historická').props.onClick(); app.render();
+  const duplicate = stored().tasks.find(t => t.id !== 1);
+  assert.equal(duplicate.status, 'Backlog'); assert.ok(duplicate.createdAt); assert.equal(duplicate.completedAt, undefined);
+  const reloaded = mount('page.tsx', {}, 'default', stored());
+  assert.equal(JSON.parse(reloaded.storage.get(model.workspaceKey)).tasks.find(t => t.id === 1).completedAt, stored().tasks.find(t => t.id === 1).completedAt);
+});
+
+test('Inbox and task form stamp creation on save, including directly completed tasks', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [] });
+  const app = mount('page.tsx', {}, 'default', data);
+  const stored = () => JSON.parse(app.storage.get(model.workspaceKey)).tasks;
+  app.find(n => n.props['aria-label'] === 'Inbox').props.onClick(); app.render();
+  app.find(n => n.type === 'textarea' && n.props.placeholder === 'Kazdy napad alebo ulohu daj na novy riadok').props.onChange({ target: { value: 'Prvá\nDruhá' } }); app.render();
+  app.find(n => n.type === 'form' && n.props.className === 'inboxCapture').props.onSubmit({ preventDefault() {} }); app.render();
+  assert.equal(stored().length, 2); assert.ok(stored().every(t => t.createdAt && !t.completedAt));
+  app.find(n => n.type === 'button' && Array.isArray(n.props.children) && n.props.children.some(child => child?.props?.children === 'Nova uloha')).props.onClick(); app.render();
+  app.find(n => n.type === 'input' && n.props.autoFocus).props.onChange({ target: { value: 'Priamo dokončená' } }); app.render();
+  const statusLabel = app.find(n => n.type === 'label' && Array.isArray(n.props.children) && n.props.children[0] === 'Status');
+  statusLabel.props.children[1].props.onChange({ target: { value: 'Hotovo' } }); app.render();
+  app.find(n => n.type === 'form' && n.props.className === 'modal').props.onSubmit({ preventDefault() {} }); app.render();
+  const saved = stored().find(t => t.name === 'Priamo dokončená');
+  assert.ok(saved.createdAt); assert.equal(saved.completedAt, saved.createdAt);
 });
