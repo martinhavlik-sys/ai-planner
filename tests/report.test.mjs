@@ -111,3 +111,35 @@ test('created date, due date and completion are independent; counts match return
   assert.deepEqual(ids(buildReport(data, filters({ dateType: 'Dátum vytvorenia' }))), [2]);
   assert.equal(buildReport(data, filters()).done, 0);
 });
+
+test('all periods includes undated tasks and ignores stale custom dates while retaining AND filters', () => {
+  const data = [task({ projectId: 10 }), task({ id: 2, completedAt: '2020-01-01T12:00:00Z', projectId: 10, status: 'Hotovo' }), task({ id: 3, projectId: 20 })];
+  const report = buildReport(data, filters({ period: 'Všetky obdobia', department: '10', from: 'zlé', to: '' }));
+  assert.equal(report.range.valid, true);
+  assert.deepEqual(ids(report), [1, 2]);
+  assert.equal(report.total, 2); assert.equal(report.done, 1); assert.equal(report.active, 1);
+  assert.equal(report.missingDateCount, 1);
+  assert.deepEqual(report.excluded.map(item => item.task.id), [3]);
+  assert.deepEqual(report.excluded[0].reasons, ['Nevyhovuje filtru oddelenia.']);
+});
+
+test('every excluded task has all applicable informative reasons and partitions the unique input', () => {
+  const missing = task({ projectId: 10, campaignId: 20, entityId: 30, status: 'Hotovo', priority: 'Nizka' });
+  const outside = task({ id: 2, completedAt: '2020-01-01T12:00:00Z' });
+  const included = task({ id: 3, completedAt: stamp });
+  const report = buildReport([missing, outside, included, missing], filters());
+  assert.equal(report.total, report.tasks.length);
+  assert.equal(report.tasks.length + report.excluded.length, 3);
+  assert.match(report.excluded[0].reasons.join(' '), /Chýba údaj/);
+  assert.match(report.excluded[1].reasons.join(' '), /mimo obdobia/);
+  const combined = buildReport([missing], filters({ department: '99', project: '99', entity: '99', status: 'Dnes', priority: 'Vysoka' }));
+  assert.equal(combined.excluded[0].reasons.length, 6);
+  assert.equal(combined.total, 0);
+});
+
+test('all periods keeps all undated unique tasks for every date type', () => {
+  for (const dateType of ['Dátum dokončenia', 'Dátum vytvorenia', 'Termín', 'Dátum pracovného bloku']) {
+    const report = buildReport([task(), task({ id: 2 }), task()], filters({ period: 'Všetky obdobia', dateType }));
+    assert.equal(report.total, 2); assert.equal(report.missingDateCount, 2); assert.equal(report.excluded.length, 0);
+  }
+});

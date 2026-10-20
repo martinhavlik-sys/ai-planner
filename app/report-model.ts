@@ -4,7 +4,7 @@ export const reportTimeZone = "Europe/Bratislava";
 export const reportDateTypes = ["Dátum dokončenia", "Dátum vytvorenia", "Termín", "Dátum pracovného bloku"] as const;
 export type ReportDateType = typeof reportDateTypes[number];
 export type ReportFilters = {
-  period: ReportPeriod; dateType: ReportDateType; department: string; entity: string;
+  period: ReportPeriod | "Všetky obdobia"; dateType: ReportDateType; department: string; entity: string;
   project: string; status: string; priority: string; from: string; to: string;
 };
 export const defaultReportFilters: ReportFilters = {
@@ -34,6 +34,7 @@ function shift(day: string, count: number): string {
 export function reportRange(filters: ReportFilters, now = new Date()): ReportPeriodRange {
   const ok = (start: string, end: string) => ({ start, end, valid: true, error: "" });
   const bad = (error: string) => ({ start: null, end: null, valid: false, error });
+  if (filters.period === "Všetky obdobia") return { start: null, end: null, valid: true, error: "" };
   if (filters.period === "Vlastné obdobie") {
     if (!filters.from || !filters.to) return bad("Vyberte dátum Od aj Do.");
     if (!validReportDay(filters.from) || !validReportDay(filters.to)) return bad("Zadajte platné dátumy Od aj Do.");
@@ -53,11 +54,15 @@ export function reportRange(filters: ReportFilters, now = new Date()): ReportPer
   return ok(start, shift(isoDay(date), -1));
 }
 const matchId = (filter: string, id: number | null) => filter === "" || (filter === "none" ? id == null : id === Number(filter));
-function matchesClassification(task: Task, filters: ReportFilters): boolean {
+function classificationReasons(task: Task, filters: ReportFilters): string[] {
   const ids = [...new Set([task.entityId, ...(task.entityIds ?? [])].filter((id): id is number => id != null))];
-  return matchId(filters.department, task.projectId) && matchId(filters.project, task.campaignId)
-    && (filters.entity === "" || (filters.entity === "none" ? !ids.length : ids.includes(Number(filters.entity))))
-    && (!filters.status || task.status === filters.status) && (!filters.priority || task.priority === filters.priority);
+  const reasons: string[] = [];
+  if (!matchId(filters.department, task.projectId)) reasons.push("Nevyhovuje filtru oddelenia.");
+  if (!matchId(filters.project, task.campaignId)) reasons.push("Nevyhovuje filtru projektu.");
+  if (!(filters.entity === "" || (filters.entity === "none" ? !ids.length : ids.includes(Number(filters.entity))))) reasons.push("Nevyhovuje filtru entity.");
+  if (filters.status && task.status !== filters.status) reasons.push("Nevyhovuje filtru stavu.");
+  if (filters.priority && task.priority !== filters.priority) reasons.push("Nevyhovuje filtru priority.");
+  return reasons;
 }
 function taskDays(task: Task, type: ReportDateType): string[] {
   if (type === "Dátum pracovného bloku") return task.slots.flatMap(slot => {
@@ -73,9 +78,23 @@ function taskDays(task: Task, type: ReportDateType): string[] {
 }
 export function buildReport(input: Task[], filters: ReportFilters, now = new Date()) {
   const range = reportRange(filters, now);
-  const candidates = [...new Map(input.map(task => [task.id, task])).values()].filter(task => matchesClassification(task, filters));
-  const missingDateCount = candidates.filter(task => taskDays(task, filters.dateType).length === 0).length;
-  const tasks = range.valid ? candidates.filter(task => taskDays(task, filters.dateType).some(day => day >= range.start! && day <= range.end!)) : [];
+  const allPeriods = filters.period === "Všetky obdobia";
+  const unique = [...new Map(input.map(task => [task.id, task])).values()];
+  const tasks: Task[] = [];
+  const excluded: { task: Task; reasons: string[] }[] = [];
+  let missingDateCount = 0;
+  for (const task of unique) {
+    const reasons = classificationReasons(task, filters);
+    const days = taskDays(task, filters.dateType);
+    if (!reasons.length && !days.length) missingDateCount++;
+    if (!range.valid) reasons.push(range.error);
+    else if (!allPeriods) {
+      if (!days.length) reasons.push(`Chýba údaj: ${filters.dateType.toLocaleLowerCase("sk")}.`);
+      else if (!days.some(day => day >= range.start! && day <= range.end!)) reasons.push("Zvolený dátum je mimo obdobia.");
+    }
+    if (reasons.length) excluded.push({ task, reasons });
+    else tasks.push(task);
+  }
   const done = tasks.filter(task => task.status === "Hotovo").length;
-  return { range, tasks, missingDateCount, total: tasks.length, done, active: tasks.length - done };
+  return { range, tasks, excluded, missingDateCount, total: tasks.length, done, active: tasks.length - done };
 }

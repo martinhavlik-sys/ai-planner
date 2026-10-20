@@ -67,3 +67,9 @@ Report používa iba lokálne úlohy aktuálneho workspace. Oddelenie = `project
 Predvolené obdobie je Tento týždeň a typ dátumu Dátum dokončenia. ISO okamihy sa vyhodnocujú v Europe/Bratislava; termíny a dni blokov sú kalendárne dátumy v tomto pásme. Týždeň je pondelok–nedeľa, oba krajné dni sú zahrnuté. Pracovný blok sa započíta pri prekrytí obdobia; presný koniec o polnoci nezahŕňa ďalší deň. Bloky majú existujúcu kalendárnu (nástennú) časovú sémantiku, nie evidenciu skutočne odpracovaného času.
 
 Úlohy bez zvoleného dátumu sú mimo výsledkov obdobia; informačný počet rešpektuje ostatné filtre. Pri type Dokončenie sa používa skutočný `completedAt`, nikdy termín. Pri ostatných typoch metrika Hotovo znamená aktuálne hotové úlohy s príslušným dátumom v období, nie počet dokončení v období. Toto nie je história všetkých opakovaných dokončení ani historický stav workspace.
+
+### Všetky obdobia a vysvetlenie vyradenia
+
+Voľba „Všetky obdobia“ obchádza iba časové obmedzenie; ostatné filtre zostávajú spojené cez AND. Zahŕňa aj úlohy bez zvoleného dátumu a informačný počet ich označuje ako zahrnuté. Pri konkrétnom období sú nedatované úlohy naďalej mimo výsledkov. Samostatný zoznam vyradených lokálnych úloh uvádza všetky nevyhovujúce filtre vrátane chýbajúceho dátumu alebo dátumu mimo obdobia. Zoznam výsledkov a súhrny používajú tú istú množinu jedinečných úloh.
+
+Report umožňuje otvoriť existujúci lokálny formulár na vytvorenie úlohy aj na úpravu zahrnutej alebo vyradenej úlohy; nevkladá testovacie údaje automaticky. Vzdialené úlohy zostávajú v samostatnom náhľade a nenahrádzajú lokálnu tabuľku ani jej editačné akcie.

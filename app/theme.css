@@ -224,3 +224,6 @@ html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected);
 .reportResults ul { list-style: none; padding: 0; display: grid; gap: .5rem; }
 .reportResults li { padding: .75rem; border: 1px solid #d5deea; border-radius: .5rem; overflow-wrap: anywhere; }
 .reportResults li span { display: block; margin-top: .25rem; }
+.reportTaskScroll { max-height: 28rem; overflow-y: auto; scrollbar-gutter: stable; border: 1px solid #d5deea; border-radius: .5rem; padding: .5rem; margin-block: .5rem; }
+.reportTaskScroll:focus-visible { outline: 2px solid #4285f4; outline-offset: 2px; }
+.reportResults summary { cursor: pointer; padding-block: .75rem; }

@@ -114,23 +114,6 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [inboxText, setInboxText] = useState("");
   const [remoteTasks, setRemoteTasks] = useState<RemoteTask[]>([]);
-  const databaseViewTasks = useMemo(() => remoteTasks.map((task) => normalizeTask({
-    id: task.id,
-    name: task.title,
-    project: "HR úsek",
-    owner: "",
-    ownerIds: [],
-    status: (statuses.includes(task.status as Status) ? task.status : "Backlog") as Status,
-    priority: (priorities.includes(task.priority as Priority) ? task.priority : "Stredna") as Priority,
-    due: "",
-    day: "Neskor",
-    startHour: 9,
-    duration: 1,
-    slots: [],
-    note: "Read-only databázová úloha",
-    checklist: [],
-    activity: [],
-  } as Partial<Task>)), [remoteTasks]);
   const [activityNote, setActivityNote] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -229,19 +212,7 @@ export default function Home() {
       return matchesQuery && matchesStatus && matchesProject && matchesQuick && matchesPerson;
     });
   }, [projectFilter, entityFilter, query, quickFilter, statusFilter, tasks, clients, projects, entities, team, personFilter]);
-  const tableTasks = useMemo(() => {
-    if (!remoteTasks.length) return sortTasks(visibleTasks, sortKey, sortDirection, team, projects);
-    const filteredRemote = databaseViewTasks.filter((task) => {
-      const haystack = `${task.name} ${task.project} ${task.status} ${task.priority}`.toLowerCase();
-      const matchesQuery = haystack.includes(query.toLowerCase());
-      const matchesStatus = statusFilter === "Vsetko" || task.status === statusFilter;
-      const matchesPriority = quickFilter !== "Vysoka" || task.priority === "Vysoka";
-      const matchesToday = quickFilter !== "Dnes" || task.status === "Dnes";
-      const matchesDone = quickFilter !== "Hotovo" || task.status === "Hotovo";
-      return matchesQuery && matchesStatus && matchesPriority && matchesToday && matchesDone;
-    });
-    return sortTasks(filteredRemote, sortKey, sortDirection, team, projects);
-  }, [remoteTasks, databaseViewTasks, visibleTasks, query, statusFilter, quickFilter, sortKey, sortDirection, team, projects]);
+  const tableTasks = useMemo(() => sortTasks(visibleTasks, sortKey, sortDirection, team, projects), [visibleTasks, sortKey, sortDirection, team, projects]);
 
   const projectHealth = useMemo(() => {
     return projects.map((project, index) => {
@@ -590,7 +561,7 @@ export default function Home() {
           <article><span>{inboxTasks.length}</span><p>V inboxe</p></article>
         </section>
 
-        {activeScreen === "Report" ? <ReportPanel tasks={tasks} departments={projects} entities={entities} projects={campaigns} /> : null}
+        {activeScreen === "Report" ? <ReportPanel tasks={tasks} departments={projects} entities={entities} projects={campaigns} onCreate={openNewTask} onEdit={openEditTask} /> : null}
 
         {activeScreen === "Pracovna plocha" ? (
           <>
@@ -640,7 +611,7 @@ export default function Home() {
                   {priorities.map((priority) => <option key={priority}>{priority}</option>)}
                 </select>
                 <span>{formatDeadline(task.due)}</span>
-                <div className="rowActions">{remoteTasks.length ? <span className="muted">Read-only</span> : <><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}><Icon name="edit" /></button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}><Icon name="copy" /></button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}><Icon name="trash" /></button></>}</div>
+                <div className="rowActions"><><button className="ghost iconButton" title="Upraviť" aria-label={`Upraviť ${task.name}`} onClick={() => openEditTask(task)}><Icon name="edit" /></button><button className="ghost iconButton" title="Duplikovať" aria-label={`Duplikovať ${task.name}`} onClick={() => duplicateTask(task)}><Icon name="copy" /></button><button className="danger iconButton" title="Zmazať" aria-label={`Zmazať ${task.name}`} onClick={() => deleteTask(task.id)}><Icon name="trash" /></button></></div>
               </article>
             ))}
             {visibleTasks.length === 0 ? <p className="emptyState">Ziadne ulohy nevyhovuju filtru.</p> : null}

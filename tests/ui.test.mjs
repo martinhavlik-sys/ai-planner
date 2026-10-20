@@ -326,7 +326,9 @@ test('local report filters actual tasks, counts secondary entities once, and hid
   change('Obdobie', 'Vlastné obdobie'); change('Od', '2026-10-19'); change('Do', '2026-10-25');
   change('Oddelenie', '10'); change('Entita', '31'); change('Projekt', '20'); change('Stav úlohy', 'Hotovo');
   assert.ok(app.nodes().some(n => n.type === 'strong' && n.props.children === 'Započítaná'));
-  assert.ok(!app.nodes().some(n => n.type === 'strong' && n.props.children === 'Historická'));
+  const results = app.find(n => n.props['aria-label'] === 'Posúvateľný zoznam výsledných lokálnych úloh');
+  assert.ok(!JSON.stringify(results).includes('Historická'));
+  assert.ok(JSON.stringify(app.find(n => n.props['aria-label'] === 'Dôvody vyradenia lokálnych úloh')).includes('Historická'));
   assert.ok(app.nodes().some(n => n.type === 'p' && JSON.stringify(n.props.children).includes('Historické dátumy')));
   const summary = app.find(n => n.props['aria-label'] === 'Súhrn reportu');
   assert.deepEqual(Array.from(summary.props.children, n => n.props.children[0].props.children), [1, 0, 1]);
@@ -368,4 +370,37 @@ test('Inbox and task form stamp creation on save, including directly completed t
   app.find(n => n.type === 'form' && n.props.className === 'modal').props.onSubmit({ preventDefault() {} }); app.render();
   const saved = stored().find(t => t.name === 'Priamo dokončená');
   assert.ok(saved.createdAt); assert.equal(saved.completedAt, saved.createdAt);
+});
+
+test('all-period report exposes create/edit callbacks, undated results, scroll region and exclusion reasons', options, () => {
+  const edited = []; let created = 0;
+  const tasks = [model.normalizeTask({ id: 1, name: 'Bez dátumu', slots: [] })];
+  const app = mount('report-panel.tsx', { tasks, onCreate() { created++; }, onEdit(task) { edited.push(task.id); } });
+  const change = (label, value) => { app.find(n => n.props['aria-label'] === label).props.onChange({ target: { value } }); app.render(); };
+  app.find(n => n.props.children === 'Nová lokálna úloha').props.onClick();
+  assert.equal(created, 1);
+  change('Obdobie', 'Všetky obdobia');
+  assert.ok(JSON.stringify(app.find(n => n.props['aria-label'] === 'Výsledné úlohy')).includes('Bez dátumu'));
+  const scroll = app.find(n => n.props['aria-label'] === 'Posúvateľný zoznam výsledných lokálnych úloh');
+  assert.equal(scroll.props.tabIndex, 0);
+  app.find(n => n.props['aria-label'] === 'Upraviť lokálnu úlohu Bez dátumu').props.onClick();
+  change('Priorita', 'Vysoka');
+  assert.ok(JSON.stringify(app.find(n => n.props['aria-label'] === 'Dôvody vyradenia lokálnych úloh')).includes('Nevyhovuje filtru priority.'));
+  app.find(n => n.props['aria-label'] === 'Upraviť vyradenú úlohu Bez dátumu').props.onClick();
+  assert.deepEqual(edited, [1, 1]);
+});
+
+test('loading remote tasks never replaces or locks local rows or report tasks, even with colliding IDs', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [{ id: 1, name: 'Lokálna', owner: '', slots: [] }] });
+  const app = mount('page.tsx', {}, 'default', data);
+  app.find(n => typeof n.props.onTasksLoaded === 'function').props.onTasksLoaded([{ id: 1, title: 'Vzdialená', status: 'Hotovo', priority: 'Vysoka' }]); app.render();
+  const rows = app.nodes().filter(n => n.props.className === 'taskName');
+  assert.deepEqual(rows.map(n => n.props.children), ['Lokálna']);
+  assert.ok(app.find(n => n.props['aria-label'] === 'Upraviť Lokálna'));
+  assert.ok(app.find(n => n.props['aria-label'] === 'Databázové úlohy'));
+  app.find(n => n.props['aria-label'] === 'Report').props.onClick(); app.render();
+  const report = app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function');
+  assert.deepEqual(Array.from(report.props.tasks, t => t.name), ['Lokálna']);
+  report.props.onEdit(report.props.tasks[0]); app.render();
+  assert.equal(app.find(n => n.type === 'input' && n.props.autoFocus).props.value, 'Lokálna');
 });
