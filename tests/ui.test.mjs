@@ -12,7 +12,7 @@ import * as supabaseAuth from '../app/supabase-auth.ts';
 const bundle = process.env.BABEL_BUNDLE;
 const babel = bundle ? createRequire(import.meta.url)(bundle) : null;
 const options = { skip: !babel && 'Set BABEL_BUNDLE for offline component checks' };
-function mount(file, props, exportName = 'default', savedWorkspace) {
+function mount(file, props, exportName = 'default', savedWorkspace, location) {
   const cells = [], effects = [];
   let cursor = 0, pending = [], tree;
   const scroll = { scrollTop: 0 };
@@ -50,7 +50,7 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
-    }, document: fakeDocument, window: { setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
+    }, document: fakeDocument, window: { location, history: { pushState(_state, _title, path) { if (location) { const next = new URL(path, "https://test.invalid"); location.pathname = next.pathname; location.search = next.search; } } }, setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
     return exports;
   };
   const exports = load(file);
@@ -71,6 +71,33 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
   };
   return { render, nodes, storage, document: fakeDocument, find: predicate => nodes().find(predicate) };
 }
+
+test('priame otvorenie a obnovenie Reportu zachová lokálne úlohy aj dátový model', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [{ id: 1, name: 'Úloha po obnovení', slots: [] }] });
+  for (const location of [{ pathname: '/report', search: '' }, { pathname: '/report/', search: '' }, { pathname: '/', search: '?screen=Report' }]) {
+    const app = mount('page.tsx', {}, 'default', data, location);
+    const report = app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function');
+    assert.ok(report);
+    assert.deepEqual(Array.from(report.props.tasks, t => t.name), ['Úloha po obnovení']);
+    const saved = JSON.parse(app.storage.get(model.workspaceKey));
+    assert.deepEqual(saved, data);
+    const refreshed = mount('page.tsx', {}, 'default', saved, location);
+    assert.ok(refreshed.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function'));
+    assert.deepEqual(JSON.parse(refreshed.storage.get(model.workspaceKey)), data);
+    refreshed.find(n => n.props['aria-label'] === 'Pracovná plocha').props.onClick(); refreshed.render();
+    assert.equal(location.pathname, '/');
+    const workspace = mount('page.tsx', {}, 'default', data, location);
+    assert.equal(workspace.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function'), undefined);
+  }
+});
+
+test('koreňová cesta otvára pracovnú plochu a zachováva lokálne úlohy', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [{ id: 2, name: 'Úloha na pracovnej ploche', slots: [] }] });
+  const app = mount('page.tsx', {}, 'default', data, { pathname: '/', search: '' });
+  assert.equal(app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function'), undefined);
+  assert.ok(app.find(n => n.props['aria-label'] === 'Upraviť Úloha na pracovnej ploche'));
+  assert.deepEqual(JSON.parse(app.storage.get(model.workspaceKey)), data);
+});
 
 test('every calendar navigation handler resets scroll, including repeated Today and date', options, () => {
   const app = mount('calendar.tsx', { tasks: [], onOpen() {}, onEdit() {}, onAdd() {}, onMove() {} });
