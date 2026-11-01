@@ -2,6 +2,26 @@
 
 # Dôležité rozhodnutia
 
+## TASK-001 · bezpečný prenos Auth · 1. 11. 2026
+
+Zdroj schválenia: [Issue #3, PROTOCOL-001 a TASK-001 READY](https://github.com/martinhavlik-sys/ai-planner/issues/3#issuecomment-6556323851).
+Pracuje sa iba v samostatnom pilotnom worktree; pôvodná rozpracovaná kópia sa
+nemení. Prenášajú sa kontrolované Auth úpravy, ich napojenie na vzdialený náhľad
+a lokálne testy. SQL návrhy, konfigurácia a lokálne údaje sa nekopírujú.
+
+Odovzdanie: commit a draft PR do `codex/ai-planner-oktober`, bez merge a deployu.
+TASK-001 neschvaľuje databázové zápisy, migrácie, RLS/grant zmeny ani použitie
+skutočných prihlasovacích údajov. Bod 10 nižšie naďalej platí pre vzdialený zápis.
+
+Budúci pilot používa po prihlásení Supabase ako hlavný zdroj úloh a súvisiacich
+kalendárnych blokov. Cloudový a lokálny režim/report sa nesmú implicitne miešať.
+Toto rozhodnutie je plán ďalšej etapy, nie tvrdenie, že TASK-001 zaviedol cloud CRUD.
+Lokálny report a údaje zostávajú počas tohto prenosu nedotknuté. Samostatné
+schválenie sa vyžaduje pred databázovými zmenami a živými zapisovacími testami.
+
+Presný stav implementácie a hranice relácie sú v časti TASK-001 dokumentu
+`ARCHITECTURE.md`. Master a Konštitúcia sa týmto technickým záznamom nemenia.
+
 Schválené pravidlá implementované vo v6. Zmena týchto pravidiel vyžaduje vysvetlenie dopadu a prípadný migračný plán.
 
 1. **Stabilita dát pred premenovaním.** `projects` naďalej znamenajú oddelenia; `campaigns` skutočné projekty. Vydanie v6 ponecháva JSON v5 aj storage key. V budúcnosti použiť explicitný adaptér/migráciu, nie hromadné nahradenie názvov.

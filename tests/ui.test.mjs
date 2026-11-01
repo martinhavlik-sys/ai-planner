@@ -12,11 +12,12 @@ import * as supabaseAuth from '../app/supabase-auth.ts';
 const bundle = process.env.BABEL_BUNDLE;
 const babel = bundle ? createRequire(import.meta.url)(bundle) : null;
 const options = { skip: !babel && 'Set BABEL_BUNDLE for offline component checks' };
-function mount(file, props, exportName = 'default', savedWorkspace) {
-  const cells = [], effects = [];
+function mount(file, props, exportName = 'default', savedWorkspace, authOverride) {
+  const cells = [], effects = [], timers = new Map();
+  let timerId = 0;
   let cursor = 0, pending = [], tree;
   const scroll = { scrollTop: 0 };
-  const fakeDocument = { activeElement: null, body: { style: { overflow: "" } } };
+  const fakeDocument = { addEventListener() {}, removeEventListener() {}, visibilityState: "visible", activeElement: null, body: { style: { overflow: "" } } };
   const react = {
     useState(initial) {
       const i = cursor++;
@@ -46,11 +47,11 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === './model') return model;
     if (name === './report-model') return reportModel;
-    if (name === './supabase-auth') return supabaseAuth;
+    if (name === './supabase-auth') return authOverride ?? supabaseAuth;
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
-    }, document: fakeDocument, window: { setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
+    }, document: fakeDocument, window: { setTimeout(fn, delay) { const id=++timerId; timers.set(id,{fn,delay}); return id; }, clearTimeout(id) { timers.delete(id); }, setInterval() {}, clearInterval() {}, addEventListener() {}, removeEventListener() {}, sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
     return exports;
   };
   const exports = load(file);
@@ -69,7 +70,7 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     };
     walk(tree); return result;
   };
-  return { render, nodes, storage, document: fakeDocument, find: predicate => nodes().find(predicate) };
+  return { render, nodes, storage, timers, document: fakeDocument, find: predicate => nodes().find(predicate) };
 }
 
 test('every calendar navigation handler resets scroll, including repeated Today and date', options, () => {
@@ -403,4 +404,62 @@ test('loading remote tasks never replaces or locks local rows or report tasks, e
   assert.deepEqual(Array.from(report.props.tasks, t => t.name), ['Lokálna']);
   report.props.onEdit(report.props.tasks[0]); app.render();
   assert.equal(app.find(n => n.type === 'input' && n.props.autoFocus).props.value, 'Lokálna');
+});
+
+
+test('test auth panel gates remote data, clears password, and logout clears parent rows', options, async () => {
+ const tasks = [{workspace_id:'A',id:1,title:'Test',status:'Backlog',priority:'Stredna'}];
+ const remote = [], events = [];
+ const auth = { ...supabaseAuth, testConfigurationStatus: () => ({ ready: true, message: "" }), TestSessionController: class extends supabaseAuth.TestSessionController {
+   constructor(storage, emit) { super(storage, emit, {
+     signIn: async () => ({access_token:'fake',refresh_token:'fake-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'A',email:'test@example.invalid'}}),
+     verify: async () => { events.push('verify'); }, read: async () => tasks,
+     refresh: async () => { throw Error('unexpected'); }, signOut: async () => { events.push('logout'); }
+   }); }
+ }};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded: rows => remote.push(rows)},'default',undefined,auth);
+ assert.ok(app.find(n=>n.type==='form')); assert.deepEqual(remote.at(-1),[]);
+ app.find(n=>n.props['aria-label']==='E-mail').props.onChange({target:{value:'test@example.invalid'}});
+ app.find(n=>n.props['aria-label']==='Heslo').props.onChange({target:{value:'fake-password'}}); app.render();
+ await app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render();
+ assert.equal(app.find(n=>n.type==='form'),undefined); assert.deepEqual(remote.at(-1),tasks); assert.deepEqual(events,['verify']);
+ app.find(n=>n.props.children==='Odhlásiť sa').props.onClick(); app.render();
+ assert.deepEqual(remote.at(-1),[]); assert.ok(app.find(n=>n.type==='form')); assert.equal(app.find(n=>n.props['aria-label']==='Heslo').props.value,'');
+ assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+});
+
+
+test('test auth panel explains missing configuration and disables sign-in without exposing remote rows', options, () => {
+ const remote=[];
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:false,message:'Chýba konfigurácia testovacieho Supabase.'})};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:rows=>remote.push(rows)},'default',undefined,auth);
+ assert.equal(app.find(n=>n.type==='button'&&n.props.type==='submit').props.disabled,true);
+ assert.match(app.find(n=>n.props.role==='alert').props.children,/Chýba konfigurácia/);
+ assert.deepEqual(remote.at(-1),[]);
+});
+
+
+test('test auth panel loading can be cancelled and late login cannot restore remote rows', options, async () => {
+ let finish;
+ const pending=new Promise(resolve=>{finish=resolve;}), remote=[];
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:true,message:''}),TestSessionController:class extends supabaseAuth.TestSessionController {
+  constructor(storage,emit){super(storage,emit,{signIn:()=>pending,verify:async()=>{},read:async()=>[{workspace_id:'A',id:1,title:'Old',status:null,priority:null}],refresh:async()=>{throw Error('unexpected');},signOut:async()=>{}});}
+ }};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:rows=>remote.push(rows)},'default',undefined,auth);
+ const signing=app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render();
+ assert.equal(app.find(n=>n.type==='form'),undefined);
+ assert.ok(app.find(n=>n.props.role==='status'&&typeof n.props.children==='string'&&n.props.children.includes('Overujem reláciu')));
+ app.find(n=>n.props.children==='Odhlásiť sa').props.onClick();
+ finish({access_token:'fake',refresh_token:'fake',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'A'}}); await signing; app.render();
+ assert.ok(app.find(n=>n.type==='form')); assert.deepEqual(remote.at(-1),[]); assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+});
+test('test auth panel expiry timer clears the parent preview without a network response', options, async () => {
+ let now=Date.now(); const expires=Math.floor(now/1000)+3600, remote=[];
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:true,message:''}),TestSessionController:class extends supabaseAuth.TestSessionController {
+  constructor(storage,emit){super(storage,emit,{signIn:async()=>({access_token:'fake',refresh_token:'fake',expires_at:expires,user:{id:'A'}}),verify:async()=>{},read:async()=>[{workspace_id:'A',id:1,title:'Test',status:null,priority:null}],refresh:async()=>{throw Error('unexpected');},signOut:async()=>{}},()=>now);}
+ }};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:rows=>remote.push(rows)},'default',undefined,auth);
+ await app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render(); assert.equal(remote.at(-1).length,1);
+ const timer=[...app.timers.values()].at(-1); assert.ok(timer.delay>0); now=expires*1000+1; timer.fn(); app.render();
+ assert.deepEqual(remote.at(-1),[]); assert.ok(app.find(n=>n.type==='form')); assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
 });
