@@ -55,20 +55,20 @@ export default function TestAuthPanel({ onTasksLoaded }: Props) {
   const busy = state.phase === "checking";
   return <section aria-label="Testovacie prihlásenie" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #d5deea", borderRadius: 12 }}>
     <h2 style={{ marginTop: 0 }}>Testovacie prihlásenie</h2>
-    <p>Projekt ai-planner-test · vzdialené úlohy sú oddelené od lokálneho pracovného priestoru a reportu.</p>
+    <p>Auth-only · vzdialené úlohy zostávajú uzamknuté do kontroly RLS. Lokálny pracovný priestor a report sú oddelené.</p>
     <p>Relácia sa uchováva iba v tejto karte. Ukladanie do databázy je zatiaľ zablokované.</p>
     {state.phase === "signed-in" ? <>
       <p>Prihlásený účet: {state.user?.email ?? state.user?.id}</p>
-      <button type="button" onClick={() => { void controller.current?.reload(); }}>Obnoviť úlohy</button>{" "}
+      <button type="button" onClick={() => { void controller.current?.reload(); }}>Overiť prihlásenie/reláciu</button>{" "}
     </> : null}
     {state.phase !== "signed-out" ? <button type="button" onClick={() => { void controller.current?.signOut(); }}>Odhlásiť sa</button> : null}
     {state.phase === "signed-out" ? <form onSubmit={submit} style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
       <input aria-label="E-mail" type="email" autoComplete="username" required placeholder="E-mail" value={email} onChange={event => setEmail(event.target.value)} />
       <input aria-label="Heslo" type="password" autoComplete="current-password" required placeholder="Heslo" value={password} onChange={event => setPassword(event.target.value)} />
-      <button type="submit" disabled={!controller.current || !configuration.ready}>Prihlásiť a načítať úlohy</button>
+      <button type="submit" disabled={!controller.current || !configuration.ready}>Overiť prihlásenie/reláciu</button>
     </form> : null}
     {!configuration.ready ? <p role="alert">{configuration.message}</p> : null}
-    {busy ? <p role="status">Overujem reláciu a načítavam povolené úlohy…</p> : null}
+    {busy ? <p role="status">Overujem reláciu…</p> : null}
     {state.message ? <p role="status">{state.message}</p> : null}
   </section>;
 }

@@ -102,3 +102,19 @@ komponentového testovania; manifest ani lockfile sa v tejto etape nemenia.
 Táto časť nahrádza starší opis prázdneho reportu. `page.tsx` odovzdáva `ReportPanel` lokálne `tasks`, oddelenia, entity a projekty. Testovacie Supabase úlohy sa do reportu nemiešajú. `report-model.ts` obsahuje čisté výpočty období v Europe/Bratislava, kombinované filtre, deduplikáciu a súhrny. Panel používa rovnaký výsledok pre počty aj zoznam úloh. Neplatné obdobie skryje výsledky; reset obnoví predvoľby. Filtre reportu sú nezávislé od pracovnej plochy a neukladajú sa do workspace.
 
 Zmena neprenáša SQL ani nezapína vzdialený zápis, synchronizáciu či produkčné nasadenie. Definície dátumov a metrík sú v DATA_MODEL.md. Regresie pokrýva `tests/report.test.mjs` a komponentový harness v `tests/ui.test.mjs`.
+
+
+## TASK-005 · Auth-only · 1. 11. 2026
+
+Táto časť nahrádza čítací náhľad opísaný v TASK-001. Prihlásenie, obnova,
+overenie a odhlásenie používajú iba Auth rozhranie. Controller nikdy nevolá
+transport čítania úloh; aj overená relácia publikuje `tasks=[]`.
+`readTestTasks` vždy vyhodí `TestTaskReadBlockedError` (`READ_NOT_VERIFIED`)
+pred akýmkoľvek fetch. Zápis zostáva blokovaný (`WRITE_NOT_VERIFIED`), bez
+verejného prepínača na odomknutie. Lokálny model, report a import/export sa nemenia.
+
+Odomknutie vyžaduje samostatne schválený serverový audit SELECT RLS, členstva,
+autorstva a súvisiacich väzieb/reportingu a izolovaný pozitívny aj negatívny A/B
+test. Auth-only je ochrana tejto aplikácie, neopravuje serverové oprávnenia.
+Mock testy nie sú dôkazom RLS a tento krok nepovoľuje dátový pilot kolegom.
+Bez SQL, DB zmien, reálnych účtov alebo nasadenia.

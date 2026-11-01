@@ -81,17 +81,12 @@ export async function verifyTestSession(session: AuthSession): Promise<void> {
 export async function signOutTestSession(session: AuthSession): Promise<void> {
   await request("/auth/v1/logout?scope=local", session.access_token, {});
 }
-export async function readTestTasks(accessToken: string): Promise<RemoteTask[]> {
-  if (!accessToken) throw new SessionExpiredError();
-  const tasks: RemoteTask[] = [];
-  for (let offset = 0; ; offset += 500) {
-    const rows = await request(`/rest/v1/tasks?select=id,title,status,priority,due_date,workspace_id&order=workspace_id,id&limit=500&offset=${offset}`, accessToken);
-    if (!Array.isArray(rows) || rows.some(r => !r || typeof r.workspace_id !== "string" || !Number.isSafeInteger(r.id) || r.id <= 0 || typeof r.title !== "string" ||
-      !(r.status === null || typeof r.status === "string") || !(r.priority === null || typeof r.priority === "string")))
-      throw new SupabaseRequestError("Testovacia databáza vrátila neočakávaný formát úloh.");
-    tasks.push(...rows);
-    if (rows.length < 500) return tasks;
-  }
+export class TestTaskReadBlockedError extends Error {
+  readonly code = "READ_NOT_VERIFIED";
+  constructor() { super("Vzdialené úlohy sú uzamknuté do kontroly RLS. Dostupné je iba overenie prihlásenia/relácie."); }
+}
+export async function readTestTasks(_accessToken: string): Promise<never> {
+  throw new TestTaskReadBlockedError();
 }
 // Deliberately no POST/PATCH to PostgREST until migration history, grants and write RLS are verified.
 export type CreateTestTaskInput = {
@@ -110,7 +105,7 @@ export async function saveTestTask(_input?: CreateTestTaskInput): Promise<never>
 type SessionStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type Transport = {
   signIn: typeof signInWithPassword; refresh: typeof refreshTestSession; verify: typeof verifyTestSession;
-  read: typeof readTestTasks; signOut: typeof signOutTestSession;
+  read: (accessToken: string) => Promise<RemoteTask[]>; signOut: typeof signOutTestSession;
 };
 export type TestAuthState = { phase: "checking" | "signed-out" | "signed-in"; user: AuthSession["user"] | null; expiresAt: number | null; tasks: RemoteTask[]; message: string };
 const transport: Transport = { signIn: signInWithPassword, refresh: refreshTestSession, verify: verifyTestSession, read: readTestTasks, signOut: signOutTestSession };
@@ -164,7 +159,7 @@ export class TestSessionController {
       await this.load(generation);
     } catch (error) {
       if (generation !== this.generation) return;
-      this.clear(); this.publish("signed-out", [], safeMessage(error, "Prihlásenie alebo načítanie úloh zlyhalo. Skúste to znova."));
+      this.clear(); this.publish("signed-out", [], safeMessage(error, "Overenie prihlásenia zlyhalo. Skúste to znova."));
     }
   }
   private async load(generation: number) {
@@ -177,10 +172,8 @@ export class TestSessionController {
     if (generation !== this.generation) return;
     this.session = session;
     this.storage.setItem(testSessionKey, JSON.stringify(session));
-    const tasks = await this.api.read(session.access_token);
-    if (generation !== this.generation) return;
     if (session.expires_at * 1000 <= this.now()) throw new SessionExpiredError();
-    this.publish("signed-in", tasks, `Načítané povolené úlohy: ${tasks.length}.`);
+    this.publish("signed-in", [], "Relácia je overená. Vzdialené úlohy sú uzamknuté do kontroly RLS.");
   }
   async reload() {
     if (this.pending || !this.session) return;
@@ -188,7 +181,7 @@ export class TestSessionController {
     this.publish("checking");
     this.pending = this.load(generation).catch(error => {
       if (generation !== this.generation) return;
-      this.clear(); this.publish("signed-out", [], safeMessage(error, "Relácia alebo načítanie úloh zlyhalo. Prihláste sa znova."));
+      this.clear(); this.publish("signed-out", [], safeMessage(error, "Overenie relácie zlyhalo. Prihláste sa znova."));
     }).finally(() => { this.pending = null; });
     return this.pending;
   }

@@ -41,3 +41,19 @@ Schválené pravidlá implementované vo v6. Zmena týchto pravidiel vyžaduje v
 ## v7 · reversible local visual assets
 
 Keep globals.css byte-identical to v6, layer scoped ProCare styles above it, and retain source snapshots + original ZIP. Self-host official Montserrat WOFF2 under OFL 1.1; record the supplied proprietary MDX provenance without inventing license rights. Use accessible parent controls and original SVGs where the MDX mapping is unsuitable.
+
+
+## TASK-005 · Auth-only · 1. 11. 2026
+
+Táto časť nahrádza čítací náhľad opísaný v TASK-001. Prihlásenie, obnova,
+overenie a odhlásenie používajú iba Auth rozhranie. Controller nikdy nevolá
+transport čítania úloh; aj overená relácia publikuje `tasks=[]`.
+`readTestTasks` vždy vyhodí `TestTaskReadBlockedError` (`READ_NOT_VERIFIED`)
+pred akýmkoľvek fetch. Zápis zostáva blokovaný (`WRITE_NOT_VERIFIED`), bez
+verejného prepínača na odomknutie. Lokálny model, report a import/export sa nemenia.
+
+Odomknutie vyžaduje samostatne schválený serverový audit SELECT RLS, členstva,
+autorstva a súvisiacich väzieb/reportingu a izolovaný pozitívny aj negatívny A/B
+test. Auth-only je ochrana tejto aplikácie, neopravuje serverové oprávnenia.
+Mock testy nie sú dôkazom RLS a tento krok nepovoľuje dátový pilot kolegom.
+Bez SQL, DB zmien, reálnych účtov alebo nasadenia.

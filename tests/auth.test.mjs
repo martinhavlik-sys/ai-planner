@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TestSessionController, testSessionKey, testProjectUrl, readTestTasks, signInWithPassword, saveTestTask } from '../app/supabase-auth.ts';
+import { TestSessionController, testSessionKey, testProjectUrl, readTestTasks, TestTaskReadBlockedError, signInWithPassword, saveTestTask } from '../app/supabase-auth.ts';
 const session = (id = 'A', expires_at = 1000) => ({ access_token: `access-${id}`, refresh_token: `refresh-${id}`, expires_at, user: { id } });
 const row = { workspace_id: 'workspace-A', id: 1, title: 'Test', status: 'Backlog', priority: 'Stredna' };
 const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => { resolve=a; reject=b; }); return { promise, resolve, reject }; };
@@ -14,12 +14,12 @@ function setup(saved, overrides = {}) {
 test('signed-out restore exposes no tasks and makes no network calls', async () => {
  const x=setup(); await x.controller.restore(); assert.equal(x.last().phase,'signed-out'); assert.deepEqual(x.last().tasks,[]); assert.deepEqual(x.calls,[]);
 });
-test('reload restores only a server-verified session and reads permitted tasks', async () => {
- const x=setup(session()); await x.controller.restore(); assert.deepEqual(x.calls,['verify','read']); assert.equal(x.last().user.id,'A'); assert.deepEqual(x.last().tasks,[row]);
+test('restore verifies the session without requesting the foreign task mock', async () => {
+ const x=setup(session()); await x.controller.restore(); assert.deepEqual(x.calls,['verify']); assert.equal(x.last().user.id,'A'); assert.deepEqual(x.last().tasks,[]);
  const next=setup(JSON.parse(x.values.get(testSessionKey))); await next.controller.restore(); assert.equal(next.last().phase,'signed-in');
 });
 test('expired session refreshes once for concurrent restores and persists rotated credentials', async () => {
- const x=setup(session('A',90)); await Promise.all([x.controller.restore(),x.controller.restore()]); assert.deepEqual(x.calls,['refresh','verify','read']); assert.equal(JSON.parse(x.values.get(testSessionKey)).expires_at,2000);
+ const x=setup(session('A',90)); await Promise.all([x.controller.restore(),x.controller.restore()]); assert.deepEqual(x.calls,['refresh','verify']); assert.equal(JSON.parse(x.values.get(testSessionKey)).expires_at,2000);
 });
 test('rejected server verification erases saved session and never loads data', async () => {
  const x=setup(session(),{verify:async()=>{throw Error('denied');}}); await x.controller.restore(); assert.equal(x.last().phase,'signed-out'); assert.equal(x.values.size,0); assert.deepEqual(x.calls,[]);
@@ -27,8 +27,8 @@ test('rejected server verification erases saved session and never loads data', a
 test('malformed stored session fails closed', async () => {
  const x=setup({user:{id:'A'}}); await x.controller.restore(); assert.equal(x.last().phase,'signed-out'); assert.equal(x.values.size,0); assert.deepEqual(x.calls,[]);
 });
-test('logout clears data immediately and late task response cannot restore them', async () => {
- const wait=deferred(), x=setup(session(),{read:()=>wait.promise}); const loading=x.controller.restore(); await new Promise(setImmediate);
+test('logout clears data immediately and late verification response cannot restore them', async () => {
+ const wait=deferred(), x=setup(session(),{verify:()=>wait.promise}); const loading=x.controller.restore(); await new Promise(setImmediate);
  const logout=x.controller.signOut(); assert.deepEqual(x.last().tasks,[]); assert.equal(x.last().phase,'signed-out'); assert.equal(x.values.size,0);
  wait.resolve([row]); await Promise.all([loading,logout]); assert.equal(x.last().phase,'signed-out');
 });
@@ -45,7 +45,7 @@ test('late logout failure cannot hide a new account', async () => {
 test('storage removal failure still hides all data on logout', async () => {
  const x=setup(session()); await x.controller.restore(); x.storage.removeItem=()=>{throw Error('blocked');}; await x.controller.signOut(); assert.deepEqual(x.last().tasks,[]); assert.equal(x.last().phase,'signed-out'); assert.match(x.last().message,/zatvorte/);
 });
-test('expired session during read is not published', async () => {
+test('expired refreshed session is not published', async () => {
  const x=setup(session('A',99),{refresh:async()=>session('A',99)}); await x.controller.restore(); assert.equal(x.last().phase,'signed-out'); assert.deepEqual(x.last().tasks,[]);
 });
 test('write boundary never calls fetch', async () => {
@@ -58,13 +58,12 @@ test('transport rejects production configuration before transmitting a password'
  try { await assert.rejects(signInWithPassword('A','fake')); assert.equal(calls,0); }
  finally { globalThis.fetch=original; if(oldUrl===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_URL;else process.env.NEXT_PUBLIC_SUPABASE_URL=oldUrl; if(oldKey===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY=oldKey; }
 });
-test('read transport uses caller token and rejects malformed rows', async () => {
- const oldUrl=process.env.NEXT_PUBLIC_SUPABASE_URL, oldKey=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, original=globalThis.fetch;
- process.env.NEXT_PUBLIC_SUPABASE_URL=testProjectUrl; process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY='sb_publishable_test_only'; let seen;
- globalThis.fetch=async(url,options)=>{seen={url,options};return Response.json([row]);};
- try { assert.deepEqual(await readTestTasks('fake-user-token'),[row]); assert.equal(seen.options.method,'GET'); assert.equal(seen.options.headers.Authorization,'Bearer fake-user-token'); assert.match(seen.url,/workspace_id/);
- globalThis.fetch=async()=>Response.json([{id:1,title:'No workspace'}]); await assert.rejects(readTestTasks('fake-user-token'),/formát/); }
- finally { globalThis.fetch=original; if(oldUrl===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_URL;else process.env.NEXT_PUBLIC_SUPABASE_URL=oldUrl; if(oldKey===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY=oldKey; }
+test('direct read rejects with typed Auth-only error before fetch, even for an empty token', async () => {
+ let calls=0;
+ await withTestTransport(async()=>{calls++;return Response.json([{...row,workspace_id:'foreign'}]);},async()=>{
+  for(const token of ['fake-user-token','']) await assert.rejects(readTestTasks(token), e=>e instanceof TestTaskReadBlockedError && e.code==='READ_NOT_VERIFIED');
+  assert.equal(calls,0);
+ });
 });
 
 async function withTestTransport(fetcher, run) {
@@ -100,17 +99,6 @@ test('REST refresh coalesces overlapping requests and preserves rotated session'
   const values=await Promise.all([first,second]); assert.equal(calls,1); assert.equal(values[0].expires_at,2000); assert.deepEqual(values[0],values[1]);
  });
 });
-test('REST task read loads subsequent pages and fails instead of publishing partial data on denial', async () => {
- let calls=0;
- const page=Array.from({length:500},(_,i)=>({...row,id:i+1}));
- await withTestTransport(async(url)=>{
-  calls++; assert.match(url,new RegExp(`offset=${calls===1?0:500}$`)); return Response.json(calls===1?page:[{...row,id:501}]);
- },async()=>{assert.equal((await readTestTasks('fake-user-token')).length,501);assert.equal(calls,2);});
- calls=0;
- await withTestTransport(async()=>++calls===1?Response.json(page):Response.json({message:'denied'},{status:403}),
-  async()=>{await assert.rejects(readTestTasks('fake-user-token'),/nemáte oprávnenie/);assert.equal(calls,2);});
-});
-
 test('missing configuration exposes an actionable Slovak error without any network call', async () => {
  const original=globalThis.fetch, oldUrl=process.env.NEXT_PUBLIC_SUPABASE_URL, oldKey=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
  let calls=0; delete process.env.NEXT_PUBLIC_SUPABASE_URL; delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -124,9 +112,9 @@ test('malformed email in stored session is rejected before any remote read', asy
 });
 test('expiry clears visible tasks immediately and ignores an in-flight reload', async () => {
  let now=100000; const wait=deferred(), values=new Map([[testSessionKey,JSON.stringify(session())]]), states=[];
- let reads=0;
+ let verifies=0;
  const controller=new TestSessionController({getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},s=>states.push(s),{
-  signIn:async()=>session(),refresh:async()=>session(),verify:async()=>{},read:async()=>++reads===1?[row]:wait.promise,signOut:async()=>{}
+  signIn:async()=>session(),refresh:async()=>session(),verify:async()=>{if(++verifies>1)await wait.promise;},read:async()=>{throw Error("task read forbidden");},signOut:async()=>{}
  },()=>now);
  await controller.restore(); assert.equal(states.at(-1).phase,'signed-in');
  const reload=controller.reload(); await new Promise(setImmediate); now=1001000; controller.checkExpiry();
@@ -135,7 +123,7 @@ test('expiry clears visible tasks immediately and ignores an in-flight reload', 
 });
 test('server rejection after a successful sign-in clears old tasks and keeps a safe local error', async () => {
  let fail=false;
- const x=setup(session(),{read:async()=>{if(fail)throw Error('SECRET SERVER DETAILS');return [row];}});
+ const x=setup(session(),{verify:async()=>{if(fail)throw Error('SECRET SERVER DETAILS');}});
  await x.controller.restore(); fail=true; await x.controller.reload(); assert.equal(x.last().phase,'signed-out'); assert.deepEqual(x.last().tasks,[]);
  assert.doesNotMatch(x.last().message,/SECRET/); assert.equal(x.values.size,0);
 });
@@ -167,10 +155,10 @@ test('typed write request remains blocked even with a plausible task and valid t
 
 test('network and malformed JSON failures never expose response contents', async () => {
  await withTestTransport(async()=>{throw Error('SECRET NETWORK DETAILS');},async()=>{
-  await assert.rejects(readTestTasks('fake-user-token'),e=>/nie je dostupné/.test(e.message)&&!e.message.includes('SECRET'));
+  await assert.rejects(signInWithPassword('A','fake'),e=>/zlyhalo/.test(e.message)&&!e.message.includes('SECRET'));
  });
  await withTestTransport(async()=>new Response('SECRET NON JSON',{status:200}),async()=>{
-  await assert.rejects(readTestTasks('fake-user-token'),e=>/neplatnú odpoveď/.test(e.message)&&!e.message.includes('SECRET'));
+  await assert.rejects(signInWithPassword('A','fake'),e=>/zlyhalo/.test(e.message)&&!e.message.includes('SECRET'));
  });
 });
 test('refresh rejection and storage write rejection clear cached tasks and session', async () => {
@@ -185,10 +173,17 @@ test('changing accounts clears old rows before the next sign-in resolves', async
  wait.resolve(session('B')); await signing; assert.equal(x.last().user.id,'B');
 });
 
-test('late rows from account A cannot overwrite already loaded rows of account B', async () => {
- const wait=deferred(), rowB={...row,workspace_id:'workspace-B',title:'Úloha B'};
- const x=setup(session(),{signIn:async()=>session('B'),read:token=>token==='access-A'?wait.promise:Promise.resolve([rowB])});
+test('late verification of account A cannot overwrite account B or request foreign tasks', async () => {
+ const wait=deferred(); let reads=0;
+ const x=setup(session(),{signIn:async()=>session('B'),verify:s=>s.user.id==='A'?wait.promise:Promise.resolve(),read:async()=>{reads++;return [row];}});
  const old=x.controller.restore(); await new Promise(setImmediate); await x.controller.signIn('B','fake');
- assert.deepEqual(x.last().tasks,[rowB]); wait.resolve([row]); await old;
- assert.equal(x.last().user.id,'B'); assert.deepEqual(x.last().tasks,[rowB]); assert.equal(JSON.parse(x.values.get(testSessionKey)).user.id,'B');
+ wait.resolve(); await old;
+ assert.equal(x.last().user.id,'B'); assert.deepEqual(x.last().tasks,[]); assert.equal(reads,0);
+ assert.equal(JSON.parse(x.values.get(testSessionKey)).user.id,'B');
+});
+test('login, restore and repeated lifecycle reloads never request tasks (application guard, not RLS)', async () => {
+ const x=setup(); await x.controller.signIn('A','fake');
+ await x.controller.reload(); x.controller.checkExpiry(); await x.controller.reload();
+ assert.equal(x.last().phase,'signed-in'); assert.deepEqual(x.last().tasks,[]); assert.ok(!x.calls.includes('read'));
+ assert.ok(x.states.every(state=>state.tasks.length===0));
 });
