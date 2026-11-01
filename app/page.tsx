@@ -551,7 +551,7 @@ export default function Home() {
         {remoteTasks.length ? <section aria-label="Databázové úlohy" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #c9d8e8", borderRadius: 12 }}>
           <h2 style={{ marginTop: 0 }}>Úlohy z testovacej databázy</h2>
           <p role="status">Read-only náhľad · {remoteTasks.length} úloh</p>
-          <ul>{remoteTasks.map(task => <li key={task.id}>{task.title} · {task.status ?? "Bez stavu"} · {task.priority ?? "Bez priority"}</li>)}</ul>
+          <ul>{remoteTasks.map(task => <li key={`${task.workspace_id}:${task.id}`}>{task.title} · {task.status ?? "Bez stavu"} · {task.priority ?? "Bez priority"}</li>)}</ul>
         </section> : null}
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
         {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}><Icon name="close" /><span>Zavriet</span></button></div> : null}
