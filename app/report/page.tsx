@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import Home from "../page";
 
 export default function ReportRoute() {
-  redirect("/?screen=Report");
+  return <Home />;
 }
