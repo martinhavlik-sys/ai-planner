@@ -2,6 +2,26 @@
 
 # Dôležité rozhodnutia
 
+## TASK-001 · bezpečný prenos Auth · 1. 11. 2026
+
+Zdroj schválenia: [Issue #3, PROTOCOL-001 a TASK-001 READY](https://github.com/martinhavlik-sys/ai-planner/issues/3#issuecomment-6556323851).
+Pracuje sa iba v samostatnom pilotnom worktree; pôvodná rozpracovaná kópia sa
+nemení. Prenášajú sa kontrolované Auth úpravy, ich napojenie na vzdialený náhľad
+a lokálne testy. SQL návrhy, konfigurácia a lokálne údaje sa nekopírujú.
+
+Odovzdanie: commit a draft PR do `codex/ai-planner-oktober`, bez merge a deployu.
+TASK-001 neschvaľuje databázové zápisy, migrácie, RLS/grant zmeny ani použitie
+skutočných prihlasovacích údajov. Bod 10 nižšie naďalej platí pre vzdialený zápis.
+
+Budúci pilot používa po prihlásení Supabase ako hlavný zdroj úloh a súvisiacich
+kalendárnych blokov. Cloudový a lokálny režim/report sa nesmú implicitne miešať.
+Toto rozhodnutie je plán ďalšej etapy, nie tvrdenie, že TASK-001 zaviedol cloud CRUD.
+Lokálny report a údaje zostávajú počas tohto prenosu nedotknuté. Samostatné
+schválenie sa vyžaduje pred databázovými zmenami a živými zapisovacími testami.
+
+Presný stav implementácie a hranice relácie sú v časti TASK-001 dokumentu
+`ARCHITECTURE.md`. Master a Konštitúcia sa týmto technickým záznamom nemenia.
+
 Schválené pravidlá implementované vo v6. Zmena týchto pravidiel vyžaduje vysvetlenie dopadu a prípadný migračný plán.
 
 1. **Stabilita dát pred premenovaním.** `projects` naďalej znamenajú oddelenia; `campaigns` skutočné projekty. Vydanie v6 ponecháva JSON v5 aj storage key. V budúcnosti použiť explicitný adaptér/migráciu, nie hromadné nahradenie názvov.
@@ -21,3 +41,19 @@ Schválené pravidlá implementované vo v6. Zmena týchto pravidiel vyžaduje v
 ## v7 · reversible local visual assets
 
 Keep globals.css byte-identical to v6, layer scoped ProCare styles above it, and retain source snapshots + original ZIP. Self-host official Montserrat WOFF2 under OFL 1.1; record the supplied proprietary MDX provenance without inventing license rights. Use accessible parent controls and original SVGs where the MDX mapping is unsuitable.
+
+
+## TASK-005 · Auth-only · 1. 11. 2026
+
+Táto časť nahrádza čítací náhľad opísaný v TASK-001. Prihlásenie, obnova,
+overenie a odhlásenie používajú iba Auth rozhranie. Controller nikdy nevolá
+transport čítania úloh; aj overená relácia publikuje `tasks=[]`.
+`readTestTasks` vždy vyhodí `TestTaskReadBlockedError` (`READ_NOT_VERIFIED`)
+pred akýmkoľvek fetch. Zápis zostáva blokovaný (`WRITE_NOT_VERIFIED`), bez
+verejného prepínača na odomknutie. Lokálny model, report a import/export sa nemenia.
+
+Odomknutie vyžaduje samostatne schválený serverový audit SELECT RLS, členstva,
+autorstva a súvisiacich väzieb/reportingu a izolovaný pozitívny aj negatívny A/B
+test. Auth-only je ochrana tejto aplikácie, neopravuje serverové oprávnenia.
+Mock testy nie sú dôkazom RLS a tento krok nepovoľuje dátový pilot kolegom.
+Bez SQL, DB zmien, reálnych účtov alebo nasadenia.

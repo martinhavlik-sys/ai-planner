@@ -105,7 +105,8 @@ export default function Home() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [menuOrder, setMenuOrder] = useState<MenuItem[]>([...defaultMenuOrder]);
   const [dragMenu, setDragMenu] = useState<MenuItem | null>(null);
-  const [activeScreen, setActiveScreen] = useState<Screen>(() => typeof window !== "undefined" && window.location?.search?.includes("screen=Report") ? "Report" : "Pracovna plocha");
+  const [activeScreen, setActiveScreen] = useState<Screen>(() => typeof window !== "undefined" &&
+    (/^\/report\/?$/.test(window.location?.pathname ?? "") || window.location?.search?.includes("screen=Report")) ? "Report" : "Pracovna plocha");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [projectDraft, setProjectDraft] = useState<Project>(blankProject);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -506,7 +507,7 @@ export default function Home() {
             {group === "top" || extrasOpen ? <>
           {menuOrder.filter(screen => group === "top" ? ["Pracovna plocha", "Inbox", "Report"].includes(screen) : !["Pracovna plocha", "Inbox", "Report"].includes(screen) && (screen !== "Klienti" || adminConfig)).map((screen) => (
             <div className="navItem" key={screen} onDragOver={e => { if (dragMenu) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }} onDrop={e => { e.preventDefault(); if (dragMenu) setMenuOrder(current => moveMenuItem(current, dragMenu, screen)); setDragMenu(null); }}>
-              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => { if (screen === "Report") window.history?.pushState?.({}, "", "/report"); else if (window.location?.pathname === "/report") window.history?.pushState?.({}, "", "/"); setActiveScreen(screen); }}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
+              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => { if (screen === "Report") window.history?.pushState?.({}, "", "/report"); else if (/^\/report\/?$/.test(window.location?.pathname ?? "") || window.location?.search?.includes("screen=Report")) window.history?.pushState?.({}, "", "/"); setActiveScreen(screen); }}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
             </div>
           ))}
             </> : null}
@@ -551,7 +552,7 @@ export default function Home() {
         {remoteTasks.length ? <section aria-label="Databázové úlohy" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #c9d8e8", borderRadius: 12 }}>
           <h2 style={{ marginTop: 0 }}>Úlohy z testovacej databázy</h2>
           <p role="status">Read-only náhľad · {remoteTasks.length} úloh</p>
-          <ul>{remoteTasks.map(task => <li key={task.id}>{task.title} · {task.status ?? "Bez stavu"} · {task.priority ?? "Bez priority"}</li>)}</ul>
+          <ul>{remoteTasks.map(task => <li key={`${task.workspace_id}:${task.id}`}>{task.title} · {task.status ?? "Bez stavu"} · {task.priority ?? "Bez priority"}</li>)}</ul>
         </section> : null}
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
         {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}><Icon name="close" /><span>Zavriet</span></button></div> : null}
