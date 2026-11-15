@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import * as model from '../app/model.ts';
 import * as reportModel from '../app/report-model.ts';
+import * as remoteReportModel from '../app/remote-report-model.ts';
 import * as supabaseAuth from '../app/supabase-auth.ts';
 
 // Optional offline component harness. Set BABEL_BUNDLE to Playwright's bundled
@@ -47,6 +48,7 @@ function mount(file, props, exportName = 'default', savedWorkspace, authOverride
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === './model') return model;
     if (name === './report-model') return reportModel;
+    if (name === './remote-report-model') return remoteReportModel;
     if (name === './supabase-auth') return authOverride ?? supabaseAuth;
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
@@ -427,12 +429,66 @@ test('loading remote tasks never replaces or locks local rows or report tasks, e
   assert.ok(app.find(n => n.props['aria-label'] === 'Upraviť Lokálna'));
   assert.ok(app.find(n => n.props['aria-label'] === 'Databázové úlohy'));
   app.find(n => n.props['aria-label'] === 'Report').props.onClick(); app.render();
+  app.find(n => n.type === 'button' && String(n.props.children?.[0]).startsWith('Lokálny report')).props.onClick(); app.render();
   const report = app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function');
   assert.deepEqual(Array.from(report.props.tasks, t => t.name), ['Lokálna']);
   report.props.onEdit(report.props.tasks[0]); app.render();
   assert.equal(app.find(n => n.type === 'input' && n.props.autoFocus).props.value, 'Lokálna');
 });
 
+
+test('report oddeľuje šesť vzdialených a štyri lokálne úlohy a nemá duplicitný súhrn', options, () => {
+ const data=model.normalizeWorkspace({tasks:Array.from({length:4},(_,i)=>({id:i+1,name:'Lokálna '+(i+1),slots:[]}))});
+ const remote=Array.from({length:6},(_,i)=>({workspace_id:'workspace-A',id:i+1,title:'Vzdialená '+(i+1),status:i===0?'Hotovo':'Backlog',priority:'Stredna'}));
+ const app=mount('page.tsx',{},'default',data);
+ const snapshot=app.storage.get(model.workspaceKey);
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded(remote);app.render();
+ app.find(n=>n.props['aria-label']==='Report').props.onClick();app.render();
+ const report=app.find(n=>typeof n.type==='function'&&Array.isArray(n.props.tasks)&&n.props.tasks.length>0);
+ assert.equal(report.props.tasks.length,6);
+ assert.equal(app.find(n=>n.props['aria-label']==='Prehlad'),undefined);
+ assert.equal(app.find(n=>n.props['aria-label']==='Databázové úlohy'),undefined);
+ assert.ok(app.find(n=>n.props['aria-label']==='Zdroj reportu'));
+ const rendered=mount('remote-report-panel.tsx',report.props);
+ const summary=rendered.find(n=>n.props['aria-label']==='Súhrn vzdialeného reportu');
+ assert.deepEqual(Array.from(summary.props.children,n=>n.props.children[0].props.children),[6,5,1]);
+ assert.equal(rendered.nodes().filter(n=>n.type==='li').length,6);
+ assert.equal(rendered.nodes().filter(n=>n.type==='button').length,1);
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded([]);app.render();
+ assert.equal(app.find(n=>typeof n.type==='function'&&Array.isArray(n.props.tasks)).props.tasks.length,0);
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded(remote);app.render();
+ app.find(n=>n.type==='button'&&String(n.props.children?.[0]).startsWith('Lokálny report')).props.onClick();app.render();
+ const local=app.find(n=>typeof n.props.onCreate==='function'&&typeof n.props.onEdit==='function');
+ assert.equal(local.props.tasks.length,4);
+ assert.ok(local.props.tasks.every(task=>task.name.startsWith('Lokálna')));
+ app.find(n=>n.type==='button'&&String(n.props.children?.[0]).startsWith('Vzdialený report')).props.onClick();app.render();
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded([]);app.render();
+ const cleared=app.find(n=>typeof n.type==='function'&&Array.isArray(n.props.tasks));
+ assert.equal(cleared.props.tasks.length,0);
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+});
+
+test('vzdialený report filtruje súhrn aj zoznam rovnako a nepoužíva lokálne dátumy', options, () => {
+ const tasks=Array.from({length:6},(_,i)=>({workspace_id:i<3?'A':'B',id:i%3,title:'Vzdialená '+(i+1),status:i===0?'Hotovo':'Backlog',priority:i===5?'Vysoka':'Stredna'}));
+ const app=mount('remote-report-panel.tsx',{tasks});
+ const count=()=>app.find(n=>n.props['aria-label']==='Súhrn vzdialeného reportu').props.children[0].props.children[0].props.children;
+ assert.equal(count(),6);
+ app.find(n=>n.props['aria-label']==='Hľadať vzdialené úlohy').props.onChange({target:{value:'Vzdialená 6'}});app.render();
+ assert.equal(count(),1);assert.equal(app.nodes().filter(n=>n.type==='li').length,1);
+ assert.equal(app.find(n=>n.props['aria-label']==='Obdobie'),undefined);
+ app.find(n=>n.props.children==='Zrušiť vzdialené filtre').props.onClick();app.render();
+ assert.equal(count(),6);
+ app.find(n=>n.props['aria-label']==='Stav vzdialenej úlohy').props.onChange({target:{value:'Hotovo'}});app.render();
+ assert.equal(count(),1);assert.equal(app.nodes().filter(n=>n.type==='li').length,1);
+});
+
+test('súhrn lokálnej pracovnej plochy počíta iba rovnaké viditeľné riadky ako tabuľka', options, () => {
+ const data=model.normalizeWorkspace({tasks:Array.from({length:4},(_,i)=>({id:i+1,name:'Lokálna '+(i+1),slots:[]}))});
+ const app=mount('page.tsx',{},'default',data);
+ app.find(n=>n.props['aria-label']==='Hladat ulohy').props.onChange({target:{value:'Lokálna 4'}});app.render();
+ const count=app.find(n=>n.props['aria-label']==='Prehlad').props.children[0].props.children[0].props.children;
+ assert.equal(count,1);assert.equal(app.nodes().filter(n=>n.props.className==='taskName').length,1);
+});
 
 test('hlavička odhlási rovnakú reláciu, okamžite skryje vzdialené úlohy a zachová lokálne údaje', options, () => {
  const data=model.normalizeWorkspace({tasks:[{id:1,name:'Lokálna úloha',slots:[]}]});

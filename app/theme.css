@@ -227,3 +227,7 @@ html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected);
 .reportTaskScroll { max-height: 28rem; overflow-y: auto; scrollbar-gutter: stable; border: 1px solid #d5deea; border-radius: .5rem; padding: .5rem; margin-block: .5rem; }
 .reportTaskScroll:focus-visible { outline: 2px solid #4285f4; outline-offset: 2px; }
 .reportResults summary { cursor: pointer; padding-block: .75rem; }
+.reportSource { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1rem; }
+.reportSource button { white-space: normal; }
+.reportFilterGrid input { width: 100%; min-width: 0; box-sizing: border-box; }
+.remoteReportList { max-height: none; overflow: visible; }

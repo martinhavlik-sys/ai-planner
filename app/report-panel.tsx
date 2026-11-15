@@ -66,6 +66,7 @@ export default function ReportPanel({ tasks = [], departments = [], entities = [
       </section>
       <section aria-label="Výsledné úlohy" className="reportResults">
         <h3>Výsledné úlohy</h3>
+        <p>Zobrazené lokálne úlohy: {result.tasks.length}. Pri dlhšom zozname použite jeho vlastné zvislé posúvanie.</p>
         <div className="reportTaskScroll" role="region" aria-label="Posúvateľný zoznam výsledných lokálnych úloh" tabIndex={0}>
         {result.tasks.length ? <ul>{result.tasks.map(task => <li key={task.id}><strong>{task.name}</strong><span>Číslo úlohy: {task.id} · {reportStatusLabels[task.status]} · {reportPriorityLabels[task.priority]}</span>{onEdit ? <button type="button" className="ghost" aria-label={`Upraviť lokálnu úlohu ${task.name}`} onClick={() => onEdit(task)}>Upraviť úlohu</button> : null}</li>)}</ul> : <p>Zvoleným filtrom nevyhovuje žiadna úloha.</p>}
         </div>
