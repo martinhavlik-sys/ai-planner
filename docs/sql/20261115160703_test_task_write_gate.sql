@@ -69,6 +69,13 @@ CREATE POLICY test_tasks_update ON public.tasks FOR UPDATE TO authenticated USIN
   WHERE a.workspace_id=tasks.workspace_id AND a.task_id=tasks.id AND a.archived_at IS NULL AND p.archived_at IS NULL AND p.auth_user_id=auth.uid()
  ))
 );
+-- Dočasná brána prvého TEST bloku, nezávislá od oprávnení rolí.
+-- Historické úlohy sú neupraviteľné aj pre admin/owner.
+-- Odstránenie tejto politiky vyžaduje samostatné neskoršie schválenie.
+CREATE POLICY test_tasks_update_probe_only ON public.tasks AS RESTRICTIVE
+FOR UPDATE TO authenticated
+USING (create_request_id IS NOT NULL)
+WITH CHECK (create_request_id IS NOT NULL);
 -- Existujúce SELECT politiky, pohľady, FK a touch_tasks sa nemenia.
 -- Stĺpcové granty: klient neurčuje autora, ID, čas, väzby ani obsah auditu.
 REVOKE ALL ON SEQUENCE public.test_tasks_id_seq FROM PUBLIC,anon,authenticated;

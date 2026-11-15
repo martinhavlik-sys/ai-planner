@@ -84,8 +84,13 @@ aplikovať. Pred prípadným zásahom sa znovu načíta baseline a porovná fing
 Presný SQL: [20261115160703_test_task_write_gate.sql](sql/20261115160703_test_task_write_gate.sql).
 Strojový delta prehľad: [baseline-rozdiely-navrh.json](sql/baseline-rozdiely-navrh.json).
 
+Z1 pridáva dočasnú RESTRICTIVE UPDATE politiku test_tasks_update_probe_only
+s USING aj WITH CHECK (create_request_id IS NOT NULL). Historické úlohy sú
+v prvom bloku neupraviteľné aj pre admin/owner. Jej odstránenie na rozšírenie
+rozsahu vyžaduje samostatný neskorší krok.
+
 Návrh pridá jednu sekvenciu, tri stĺpce, dva constraints, dva indexy,
-jednu invoker trigger funkciu, jeden trigger a tri politiky.
+jednu invoker trigger funkciu, jeden trigger a štyri politiky.
 Zmení iba dva defaulty tasks (id a autor) a stĺpcové granty na povolených
 vstupoch. Existujúce funkcie, pohľady, event trigger, FK, default ACL a stĺpce
 ostatných tabuliek zostali v lokálnom porovnaní nezmenené.
@@ -97,25 +102,26 @@ výslovne zahrnutí v oboch častiach UPDATE (USING aj WITH CHECK); nemennosť
 identity chráni stĺpcový grant aj trigger. Žiadny DELETE ani grant na zápis väzieb.
 
 SHA-256 revidovaného návrhu SQL:
-`bdd6429ee463c8bb3f4a491322c3901010cdc10dfe3a8677a43e611bee087c01`.
+`9f5fde3d4351cd15a08e00d9584efcef94305cb51701f06819525d40b576210e`.
 
 ## R1, R2 a výsledky
 
 [Overovací program](sql/overit-baseline-navrh.mjs) používa PGlite **0.3.14 /
 PostgreSQL 17.5**. Verzia live projektu je 17.11; nejde o rovnaký patch ani o
-živý Auth/REST test. Overenie prešlo aj v PGlite 0.5.16 / PostgreSQL 18.6;
+živý Auth/REST test. Pôvodná revízia bf94674 prešla aj v PGlite 0.5.16 / PostgreSQL 18.6;
+aktuálna Z1 bola overená v PostgreSQL 17.5;
 pri porovnaní medzi hlavnými verziami sa NOT NULL porovnáva cez stĺpce,
 pretože PostgreSQL 18 ho navyše eviduje v pg_constraint. Poradie default ACL
 sa normalizuje, lebo lokálne role majú odlišné OID. R1/R2 pred/po sa porovnávajú
 v rovnakom engine a zahŕňajú všetky zachytené aplikačné katalógové sekcie.
 
-**49 kontrol PASS** nad skutočne obnoveným public baseline:
+**76 kontrol PASS po revízii Z1** nad skutočne obnoveným public baseline:
 
 - zhoda obnovenej schémy s exportovanými metadátami;
 - member/user vytvoria vlastnú úlohu; ostatné kladné INSERT skúšky sú lokálne
   rollbacknuté, takže na konci zostane iba jeden nový syntetický riadok;
-- admin aj owner upravia nepriradenú tímovú úlohu vlastného workspace;
-- člen upraví vlastnú, user aktívne priradenú; nepriradený člen/user neuspeje;
+- admin aj owner upravia nepriradenú syntetickú tímovú úlohu vlastného workspace;
+- člen upraví vlastnú syntetickú, user aktívne priradenú syntetickú; nepriradený člen/user neuspeje;
 - analytik nesmie INSERT ani UPDATE vrátane vlastnej úlohy;
 - A/B izolácia, stabilný autor/ID, zastaraná verzia, limit druhého requestu,
   odmietnutie nesyntetického názvu, zmeny identity/oprávnení, väzieb a DELETE;
@@ -141,3 +147,7 @@ nevyžiadal nový TEST build; nastavenia automatizácií sa nemenia.
 Živé SQL vyžaduje nové výslovné schválenie revidovaného súboru a jeho fingerprintu.
 Pred ním sa zopakuje API identita a porovnanie aktuálnej schémy s baseline.
 Žiadne živé R1/R2, SQL zmeny ani aplikačné odomknutie sa týmto krokom neschvaľujú.
+
+Aktuálny stav identity účtov, completed_at a archivácie je výslovne v
+[QA-Z1-TEST-BRANA.md](QA-Z1-TEST-BRANA.md); neoverené roly sa nesmú odvodiť
+z počtu úloh alebo zo syntetických fixture overovacieho programu.

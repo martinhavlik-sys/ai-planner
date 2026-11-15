@@ -57,3 +57,21 @@ autorstva a súvisiacich väzieb/reportingu a izolovaný pozitívny aj negatívn
 test. Auth-only je ochrana tejto aplikácie, neopravuje serverové oprávnenia.
 Mock testy nie sú dôkazom RLS a tento krok nepovoľuje dátový pilot kolegom.
 Bez SQL, DB zmien, reálnych účtov alebo nasadenia.
+
+
+## DECISION-002 – nahradené aktuálnou schválenou maticou · 15. 11. 2026
+
+Pôvodné rozhodnutie „iba vlastné úlohy“ z Issue #3 je pre aktuálny TEST CRUD
+nahradené výslovne schválenou maticou: member/user vytvára vlastnú a upravuje
+vlastnú alebo oprávnene priradenú úlohu; admin/owner upravuje tímové úlohy
+vlastného workspace; analyst iba číta. Autor, workspace, ID a oprávnenia sa
+bežnou úpravou nemenia. Historické auditné výsledky TASK-002 zostávajú záznamom
+vtedajšieho stavu, nie aktuálnym pokynom own-only.
+
+Prvý TEST blok má navyše dočasnú RESTRICTIVE UPDATE bránu:
+create_request_id IS NOT NULL. Matica sa teda v tomto bloku uplatňuje iba na
+jednu novú syntetickú úlohu; historické úlohy nemôže upraviť ani admin/owner.
+Odstránenie brány na rozšírenie rozsahu bude samostatný neskorší krok, nie
+súčasť tejto revízie. Podrobnosti a nevyriešené body:
+[QA-Z1-TEST-BRANA.md](QA-Z1-TEST-BRANA.md). SQL návrh ani živé zápisy týmto
+rozhodnutím nie sú automaticky schválené.

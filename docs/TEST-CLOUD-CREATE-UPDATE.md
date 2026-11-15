@@ -21,8 +21,8 @@ spúšťať staré core/catalog migrácie.
 
 Issue #3: TASK-006 dokumentuje vlastné/priradené čítanie a tímové čítanie
 admin/analyst; TASK-007 Gate 1 a Gate 2 majú PASS. Historický Gate 3 bol BLOCKED,
-aktuálny živý PASS bol oznámený používateľom. Starší DECISION-002 own-only
-nezamieňame za aktuálny pokyn povoľujúci aj oprávnené priradenie.
+aktuálny živý PASS bol oznámený používateľom. Starší DECISION-002 „iba vlastné úlohy“ je nahradený aktuálnou schválenou
+maticou vrátane tímového UPDATE admin/owner; historický audit zostáva záznamom.
 
 | Aktér | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -52,6 +52,9 @@ automaticky aplikovaného adresára. Bez vytvorenia falošnej historickej migrá
   create_payload; unique(workspace_id,created_by_user_id,create_request_id).
 - SECURITY INVOKER trigger test_tasks_guard: autor zo serverovej identity,
   nemenné workspace/id/autor/request/pôvodný obsah; povinný prírastok verzie o 1.
+- Dočasná RESTRICTIVE politika test_tasks_update_probe_only obmedzí UPDATE
+  iba na create_request_id IS NOT NULL; historické úlohy sú uzamknuté pre všetky
+  roly. Jej odstránenie na rozšírenie testu vyžaduje samostatné schválenie.
 - Politiky test_tasks_read_created SELECT, test_tasks_insert INSERT,
   test_tasks_update UPDATE s USING aj WITH CHECK.
 - GRANT INSERT(workspace_id,title,status,priority,create_request_id) na tasks
@@ -158,3 +161,5 @@ Predchádzajúci zákaz tímového UPDATE admina bol opravený podľa výslovnej
 používateľa. Aktuálny baseline, rozdiely a výsledky R1/R2 sú v
 [BASELINE-A-REVIZIA-CRUD.md](BASELINE-A-REVIZIA-CRUD.md). Nový dokumentačný commit
 neobsahuje aplikačný modul ani odomknutie zápisu.
+
+Revízia Z1: [aktuálna testovacia brána, identity A/B a otvorené body](QA-Z1-TEST-BRANA.md).

@@ -2,6 +2,11 @@
 -- Najprv vykonať bezpečnostný rollback. Pri existujúcej novej úlohe sa zastaví.
 LOCK TABLE public.tasks IN ACCESS EXCLUSIVE MODE;
 DO $$ BEGIN
+ IF EXISTS (SELECT FROM pg_policies WHERE schemaname='public' AND tablename='tasks'
+   AND policyname IN ('test_tasks_insert','test_tasks_update','test_tasks_read_created','test_tasks_update_probe_only'))
+ THEN RAISE EXCEPTION 'Najprv vykonajte R1 vrátane dočasnej RESTRICTIVE politiky'; END IF;
+END $$;
+DO $$ BEGIN
  IF EXISTS (SELECT FROM public.tasks WHERE create_request_id IS NOT NULL OR write_version <> 1)
  THEN RAISE EXCEPTION 'Existuje história zápisu; použiť iba bezpečnostný rollback'; END IF;
 END $$;
