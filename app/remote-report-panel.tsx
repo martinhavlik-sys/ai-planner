@@ -16,7 +16,6 @@ export default function RemoteReportPanel({ tasks }: { tasks: RemoteTask[] }) {
     <h2>Vzdialený report</h2>
     <p>Zdroj: úlohy z testovacej databázy. Iba na čítanie. Lokálne úlohy do tohto reportu nevstupujú.</p>
     <p role="status">Načítané úlohy: {result.loaded}. Zobrazené po filtrovaní: {result.total}.</p>
-    {!result.loaded ? <p>Vzdialené úlohy nie sú načítané. Po odhlásení sú skryté.</p> : null}
     <div className="reportFilterGrid">
       <label>Hľadať vzdialené úlohy<input aria-label="Hľadať vzdialené úlohy" value={filters.query} onChange={event => setFilters(current => ({ ...current, query: event.target.value }))} /></label>
       <label>Stav vzdialenej úlohy<select aria-label="Stav vzdialenej úlohy" value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))}>
@@ -36,7 +35,7 @@ export default function RemoteReportPanel({ tasks }: { tasks: RemoteTask[] }) {
       <h3>Výsledné vzdialené úlohy</h3>
       {result.tasks.length ? <ul className="remoteReportList">{result.tasks.map(task => <li key={remoteTaskKey(task)}>
         <strong>{task.title}</strong><span>Číslo úlohy: {task.id} · {statusLabel(task.status)} · {priorityLabel(task.priority)}</span>
-      </li>)}</ul> : <p>Zvoleným filtrom nevyhovuje žiadna načítaná vzdialená úloha.</p>}
+      </li>)}</ul> : <p>{result.loaded ? "Načítané vzdialené úlohy nevyhovujú zvoleným filtrom." : "Nie sú načítané žiadne vzdialené úlohy. Skontrolujte stav prihlásenia a načítania."}</p>}
     </section>
   </section>;
 }

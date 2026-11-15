@@ -229,5 +229,7 @@ html[data-theme="procare"] .inboxHeader > span { background: var(--pc-selected);
 .reportResults summary { cursor: pointer; padding-block: .75rem; }
 .reportSource { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1rem; }
 .reportSource button { white-space: normal; }
+.reportSource button[aria-pressed="false"] { background: white; color: var(--pc-ink, #193c5c); border-color: var(--pc-border, #dfe5ea); }
+.reportSource button[aria-pressed="true"] { background: var(--pc-navy, #00457c); color: white; }
 .reportFilterGrid input { width: 100%; min-width: 0; box-sizing: border-box; }
 .remoteReportList { max-height: none; overflow: visible; }

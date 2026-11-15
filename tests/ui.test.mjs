@@ -490,6 +490,23 @@ test('súhrn lokálnej pracovnej plochy počíta iba rovnaké viditeľné riadky
  assert.equal(count,1);assert.equal(app.nodes().filter(n=>n.props.className==='taskName').length,1);
 });
 
+test('QA reportu prepne odhlásenie na lokálny zdroj a prázdny vzdialený report nezamieňa s filtrami', options, () => {
+ const data=model.normalizeWorkspace({tasks:[{id:1,name:'Lokálna',slots:[]}]});
+ const app=mount('page.tsx',{},'default',data);
+ const panel=()=>app.find(n=>typeof n.props.onSessionChange==='function');
+ panel().props.onTasksLoaded([{workspace_id:'A',id:1,title:'Vzdialená',status:null,priority:null}]);app.render();
+ app.find(n=>n.props['aria-label']==='Report').props.onClick();app.render();
+ const snapshot=app.storage.get(model.workspaceKey);
+ panel().props.onTasksLoaded([]);
+ panel().props.onSessionChange({phase:'signed-out',user:null,expiresAt:null,tasks:[],message:''},()=>{});app.render();
+ const local=app.find(n=>typeof n.props.onCreate==='function'&&typeof n.props.onEdit==='function');
+ assert.equal(local.props.tasks.length,1);
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+ const empty=mount('remote-report-panel.tsx',{tasks:[]});
+ assert.ok(empty.find(n=>n.type==='p'&&String(n.props.children).startsWith('Nie sú načítané žiadne')));
+ assert.equal(empty.find(n=>n.type==='p'&&String(n.props.children).includes('nevyhovujú zvoleným')),undefined);
+});
+
 test('hlavička odhlási rovnakú reláciu, okamžite skryje vzdialené úlohy a zachová lokálne údaje', options, () => {
  const data=model.normalizeWorkspace({tasks:[{id:1,name:'Lokálna úloha',slots:[]}]});
  const app=mount('page.tsx',{},'default',data);

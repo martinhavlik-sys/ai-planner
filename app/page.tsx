@@ -118,6 +118,7 @@ export default function Home() {
   const [inboxText, setInboxText] = useState("");
   const [remoteTasks, setRemoteTasks] = useState<RemoteTask[]>([]);
   const [reportSource, setReportSource] = useState<"auto" | "local" | "remote">("auto");
+  const reportAccountRef = useRef<string | null>(null);
   const remoteReportTasks = buildRemoteReport(remoteTasks).tasks;
   const isRemoteReport = reportSource === "remote" || (reportSource === "auto" && remoteReportTasks.length > 0);
   const [canSignOut, setCanSignOut] = useState(false);
@@ -557,7 +558,11 @@ export default function Home() {
         </header>
 
         <p className="storageStatus" role="status">{activeScreen === "Report" && isRemoteReport ? "Vzdialený report · iba na čítanie. Lokálny pracovný priestor zostáva oddelený." : remoteStatus()}</p>
-        <TestAuthPanel onTasksLoaded={next => { setRemoteTasks(next); if (next.length) setReportSource(current => current === "auto" ? "remote" : current); }} onSessionChange={(next, signOut) => { signOutRef.current = signOut; setCanSignOut(next.phase !== "signed-out"); }} />
+        <TestAuthPanel onTasksLoaded={next => { setRemoteTasks(next); if (next.length) setReportSource(current => current === "auto" ? "remote" : current); }} onSessionChange={(next, signOut) => {
+          signOutRef.current = signOut; setCanSignOut(next.phase !== "signed-out");
+          if (next.phase === "signed-out") { reportAccountRef.current = null; setReportSource("local"); }
+          else if (next.phase === "signed-in" && next.user && reportAccountRef.current !== next.user.id) { reportAccountRef.current = next.user.id; setReportSource("remote"); }
+        }} />
         {activeScreen !== "Report" && remoteReportTasks.length ? <section aria-label="Databázové úlohy" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #c9d8e8", borderRadius: 12 }}>
           <h2 style={{ marginTop: 0 }}>Úlohy z testovacej databázy</h2>
           <p role="status">Iba na čítanie · {remoteReportTasks.length} úloh · oddelené od lokálneho pracovného priestoru</p>
@@ -566,7 +571,7 @@ export default function Home() {
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
         {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}><Icon name="close" /><span>Zavriet</span></button></div> : null}
         {activeScreen !== "Report" ? <section className="stats" aria-label="Prehlad">
-          <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.length : tasks.length}</span><p>Lokálne úlohy spolu</p></article>
+          <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.length : tasks.length}</span><p>Zobrazené lokálne úlohy</p></article>
           <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.filter(task => task.status !== "Hotovo").length : activeTasks.length}</span><p>Aktívne lokálne úlohy</p></article>
           <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.filter(task => task.status === "Backlog").length : inboxTasks.length}</span><p>Lokálne úlohy v zásobníku</p></article>
         </section> : null}
