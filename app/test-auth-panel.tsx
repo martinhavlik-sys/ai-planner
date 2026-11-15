@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { TestSessionController, testConfigurationStatus, type TestAuthState, type RemoteTask } from "./supabase-auth";
+import { TestSessionController, testConfigurationStatus, testReadOnlyEnabled, type TestAuthState, type RemoteTask } from "./supabase-auth";
 export type { RemoteTask } from "./supabase-auth";
 type Props = {
   onTasksLoaded?: (tasks: RemoteTask[]) => void;
@@ -15,6 +15,7 @@ export default function TestAuthPanel({ onTasksLoaded, onSessionChange }: Props)
   const [state, setState] = useState<TestAuthState>(initialState);
   const controller = useRef<TestSessionController | null>(null);
   const configuration = testConfigurationStatus();
+  const readOnly = testReadOnlyEnabled();
   const callback = useRef(onTasksLoaded);
   callback.current = onTasksLoaded;
   const sessionCallback = useRef(onSessionChange);
@@ -63,7 +64,7 @@ export default function TestAuthPanel({ onTasksLoaded, onSessionChange }: Props)
   const busy = state.phase === "checking";
   return <section aria-label="Testovacie prihlásenie" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #d5deea", borderRadius: 12 }}>
     <h2 style={{ marginTop: 0 }}>Testovacie prihlásenie</h2>
-    <p>Auth-only · vzdialené úlohy zostávajú uzamknuté do kontroly RLS. Lokálny pracovný priestor a report sú oddelené.</p>
+    <p>{readOnly ? "TEST režim iba na čítanie · vzdialené úlohy sa načítajú po overení relácie a členstva. Lokálne údaje zostávajú oddelené." : "Auth-only · vzdialené úlohy zostávajú uzamknuté do kontroly RLS. Lokálny pracovný priestor a report sú oddelené."}</p>
     <p>Relácia sa uchováva iba v tejto karte. Ukladanie do databázy je zatiaľ zablokované.</p>
     {state.phase === "signed-in" ? <>
       <p>Prihlásený účet: {state.user?.email ?? state.user?.id}</p>

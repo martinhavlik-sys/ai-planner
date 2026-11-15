@@ -2,6 +2,11 @@ export type AuthSession = { access_token: string; refresh_token: string; expires
 export type RemoteTask = { workspace_id: string; id: number; title: string; status: string | null; priority: string | null };
 export const testProjectUrl = "https://yqleboakzkowfxsmynfy.supabase.co";
 export const testSessionKey = "ai-planner-test-session-v1";
+export function testReadOnlyEnabled(): boolean {
+  const allowedHost = typeof window === "undefined" ||
+    ["ai-planner-cloudflare-test.martin-havlik.workers.dev", "localhost", "127.0.0.1", "::1", "[::1]"].includes(window.location?.hostname ?? "");
+  return process.env.NEXT_PUBLIC_TEST_READ_ONLY === "1" && allowedHost && testConfigurationStatus().ready;
+}
 
 export class SupabaseConfigurationError extends Error {}
 export class SupabaseRequestError extends Error {}
@@ -45,18 +50,22 @@ function parseSession(value: unknown): AuthSession {
     throw new InvalidSessionError();
   return { access_token: s.access_token, refresh_token: s.refresh_token, expires_at: s.expires_at, user: { id: s.user.id, email: s.user.email } };
 }
-async function request(path: string, token?: string, body?: unknown): Promise<unknown> {
+async function requestResponse(path: string, token?: string, body?: unknown, extraHeaders: Record<string, string> = {}): Promise<Response> {
   const { url, anonKey } = config();
   let response: Response;
   try { response = await fetch(`${url}${path}`, {
-    method: body === undefined ? "GET" : "POST", cache: "no-store", signal: AbortSignal.timeout(15000),
-    headers: { apikey: anonKey, ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+    method: body === undefined ? "GET" : "POST", cache: "no-store", credentials: "omit", redirect: "error", signal: AbortSignal.timeout(15000),
+    headers: { apikey: anonKey, ...extraHeaders, ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   }); } catch { throw new SupabaseRequestError("Testovacie prostredie nie je dostupné. Skontrolujte pripojenie a skúste to znova."); }
   if (response.status === 401) throw new SessionExpiredError();
   if (response.status === 403) throw new SupabaseRequestError("Na túto operáciu nemáte oprávnenie. Vzdialené údaje boli skryté.");
   if (response.status === 429) throw new SupabaseRequestError("Príliš veľa požiadaviek. Počkajte chvíľu a skúste to znova.");
   if (!response.ok) throw new SupabaseRequestError("Spojenie s testovacím prostredím zlyhalo. Skúste to znova.");
+  return response;
+}
+async function request(path: string, token?: string, body?: unknown): Promise<unknown> {
+  const response = await requestResponse(path, token, body);
   if (response.status === 204 || path.startsWith("/auth/v1/logout")) return null;
   try { return await response.json(); }
   catch { throw new SupabaseRequestError("Testovacie prostredie vrátilo neplatnú odpoveď. Údaje neboli načítané."); }
@@ -85,8 +94,56 @@ export class TestTaskReadBlockedError extends Error {
   readonly code = "READ_NOT_VERIFIED";
   constructor() { super("Vzdialené úlohy sú uzamknuté do kontroly RLS. Dostupné je iba overenie prihlásenia/relácie."); }
 }
-export async function readTestTasks(_accessToken: string): Promise<never> {
-  throw new TestTaskReadBlockedError();
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function invalidRemoteData(): never {
+  throw new SupabaseRequestError("Vzdialené údaje alebo ich rozsah sa nepodarilo overiť. Údaje boli skryté.");
+}
+async function readPages(path: string, accessToken: string): Promise<unknown[]> {
+  const rows: unknown[] = [];
+  let total: number | null = null;
+  for (let page = 0; page < 1000; page++) {
+    const response = await requestResponse(`${path}&limit=500&offset=${rows.length}`, accessToken, undefined, { Prefer: "count=exact" });
+    let value: unknown;
+    try { value = await response.json(); } catch { return invalidRemoteData(); }
+    if (!Array.isArray(value)) return invalidRemoteData();
+    const range = response.headers.get("Content-Range") ?? "";
+    if (range === "*/0" && value.length === 0 && rows.length === 0) return [];
+    const match = /^(\d+)-(\d+)\/(\d+)$/.exec(range);
+    if (!match || !value.length) return invalidRemoteData();
+    const [start, end, count] = match.slice(1).map(Number);
+    if (![start, end, count].every(Number.isSafeInteger) || start !== rows.length || end - start + 1 !== value.length ||
+      end >= count || (total !== null && total !== count)) return invalidRemoteData();
+    total = count;
+    rows.push(...value);
+    if (rows.length === total) return rows;
+  }
+  return invalidRemoteData();
+}
+export async function readTestTasks(accessToken: string, expectedUserId?: string): Promise<RemoteTask[]> {
+  if (!testReadOnlyEnabled()) throw new TestTaskReadBlockedError();
+  if (!accessToken.trim()) throw new InvalidSessionError();
+  const user = await request("/auth/v1/user", accessToken) as { id?: string } | null;
+  if (!user || typeof user.id !== "string" || !uuid.test(user.id) || (expectedUserId !== undefined && user.id !== expectedUserId)) throw new InvalidSessionError();
+  const memberships = await readPages(`/rest/v1/workspace_members?select=workspace_id,user_id&user_id=eq.${user.id}&order=workspace_id.asc`, accessToken);
+  const workspaces = new Set<string>();
+  for (const value of memberships) {
+    const row = value as { workspace_id?: unknown; user_id?: unknown } | null;
+    if (!row || row.user_id !== user.id || typeof row.workspace_id !== "string" || !uuid.test(row.workspace_id) || workspaces.has(row.workspace_id)) return invalidRemoteData();
+    workspaces.add(row.workspace_id);
+  }
+  if (!workspaces.size) return [];
+  const values = await readPages(`/rest/v1/tasks?select=workspace_id,id,title,status,priority&workspace_id=in.(${[...workspaces].join(",")})&order=workspace_id.asc,id.asc`, accessToken);
+  const keys = new Set<string>();
+  return values.map(value => {
+    const row = value as Partial<RemoteTask> | null;
+    if (!row || typeof row.workspace_id !== "string" || !workspaces.has(row.workspace_id) || !Number.isSafeInteger(row.id) || row.id! <= 0 ||
+      typeof row.title !== "string" || !row.title.trim() || !(row.status === null || typeof row.status === "string") ||
+      !(row.priority === null || typeof row.priority === "string")) return invalidRemoteData();
+    const key = JSON.stringify([row.workspace_id, row.id]);
+    if (keys.has(key)) return invalidRemoteData();
+    keys.add(key);
+    return { workspace_id: row.workspace_id, id: row.id!, title: row.title, status: row.status, priority: row.priority };
+  });
 }
 // Deliberately no POST/PATCH to PostgREST until migration history, grants and write RLS are verified.
 export type CreateTestTaskInput = {
@@ -105,7 +162,7 @@ export async function saveTestTask(_input?: CreateTestTaskInput): Promise<never>
 type SessionStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type Transport = {
   signIn: typeof signInWithPassword; refresh: typeof refreshTestSession; verify: typeof verifyTestSession;
-  read: (accessToken: string) => Promise<RemoteTask[]>; signOut: typeof signOutTestSession;
+  read: (accessToken: string, expectedUserId?: string) => Promise<RemoteTask[]>; signOut: typeof signOutTestSession;
 };
 export type TestAuthState = { phase: "checking" | "signed-out" | "signed-in"; user: AuthSession["user"] | null; expiresAt: number | null; tasks: RemoteTask[]; message: string };
 const transport: Transport = { signIn: signInWithPassword, refresh: refreshTestSession, verify: verifyTestSession, read: readTestTasks, signOut: signOutTestSession };
@@ -173,7 +230,14 @@ export class TestSessionController {
     this.session = session;
     this.storage.setItem(testSessionKey, JSON.stringify(session));
     if (session.expires_at * 1000 <= this.now()) throw new SessionExpiredError();
-    this.publish("signed-in", [], "Relácia je overená. Vzdialené úlohy sú uzamknuté do kontroly RLS.");
+    if (!testReadOnlyEnabled()) {
+      this.publish("signed-in", [], "Relácia je overená. Vzdialené úlohy sú uzamknuté do kontroly RLS.");
+      return;
+    }
+    const tasks = await this.api.read(session.access_token, session.user.id);
+    if (generation !== this.generation) return;
+    if (session.user.id !== this.session?.user.id || session.expires_at * 1000 <= this.now()) throw new SessionExpiredError();
+    this.publish("signed-in", tasks, `TEST režim iba na čítanie. Načítané vzdialené úlohy: ${tasks.length}.`);
   }
   async reload() {
     if (this.pending || !this.session) return;
