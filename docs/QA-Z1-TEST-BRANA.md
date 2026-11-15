@@ -1,10 +1,13 @@
 # Z1 – dočasná brána prvého TEST zápisu
 
 Východisko: bf94674f3103223d38d71b99b3b74cfdef2700d9.
-**READY – lokálna Z1 oprava a rollbacky. BLOCKED – živá etapa a overenie A/B.**
-Žiadny SQL dotaz sa v tejto etape nevykonal na Supabase. Projektová identita
-ai-planner-test / yqleboakzkowfxsmynfy bola potvrdená iba read-only metadátovým API.
-Všetky SQL skúšky nižšie prebehli iba v lokálnom PostgreSQL WASM.
+**READY – lokálna Z1 oprava a rollbacky. PASS – overenie identity a rolí A/B.
+BLOCKED – živá CRUD etapa a scenár dvoch workspace.**
+Pôvodná revízia Z1 nevykonala na Supabase žiadny SQL. Následne používateľ
+výslovne schválil jeden read-only audit identity podľa pripraveného dotazu.
+Projekt ai-planner-test / yqleboakzkowfxsmynfy bol pred ním potvrdený
+read-only metadátovým API. Lokálne SQL skúšky a tento následný skutočný audit
+sú nižšie rozlíšené.
 
 ## Z1 a matica
 
@@ -75,34 +78,45 @@ ukončenej ROLLBACK; nezavádzajú ďalšie živé fixtures ani ďalšie povolen
 
 ## Overenie skutočných účtov A/B
 
-Používateľom určené identity neboli zapísané do dokumentácie ani výstupov.
-V tejto etape neboli čítané heslá, tokeny, cookies ani tajné kľúče.
+### Výsledok jediného schváleného read-only dotazu · 15. 11. 2026
 
-| Účet | Auth → profil → členstvo → workspace | Anonymizovaná rola |
-|---|---|---|
-| A | BLOCKED – neoverené | NEOVERENÁ |
-| B | BLOCKED – neoverené | NEOVERENÁ |
+Zdroj: [overit-identity-ab.readonly.sql](sql/overit-identity-ab.readonly.sql),
+bez zmeny jeho logiky, s používateľom určenými vstupmi iba pre A a B.
+Vykonalo sa presne **jedno** SQL volanie iba na ai-planner-test,
+ref yqleboakzkowfxsmynfy, v obale **BEGIN READ ONLY … ROLLBACK**.
+Žiadny ďalší SQL preflight alebo post-check sa nespúšťal. Dotaz neobsahoval
+INSERT, UPDATE, DELETE, DDL, migráciu ani zmenu grantov/RLS.
 
-Dôvod: bod 4 žiada read-only overenie, ale posledná hranica zadania výslovne
-uvádza „Žiadne SQL na Supabase“. Dostupný Supabase konektor nemá read-only API
-na vyhľadanie Auth identity a jej členstiev; ponúka na to len execute_sql.
-Zákaz sa neobchádzal. Projektové metadátové API nepotvrdzuje väzbu konkrétneho
-účtu na profil, workspace ani rolu. Staré počty viditeľných úloh ani lokálne
-fixture roly sa nevydávajú za aktuálny výsledok skutočných identít A/B.
+| Účet | Auth | Aktívny profil | Členstvo / workspace | Rola |
+|---|---|---|---|---|
+| A | Presne 1 identita, potvrdená a použiteľná | Presne 1 v rovnakom workspace | Presne 1 členstvo, aktívny workspace A | admin |
+| B | Presne 1 identita, potvrdená a použiteľná | Presne 1 v rovnakom workspace | Presne 1 členstvo, aktívny workspace A | user |
 
-Pripravený [nepustený read-only dotaz](sql/overit-identity-ab.readonly.sql)
-vracia iba A/B, počet identít, stav Auth, anonymizovaný workspace, rolu a počet
-aktívnych profilov. Vstupy sú parametre, nie uložené adresy účtov. Na lokálnych
-syntetických identitách je dotaz otestovaný, čo nie je živý dôkaz A/B.
+**PASS – reťaz Auth → profil → členstvo → aktívny workspace → rola** pre oba
+účty. Auth kontrola overila authenticated rolu, potvrdenie, nezmazaný stav,
+aktuálnu neprítomnosť blokácie a neanonymnú identitu. workspace_members nemá
+archived_at ani samostatný active flag: aktívnosť tu znamená existujúce členstvo,
+aktívny workspace a práve jeden aktívny profil toho istého účtu/workspace.
 
-workspace_members nemá archived_at ani samostatný active flag. Aktívna reťaz
-vyžaduje existujúce členstvo, aktívny workspace, práve jeden aktívny profil
-v rovnakom workspace a použiteľnú potvrdenú Auth identitu. Viacero výsledkov,
-neočakávaný workspace alebo chýbajúci profil znamenajú BLOCKED, nie výber prvého.
+**BLOCKED – očakávanie testerov dvoch workspace:** oba účty patria do workspace A.
+Označenie účtu B neznamená členstvo vo workspace B. Tento pár nemožno vydávať
+za kladný test účtu vo workspace B ani za dôkaz izolácie workspace A/B.
+Rozdiel v počte úloh týchto účtov je zlučiteľný s rolami admin/user v rovnakom
+workspace, ale tento dotaz úlohy nečítal a neopakoval predchádzajúci živý UI test.
 
-Na dokončenie je potrebná povolená read-only Auth/REST administratívna cesta,
-anonymizovaný auditný výsledok operátora alebo výslovné objasnenie, že zákaz
-SQL sa nevzťahuje na tento SELECT. Netreba posielať heslá ani kľúče do chatu.
+SQL návrh CRUD, syntetická úloha, priradenia, členstvá, roly, Auth nastavenia,
+granty a RLS sa nemenili. Pri tomto nesúlade sa nič neopravovalo v databáze.
+Neboli použité ani čítané heslá, tokeny, relácie, cookies alebo tajné kľúče.
+Výstup dotazu aj tento dokument obsahujú iba anonymizované A/B, workspace
+alias a rolu, bez adries účtov, UUID, mien a iných identifikátorov.
+
+Ďalší krok vyžaduje výslovné určenie alebo doloženie oprávneného testera
+workspace B, prípadne rozhodnutie oddeliť test rolí v jednom workspace od
+budúceho testu dvoch workspace. Bez takého rozhodnutia sa členstvá ani účty
+nevytvárajú a nemenia. Živý CRUD SQL krok naďalej vyžaduje samostatné schválenie.
+
+Toto bol skutočný read-only audit databázových väzieb, nie simulované claims.
+Nie je to nové prihlásenie cez Auth, test hesla/JWT, relácie ani REST zápisu.
 
 ## Lokálne kontroly
 
@@ -123,7 +137,8 @@ prípravné súbory kódu zostávajú nepublikované a nemenia sa týmto commito
 SHA-256 revidovaného SQL návrhu:
 `9f5fde3d4351cd15a08e00d9584efcef94305cb51701f06819525d40b576210e`.
 
-**Ďalšia etapa: BLOCKED**, kým nie sú doložené skutočné väzby A/B a výslovne
-schválený revidovaný živý SQL krok. READY sa týka iba lokálnej Z1 opravy.
+**Ďalšia etapa: BLOCKED.** Väzby A/B sú overené, ale oba účty patria do
+workspace A; tester workspace B týmto auditom nie je doložený. Živý CRUD
+SQL krok nie je schválený. READY sa týka iba lokálnej Z1 opravy.
 SQL návrhy zostávajú mimo supabase/migrations. Commit má [CI Skip]; žiadny
 deploy ani merge sa nespúšťa.
