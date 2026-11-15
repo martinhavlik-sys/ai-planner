@@ -3,10 +3,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { TestSessionController, testConfigurationStatus, type TestAuthState, type RemoteTask } from "./supabase-auth";
 export type { RemoteTask } from "./supabase-auth";
-type Props = { onTasksLoaded?: (tasks: RemoteTask[]) => void };
+type Props = {
+  onTasksLoaded?: (tasks: RemoteTask[]) => void;
+  onSessionChange?: (state: TestAuthState, signOut: () => void) => void;
+};
 const initialState: TestAuthState = { phase: "checking", user: null, expiresAt: null, tasks: [], message: "" };
 
-export default function TestAuthPanel({ onTasksLoaded }: Props) {
+export default function TestAuthPanel({ onTasksLoaded, onSessionChange }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [state, setState] = useState<TestAuthState>(initialState);
@@ -14,6 +17,8 @@ export default function TestAuthPanel({ onTasksLoaded }: Props) {
   const configuration = testConfigurationStatus();
   const callback = useRef(onTasksLoaded);
   callback.current = onTasksLoaded;
+  const sessionCallback = useRef(onSessionChange);
+  sessionCallback.current = onSessionChange;
 
   useEffect(() => {
     let active = true;
@@ -22,12 +27,15 @@ export default function TestAuthPanel({ onTasksLoaded }: Props) {
       instance = new TestSessionController(window.sessionStorage, next => {
         if (!active) return;
         setState(next); callback.current?.(next.tasks);
+        sessionCallback.current?.(next, () => { void instance.signOut(); });
       });
       controller.current = instance;
       void instance.restore();
     } catch {
-      setState({ ...initialState, phase: "signed-out", message: "Úložisko relácie nie je dostupné. Povoľte ho pre testovacie prihlásenie." });
+      const next: TestAuthState = { ...initialState, phase: "signed-out", message: "Úložisko relácie nie je dostupné. Povoľte ho pre testovacie prihlásenie." };
+      setState(next);
       callback.current?.([]);
+      sessionCallback.current?.(next, () => {});
       return;
     }
     const timer = window.setInterval(() => { void instance.reload(); }, 30000);

@@ -115,6 +115,8 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [inboxText, setInboxText] = useState("");
   const [remoteTasks, setRemoteTasks] = useState<RemoteTask[]>([]);
+  const [canSignOut, setCanSignOut] = useState(false);
+  const signOutRef = useRef<(() => void) | null>(null);
   const [activityNote, setActivityNote] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -533,7 +535,9 @@ export default function Home() {
       <section className="content">
         <header className="header">
           <div><p className="eyebrow">Produktovy workspace</p><h1>{screenLabel(activeScreen)}</h1></div>
-          <div className="headerActions"><button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}><Icon name="settings" /><span>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</span></button>
+          <div className="headerActions">
+            {canSignOut ? <button type="button" className="ghost" onClick={() => { setRemoteTasks([]); signOutRef.current?.(); }}>Odhlásiť sa</button> : null}
+            <button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}><Icon name="settings" /><span>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</span></button>
             <button className="ghost" onClick={exportData}><Icon name="download" /><span>Export</span></button>
             <button className="ghost" title="Pripraví zálohu a počty; nič neposiela na server" onClick={() => {
               const plan = prepareImport({ schemaVersion: 6, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals });
@@ -548,7 +552,7 @@ export default function Home() {
         </header>
 
         <p className="storageStatus" role="status">{remoteStatus()}</p>
-        <TestAuthPanel onTasksLoaded={setRemoteTasks} />
+        <TestAuthPanel onTasksLoaded={setRemoteTasks} onSessionChange={(next, signOut) => { signOutRef.current = signOut; setCanSignOut(next.phase !== "signed-out"); }} />
         {remoteTasks.length ? <section aria-label="Databázové úlohy" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #c9d8e8", borderRadius: 12 }}>
           <h2 style={{ marginTop: 0 }}>Úlohy z testovacej databázy</h2>
           <p role="status">Read-only náhľad · {remoteTasks.length} úloh</p>

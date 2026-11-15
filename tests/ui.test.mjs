@@ -434,6 +434,53 @@ test('loading remote tasks never replaces or locks local rows or report tasks, e
 });
 
 
+test('hlavička odhlási rovnakú reláciu, okamžite skryje vzdialené úlohy a zachová lokálne údaje', options, () => {
+ const data=model.normalizeWorkspace({tasks:[{id:1,name:'Lokálna úloha',slots:[]}]});
+ const app=mount('page.tsx',{},'default',data);
+ const snapshot=app.storage.get(model.workspaceKey);
+ const panel=()=>app.find(n=>typeof n.props.onSessionChange==='function');
+ const account=id=>({phase:'signed-in',user:{id},expiresAt:2000,tasks:[],message:''});
+ const remote=id=>[{workspace_id:id,id:1,title:'Vzdialená '+id,status:null,priority:null}];
+ assert.equal(app.find(n=>n.type==='button'&&n.props.children==='Odhlásiť sa'),undefined);
+ let signedOut=0;
+ panel().props.onSessionChange(account('A'),()=>{signedOut++;});
+ panel().props.onTasksLoaded(remote('A')); app.render();
+ assert.ok(app.find(n=>n.props['aria-label']==='Databázové úlohy'));
+ const header=app.find(n=>n.props.className==='headerActions');
+ assert.ok(header.props.children.some(n=>n?.type==='button'&&n.props.children==='Odhlásiť sa'));
+ app.find(n=>n.type==='button'&&n.props.children==='Odhlásiť sa').props.onClick(); app.render();
+ assert.equal(signedOut,1);
+ assert.equal(app.find(n=>n.props['aria-label']==='Databázové úlohy'),undefined);
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+ panel().props.onSessionChange({phase:'signed-out',user:null,expiresAt:null,tasks:[],message:''},()=>{}); app.render();
+ assert.equal(app.find(n=>n.type==='button'&&n.props.children==='Odhlásiť sa'),undefined);
+ panel().props.onSessionChange(account('B'),()=>{});
+ panel().props.onTasksLoaded(remote('B')); app.render();
+ assert.ok(app.find(n=>n.props['aria-label']==='Databázové úlohy'));
+ assert.ok(app.find(n=>n.type==='li'&&JSON.stringify(n.props.children).includes('Vzdialená B')));
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+});
+
+test('hlavička používa controller panelu aj pri obnovení relácie a odmietne jej oneskorenú odpoveď po odhlásení', options, async () => {
+ const saved={access_token:'synteticky-access',refresh_token:'synteticky-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'A'}};
+ let release,latest,signOut,serverLogout=0;
+ const pending=new Promise(resolve=>{release=resolve;});
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:true,message:''}),TestSessionController:class extends supabaseAuth.TestSessionController {
+  constructor(storage,emit){
+   storage.setItem(supabaseAuth.testSessionKey,JSON.stringify(saved));
+   super(storage,emit,{signIn:async()=>saved,verify:()=>pending,read:async()=>[],refresh:async()=>saved,signOut:async()=>{serverLogout++;}});
+  }
+ }};
+ const rows=[];
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:value=>rows.push(value),onSessionChange:(state,logout)=>{latest=state;signOut=logout;}},'default',undefined,auth);
+ assert.equal(latest.phase,'checking'); assert.equal(typeof signOut,'function');
+ signOut(); app.render();
+ assert.equal(latest.phase,'signed-out'); assert.deepEqual(rows.at(-1),[]);
+ assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+ release(); await new Promise(setImmediate); app.render();
+ assert.equal(latest.phase,'signed-out'); assert.equal(serverLogout,1);
+});
+
 test('test auth panel gates remote data, clears password, and logout clears parent rows', options, async () => {
  const tasks = [{workspace_id:'A',id:1,title:'Test',status:'Backlog',priority:'Stredna'}];
  const remote = [], events = [];
