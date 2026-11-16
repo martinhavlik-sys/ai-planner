@@ -49,6 +49,7 @@ function mount(file, props, exportName = 'default', savedWorkspace, authOverride
     if (name === './model') return model;
     if (name === './report-model') return reportModel;
     if (name === './remote-report-model') return remoteReportModel;
+    if (name === './cloud-task-write') return { writeOwnCloudTask: async()=>{throw Error('Zápis je v tomto teste uzamknutý');} };
     if (name === './supabase-auth') return authOverride ?? supabaseAuth;
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);

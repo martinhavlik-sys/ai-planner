@@ -10,6 +10,7 @@ DO $$ BEGIN
  IF EXISTS (SELECT FROM public.tasks WHERE create_request_id IS NOT NULL OR write_version <> 1)
  THEN RAISE EXCEPTION 'Existuje história zápisu; použiť iba bezpečnostný rollback'; END IF;
 END $$;
+ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS test_tasks_scope_check;
 DROP INDEX public.test_tasks_single_probe;
 DROP TRIGGER test_tasks_guard ON public.tasks;
 DROP FUNCTION public.test_tasks_guard();

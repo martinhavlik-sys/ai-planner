@@ -1,12 +1,15 @@
 export type AuthSession = { access_token: string; refresh_token: string; expires_at: number; user: { id: string; email?: string } };
-export type RemoteTask = { workspace_id: string; id: number; title: string; status: string | null; priority: string | null };
+export type RemoteTask = { workspace_id: string; id: number; title: string; status: string | null; priority: string | null; created_by_user_id?: string; write_version?: number; create_request_id?: string };
 export const testProjectUrl = "https://yqleboakzkowfxsmynfy.supabase.co";
+export const testWriteWorkspaces = ["00000000-0000-4000-8000-000000008a01", "00000000-0000-4000-8000-000000008b01"];
 export const testSessionKey = "ai-planner-test-session-v1";
 export function testReadOnlyEnabled(): boolean {
   const allowedHost = typeof window === "undefined" ||
     ["ai-planner-cloudflare-test.martin-havlik.workers.dev", "localhost", "127.0.0.1", "::1", "[::1]"].includes(window.location?.hostname ?? "");
   return process.env.NEXT_PUBLIC_TEST_READ_ONLY === "1" && allowedHost && testConfigurationStatus().ready;
 }
+
+export function testTaskWritesEnabled(): boolean { return process.env.NEXT_PUBLIC_TEST_WRITES_READY === "1" && testReadOnlyEnabled(); }
 
 export class SupabaseConfigurationError extends Error {}
 export class SupabaseRequestError extends Error {}
@@ -132,17 +135,22 @@ export async function readTestTasks(accessToken: string, expectedUserId?: string
     workspaces.add(row.workspace_id);
   }
   if (!workspaces.size) return [];
-  const values = await readPages(`/rest/v1/tasks?select=workspace_id,id,title,status,priority&workspace_id=in.(${[...workspaces].join(",")})&order=workspace_id.asc,id.asc`, accessToken);
+  const own=testTaskWritesEnabled();
+  if (own && (workspaces.size!==1 || [...workspaces].some(w=>!testWriteWorkspaces.includes(w)))) return invalidRemoteData();
+  const extra=own?`,created_by_user_id,write_version,create_request_id`:"";
+  const ownerFilter=own?`&created_by_user_id=eq.${user.id}&create_request_id=not.is.null`:"";
+  const values = await readPages(`/rest/v1/tasks?select=workspace_id,id,title,status,priority${extra}${ownerFilter}&workspace_id=in.(${[...workspaces].join(",")})&order=workspace_id.asc,id.asc`, accessToken);
   const keys = new Set<string>();
   return values.map(value => {
     const row = value as Partial<RemoteTask> | null;
     if (!row || typeof row.workspace_id !== "string" || !workspaces.has(row.workspace_id) || !Number.isSafeInteger(row.id) || row.id! <= 0 ||
       typeof row.title !== "string" || !row.title.trim() || !(row.status === null || typeof row.status === "string") ||
       !(row.priority === null || typeof row.priority === "string")) return invalidRemoteData();
+    if (own && (row.created_by_user_id !== user.id || !Number.isInteger(row.write_version) || row.write_version!<1 || typeof row.create_request_id!=="string" || !uuid.test(row.create_request_id))) return invalidRemoteData();
     const key = JSON.stringify([row.workspace_id, row.id]);
     if (keys.has(key)) return invalidRemoteData();
     keys.add(key);
-    return { workspace_id: row.workspace_id, id: row.id!, title: row.title, status: row.status, priority: row.priority };
+    return { workspace_id: row.workspace_id, id: row.id!, title: row.title, status: row.status, priority: row.priority, ...(own?{created_by_user_id:row.created_by_user_id,write_version:row.write_version,create_request_id:row.create_request_id}:{}) };
   });
 }
 // Deliberately no POST/PATCH to PostgREST until migration history, grants and write RLS are verified.
@@ -237,7 +245,7 @@ export class TestSessionController {
     const tasks = await this.api.read(session.access_token, session.user.id);
     if (generation !== this.generation) return;
     if (session.user.id !== this.session?.user.id || session.expires_at * 1000 <= this.now()) throw new SessionExpiredError();
-    this.publish("signed-in", tasks, `TEST režim iba na čítanie. Načítané vzdialené úlohy: ${tasks.length}.`);
+    this.publish("signed-in", tasks, testTaskWritesEnabled() ? `TEST vlastné syntetické úlohy: ${tasks.length}. Mazanie je uzamknuté.` : `TEST režim iba na čítanie. Načítané vzdialené úlohy: ${tasks.length}.`);
   }
   async reload() {
     if (this.pending || !this.session) return;

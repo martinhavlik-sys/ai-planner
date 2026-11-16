@@ -8,14 +8,14 @@ const dir=new URL('./',import.meta.url),read=name=>readFile(new URL(name,dir),'u
 const baseline=JSON.parse(await read('baseline-ai-planner-test.json'));
 const ddl=await read('baseline-ai-planner-test.schema.sql'),capture=await read('baseline-ai-planner-test.readonly.sql');
 const proposal=await read('20261115160703_test_task_write_gate.sql'),r1=await read('test_task_write_rollback.sql'),r2=await read('test_task_write_schema_rollback.sql');
-const id=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0'),A=id(101),B=id(102);
+const id=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0'),A=process.env.SHORT_CLOUD_AB==='1'?'00000000-0000-4000-8000-000000008a01':id(101),B=process.env.SHORT_CLOUD_AB==='1'?'00000000-0000-4000-8000-000000008b01':id(102);
 let count=0;
 const check=(a,b)=>{assert.deepEqual(a,b);count++;};
 async function init(){const db=new PGlite();await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE ROLE supabase_admin;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;GRANT USAGE ON SCHEMA auth TO authenticated;`);return db;}
 async function snapshot(db){const rs=await db.query(capture.replace(/^BEGIN READ ONLY;/,'').replace(/ROLLBACK;\s*$/,''));return rs.rows[0].baseline;}
 const keys=['schemas','relations','columns','constraints','indexes','views','functions','triggers','policies','default_acl','event_triggers','custom_types','sequences','migration_registry'];
 function normalized(b){return Object.fromEntries(keys.map(k=>{let v=b[k];if(k==='constraints')v=v?.filter(x=>x.type!=='n');if(k==='default_acl'&&v)v=[...v].sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));return[k,v];}));}
-async function apply(db){await db.exec(`BEGIN;SET LOCAL app.ai_planner_target_ref='yqleboakzkowfxsmynfy';${proposal}COMMIT;`);}
+async function apply(db){await db.exec(`BEGIN;SET LOCAL app.ai_planner_target_ref='yqleboakzkowfxsmynfy';${proposal}${process.env.SHORT_CLOUD_AB==='1'?await read('kratky-cloud-ab.patch.sql'):''}COMMIT;`);}
 async function actor(db,n,sql,commit=true){await db.exec(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id(n)}';`);try{const r=(await db.query(sql)).rows;await db.exec(commit?'COMMIT':'ROLLBACK');return r;}catch(e){await db.exec('ROLLBACK');throw e;}}
 async function denied(db,n,sql){await assert.rejects(actor(db,n,sql));count++;}
 const create=(w,request=501,title='Syntetická TEST – cloudový zápis')=>`INSERT INTO public.tasks(workspace_id,title,status,priority,create_request_id) VALUES('${w}','${title}','Backlog','Stredna','${id(request)}') RETURNING *`;
@@ -52,7 +52,7 @@ try{
   const left=new Map((before??[]).map(x=>[identity(x),x])),right=new Map((next??[]).map(x=>[identity(x),x]));
   delta[key]={pridane:[...right].filter(([k])=>!left.has(k)).map(([,v])=>v),odstranene:[...left].filter(([k])=>!right.has(k)).map(([,v])=>v),zmenene:[...right].filter(([k,v])=>left.has(k)&&JSON.stringify(left.get(k))!==JSON.stringify(v)).map(([k,v])=>({pred:left.get(k),po:v}))};
  }
- await writeFile(new URL('baseline-rozdiely-navrh.json',dir),JSON.stringify(delta,null,2)+'\n');
+ await writeFile(new URL(process.env.SHORT_CLOUD_AB==='1'?'kratky-cloud-ab.delta.json':'baseline-rozdiely-navrh.json',dir),JSON.stringify(delta,null,2)+'\n');
  check((after.policies??[]).length,(restored.policies??[]).length+4);
  const gate=after.policies.find(p=>p.policyname==='test_tasks_update_probe_only');check(gate.permissive,'RESTRICTIVE');check(gate.cmd,'UPDATE');check(gate.roles,['authenticated']);check(gate.qual,'(create_request_id IS NOT NULL)');check(gate.with_check,'(create_request_id IS NOT NULL)');
  check(after.functions.filter(f=>f.name!=='test_tasks_guard'),restored.functions);
@@ -79,7 +79,7 @@ try{
  await probe(4,7,false,0);await probe(4,6,false,0);await probe(4,3,false,0);await probe(4,2,false,0);
  const historical=(await db.query('SELECT * FROM public.tasks ORDER BY workspace_id,id')).rows;
  const [task]=await actor(db,1,create(A));check(task.created_by_user_id,id(1));check(task.id>20,true);
- await denied(db,1,create(A));await denied(db,2,create(B,502));
+ await denied(db,1,create(A));await denied(db,1,create(A,999));if(process.env.SHORT_CLOUD_AB==='1')check((await actor(db,2,create(B,502),false)).length,1);else await denied(db,2,create(B,502));
  for(const [n,k] of [[1,11],[5,11],[4,11],[6,10],[7,11],[3,12]])check((await actor(db,n,update(A,k))).length,0);
  check((await actor(db,1,update(B,20))).length,0);
  check((await actor(db,5,update(B,20))).length,0);
