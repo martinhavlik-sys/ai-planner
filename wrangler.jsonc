@@ -1,0 +1,8 @@
+{
+  "name": "ai-planner-cloudflare-test",
+  "compatibility_date": "2026-11-13",
+  "keep_vars": true,
+  "assets": {
+    "directory": "./out"
+  }
+}

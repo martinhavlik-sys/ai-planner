@@ -18,6 +18,8 @@ import SlotDialog from "./slot-dialog";
 import { People, PersonPicker, ColorPicker } from "./people";
 import { assignedUsers, sortTasks, TaskSort, defaultMenuOrder, MenuItem, moveMenuItem } from "./model";
 import ReportPanel from "./report-panel";
+import RemoteReportPanel from "./remote-report-panel";
+import { buildRemoteReport, remoteTaskKey } from "./remote-report-model";
 import { recordTaskDates } from "./model";
 import TestAuthPanel, { RemoteTask } from "./test-auth-panel";
 
@@ -105,7 +107,8 @@ export default function Home() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [menuOrder, setMenuOrder] = useState<MenuItem[]>([...defaultMenuOrder]);
   const [dragMenu, setDragMenu] = useState<MenuItem | null>(null);
-  const [activeScreen, setActiveScreen] = useState<Screen>(() => typeof window !== "undefined" && window.location?.search?.includes("screen=Report") ? "Report" : "Pracovna plocha");
+  const [activeScreen, setActiveScreen] = useState<Screen>(() => typeof window !== "undefined" &&
+    (/^\/report\/?$/.test(window.location?.pathname ?? "") || window.location?.search?.includes("screen=Report")) ? "Report" : "Pracovna plocha");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [projectDraft, setProjectDraft] = useState<Project>(blankProject);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -114,6 +117,12 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [inboxText, setInboxText] = useState("");
   const [remoteTasks, setRemoteTasks] = useState<RemoteTask[]>([]);
+  const [reportSource, setReportSource] = useState<"auto" | "local" | "remote">("auto");
+  const reportAccountRef = useRef<string | null>(null);
+  const remoteReportTasks = buildRemoteReport(remoteTasks).tasks;
+  const isRemoteReport = reportSource === "remote" || (reportSource === "auto" && remoteReportTasks.length > 0);
+  const [canSignOut, setCanSignOut] = useState(false);
+  const signOutRef = useRef<(() => void) | null>(null);
   const [activityNote, setActivityNote] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -506,7 +515,7 @@ export default function Home() {
             {group === "top" || extrasOpen ? <>
           {menuOrder.filter(screen => group === "top" ? ["Pracovna plocha", "Inbox", "Report"].includes(screen) : !["Pracovna plocha", "Inbox", "Report"].includes(screen) && (screen !== "Klienti" || adminConfig)).map((screen) => (
             <div className="navItem" key={screen} onDragOver={e => { if (dragMenu) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }} onDrop={e => { e.preventDefault(); if (dragMenu) setMenuOrder(current => moveMenuItem(current, dragMenu, screen)); setDragMenu(null); }}>
-              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => { if (screen === "Report") window.history?.pushState?.({}, "", "/report"); else if (window.location?.pathname === "/report") window.history?.pushState?.({}, "", "/"); setActiveScreen(screen); }}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
+              <button draggable aria-label={screenLabel(screen)} className={activeScreen === screen ? "active" : ""} aria-current={activeScreen === screen ? "page" : undefined} onDragStart={e => { setDragMenu(screen); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", screen); }} onDragEnd={() => setDragMenu(null)} onClick={() => { if (screen === "Report") window.history?.pushState?.({}, "", "/report"); else if (/^\/report\/?$/.test(window.location?.pathname ?? "") || window.location?.search?.includes("screen=Report")) window.history?.pushState?.({}, "", "/"); setActiveScreen(screen); }}><Icon name={screenIcon[screen]} /><span>{screenLabel(screen)}</span></button>
             </div>
           ))}
             </> : null}
@@ -532,7 +541,9 @@ export default function Home() {
       <section className="content">
         <header className="header">
           <div><p className="eyebrow">Produktovy workspace</p><h1>{screenLabel(activeScreen)}</h1></div>
-          <div className="headerActions"><button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}><Icon name="settings" /><span>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</span></button>
+          <div className="headerActions">
+            {canSignOut ? <button type="button" className="ghost" onClick={() => { setRemoteTasks([]); signOutRef.current?.(); }}>Odhlásiť sa</button> : null}
+            <button className="ghost" title="Lokálna konfigurácia vlastníka; nejde o prihlásenie" onClick={() => setAdminConfig(!adminConfig)}><Icon name="settings" /><span>{adminConfig ? "Zavrieť správu" : "Správa vlastníka"}</span></button>
             <button className="ghost" onClick={exportData}><Icon name="download" /><span>Export</span></button>
             <button className="ghost" title="Pripraví zálohu a počty; nič neposiela na server" onClick={() => {
               const plan = prepareImport({ schemaVersion: 6, campaigns, menuOrder, tasks, projects, entities, users: team, clients, goals });
@@ -546,22 +557,32 @@ export default function Home() {
           </div>
         </header>
 
-        <p className="storageStatus" role="status">{remoteStatus()}</p>
-        <TestAuthPanel onTasksLoaded={setRemoteTasks} />
-        {remoteTasks.length ? <section aria-label="Databázové úlohy" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #c9d8e8", borderRadius: 12 }}>
+        <p className="storageStatus" role="status">{process.env.NEXT_PUBLIC_LOCAL_TEST === "1" ? "Lokálny TEST · údaje iba v tomto prehliadači. Cloudové prihlásenie a operácie sú vypnuté." : activeScreen === "Report" && isRemoteReport ? "Vzdialený report · iba na čítanie. Lokálny pracovný priestor zostáva oddelený." : remoteStatus()}</p>
+        {process.env.NEXT_PUBLIC_LOCAL_TEST !== "1" ? <TestAuthPanel onTasksLoaded={next => { setRemoteTasks(next); if (next.length) setReportSource(current => current === "auto" ? "remote" : current); }} onSessionChange={(next, signOut) => {
+          signOutRef.current = signOut; setCanSignOut(next.phase !== "signed-out");
+          if (next.phase === "signed-out") { reportAccountRef.current = null; setReportSource("local"); }
+          else if (next.phase === "signed-in" && next.user && reportAccountRef.current !== next.user.id) { reportAccountRef.current = next.user.id; setReportSource("remote"); }
+        }} /> : null}
+        {activeScreen !== "Report" && remoteReportTasks.length ? <section aria-label="Databázové úlohy" style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #c9d8e8", borderRadius: 12 }}>
           <h2 style={{ marginTop: 0 }}>Úlohy z testovacej databázy</h2>
-          <p role="status">Read-only náhľad · {remoteTasks.length} úloh</p>
-          <ul>{remoteTasks.map(task => <li key={task.id}>{task.title} · {task.status ?? "Bez stavu"} · {task.priority ?? "Bez priority"}</li>)}</ul>
+          <p role="status">Iba na čítanie · {remoteReportTasks.length} úloh · oddelené od lokálneho pracovného priestoru</p>
+          <ul>{remoteReportTasks.map(task => <li key={remoteTaskKey(task)}>{task.title} · {task.status ?? "Bez stavu"} · {task.priority ?? "Bez priority"}</li>)}</ul>
         </section> : null}
         {storageError ? <p className="notice" role="alert">{storageError}</p> : null}
         {notice ? <div className="notice" role="status">{notice} <button className="ghost" onClick={() => setNotice("")}><Icon name="close" /><span>Zavriet</span></button></div> : null}
-        <section className="stats" aria-label="Prehlad">
-          <article><span>{tasks.length}</span><p>Uloh spolu</p></article>
-          <article><span>{activeTasks.length}</span><p>Aktivne</p></article>
-          <article><span>{inboxTasks.length}</span><p>V inboxe</p></article>
-        </section>
+        {activeScreen !== "Report" ? <section className="stats" aria-label="Prehlad">
+          <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.length : tasks.length}</span><p>Zobrazené lokálne úlohy</p></article>
+          <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.filter(task => task.status !== "Hotovo").length : activeTasks.length}</span><p>Aktívne lokálne úlohy</p></article>
+          <article><span>{activeScreen === "Pracovna plocha" ? visibleTasks.filter(task => task.status === "Backlog").length : inboxTasks.length}</span><p>Lokálne úlohy v zásobníku</p></article>
+        </section> : null}
 
-        {activeScreen === "Report" ? <ReportPanel tasks={tasks} departments={projects} entities={entities} projects={campaigns} onCreate={openNewTask} onEdit={openEditTask} /> : null}
+        {activeScreen === "Report" ? <>
+          <section aria-label="Zdroj reportu" className="reportSource">
+            {process.env.NEXT_PUBLIC_LOCAL_TEST !== "1" ? <button type="button" aria-pressed={isRemoteReport} onClick={() => setReportSource("remote")}>Vzdialený report ({remoteReportTasks.length})</button> : null}
+            <button type="button" aria-pressed={!isRemoteReport} onClick={() => setReportSource("local")}>Lokálny report ({tasks.length})</button>
+          </section>
+          {isRemoteReport ? <RemoteReportPanel tasks={remoteReportTasks} /> : <ReportPanel tasks={tasks} departments={projects} entities={entities} projects={campaigns} onCreate={openNewTask} onEdit={openEditTask} />}
+        </> : null}
 
         {activeScreen === "Pracovna plocha" ? (
           <>

@@ -8,11 +8,12 @@ import type { ReportFilters } from "./report-model";
 
 type Props = { tasks?: Task[]; departments?: Project[]; entities?: Entity[]; projects?: Campaign[]; onCreate?: () => void; onEdit?: (task: Task) => void };
 export default function ReportPanel({ tasks = [], departments = [], entities = [], projects = [], onCreate, onEdit }: Props) {
-  const [filters, setFilters] = useState<ReportFilters>({ ...defaultReportFilters });
+  const initialFilters: ReportFilters = { ...defaultReportFilters, ...(process.env.NEXT_PUBLIC_LOCAL_TEST === "1" ? { period: "Všetky obdobia" } : {}) };
+  const [filters, setFilters] = useState<ReportFilters>(initialFilters);
   const set = (key: keyof ReportFilters, value: string) => setFilters(current => ({ ...current, [key]: value }));
   const result = buildReport(tasks, filters);
   const { range } = result;
-  const reset = () => setFilters({ ...defaultReportFilters });
+  const reset = () => setFilters({ ...initialFilters });
   const allPeriods = filters.period === "Všetky obdobia";
   const doneLabel = allPeriods ? "Hotové úlohy" : filters.dateType === "Dátum dokončenia" ? "Dokončené v období" : filters.dateType === "Termín" ? "Hotové úlohy s termínom v období" : filters.dateType === "Dátum vytvorenia" ? "Hotové úlohy vytvorené v období" : "Hotové úlohy s blokom v období";
   const missingLabel = { "Dátum dokončenia": "dátum dokončenia", "Dátum vytvorenia": "dátum vytvorenia", "Termín": "platný termín", "Dátum pracovného bloku": "platný pracovný blok" }[filters.dateType];
@@ -66,6 +67,7 @@ export default function ReportPanel({ tasks = [], departments = [], entities = [
       </section>
       <section aria-label="Výsledné úlohy" className="reportResults">
         <h3>Výsledné úlohy</h3>
+        <p>Zobrazené lokálne úlohy: {result.tasks.length}. Pri dlhšom zozname použite jeho vlastné zvislé posúvanie.</p>
         <div className="reportTaskScroll" role="region" aria-label="Posúvateľný zoznam výsledných lokálnych úloh" tabIndex={0}>
         {result.tasks.length ? <ul>{result.tasks.map(task => <li key={task.id}><strong>{task.name}</strong><span>Číslo úlohy: {task.id} · {reportStatusLabels[task.status]} · {reportPriorityLabels[task.priority]}</span>{onEdit ? <button type="button" className="ghost" aria-label={`Upraviť lokálnu úlohu ${task.name}`} onClick={() => onEdit(task)}>Upraviť úlohu</button> : null}</li>)}</ul> : <p>Zvoleným filtrom nevyhovuje žiadna úloha.</p>}
         </div>

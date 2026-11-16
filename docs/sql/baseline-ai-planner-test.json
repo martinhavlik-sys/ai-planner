@@ -1,0 +1,2971 @@
+{
+  "project": "ai-planner-test",
+  "ref": "yqleboakzkowfxsmynfy",
+  "captured_at": "2026-11-15",
+  "baseline": {
+    "scope": "public – aplikačná schéma; bez riadkov a managed Auth dát",
+    "views": [
+      {
+        "name": "reporting_task_entity_links",
+        "definition": " SELECT workspace_id,\n    task_id,\n    entity_id,\n    is_primary\n   FROM task_entities;"
+      },
+      {
+        "name": "reporting_tasks",
+        "definition": " SELECT t.workspace_id,\n    t.id AS task_id,\n    t.created_at,\n    t.updated_at,\n    t.created_by_user_id,\n    t.completed_at,\n    t.due_date,\n    t.status,\n    t.priority,\n    t.department_id,\n    t.project_id,\n    t.entity_id AS legacy_entity_id,\n    primary_link.entity_id AS primary_entity_id\n   FROM tasks t\n     LEFT JOIN LATERAL ( SELECT te.entity_id\n           FROM task_entities te\n          WHERE te.workspace_id = t.workspace_id AND te.task_id = t.id\n          ORDER BY te.is_primary DESC, te.created_at, te.entity_id\n         LIMIT 1) primary_link ON true;"
+      }
+    ],
+    "columns": [
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "task_id",
+        "type": "bigint",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "day",
+        "type": "date",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "start_hour",
+        "type": "numeric",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "duration",
+        "type": "numeric",
+        "table": "calendar_slots",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "clients",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "clients",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "name",
+        "type": "text",
+        "table": "clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "email",
+        "type": "text",
+        "table": "clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "note",
+        "type": "text",
+        "table": "clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "department_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "department_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "department_clients",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "department_clients",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "department_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "department_id",
+        "type": "bigint",
+        "table": "department_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "client_id",
+        "type": "bigint",
+        "table": "department_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "departments",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "departments",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "departments",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "departments",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "departments",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "name",
+        "type": "text",
+        "table": "departments",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "color",
+        "type": "text",
+        "table": "departments",
+        "comment": null,
+        "default": "'#4285F4'::text",
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "code",
+        "type": "text",
+        "table": "departments",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "sort_order",
+        "type": "integer",
+        "table": "departments",
+        "comment": null,
+        "default": "0",
+        "identity": "",
+        "not_null": true,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "seed_key",
+        "type": "text",
+        "table": "departments",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 10,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "entities",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "entities",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "name",
+        "type": "text",
+        "table": "entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "code",
+        "type": "text",
+        "table": "entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "sort_order",
+        "type": "integer",
+        "table": "entities",
+        "comment": null,
+        "default": "0",
+        "identity": "",
+        "not_null": true,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "seed_key",
+        "type": "text",
+        "table": "entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "profiles",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "profiles",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "auth_user_id",
+        "type": "uuid",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "name",
+        "type": "text",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "email",
+        "type": "text",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "initials",
+        "type": "text",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "avatar_color",
+        "type": "text",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 10,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "photo",
+        "type": "text",
+        "table": "profiles",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 11,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "legacy",
+        "type": "jsonb",
+        "table": "profiles",
+        "comment": null,
+        "default": "'{}'::jsonb",
+        "identity": "",
+        "not_null": true,
+        "position": 12,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "project_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "project_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "project_entities",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "project_entities",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "project_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "project_id",
+        "type": "bigint",
+        "table": "project_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "entity_id",
+        "type": "bigint",
+        "table": "project_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "projects",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "projects",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "name",
+        "type": "text",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "department_id",
+        "type": "bigint",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "edition",
+        "type": "text",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "year",
+        "type": "integer",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "code",
+        "type": "text",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 10,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "sort_order",
+        "type": "integer",
+        "table": "projects",
+        "comment": null,
+        "default": "0",
+        "identity": "",
+        "not_null": true,
+        "position": 11,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "seed_key",
+        "type": "text",
+        "table": "projects",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 12,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "reporting_task_entity_links",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "task_id",
+        "type": "bigint",
+        "table": "reporting_task_entity_links",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "entity_id",
+        "type": "bigint",
+        "table": "reporting_task_entity_links",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "is_primary",
+        "type": "boolean",
+        "table": "reporting_task_entity_links",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "task_id",
+        "type": "bigint",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_by_user_id",
+        "type": "uuid",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "due_date",
+        "type": "date",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "status",
+        "type": "text",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "priority",
+        "type": "text",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "department_id",
+        "type": "bigint",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 10,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "project_id",
+        "type": "bigint",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 11,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "legacy_entity_id",
+        "type": "bigint",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 12,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "primary_entity_id",
+        "type": "bigint",
+        "table": "reporting_tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 13,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "task_assignees",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "task_assignees",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "task_assignees",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "task_assignees",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "task_assignees",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "task_id",
+        "type": "bigint",
+        "table": "task_assignees",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "profile_id",
+        "type": "bigint",
+        "table": "task_assignees",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "task_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "task_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "task_clients",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "task_clients",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "task_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "task_id",
+        "type": "bigint",
+        "table": "task_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "client_id",
+        "type": "bigint",
+        "table": "task_clients",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "task_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "task_id",
+        "type": "bigint",
+        "table": "task_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "entity_id",
+        "type": "bigint",
+        "table": "task_entities",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "is_primary",
+        "type": "boolean",
+        "table": "task_entities",
+        "comment": null,
+        "default": "false",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "task_entities",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "task_entities",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "bigint",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "tasks",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "tasks",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "title",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 6,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "department_id",
+        "type": "bigint",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 7,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "entity_id",
+        "type": "bigint",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 8,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "project_id",
+        "type": "bigint",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 9,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "priority",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": "'Stredna'::text",
+        "identity": "",
+        "not_null": true,
+        "position": 10,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "status",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 11,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "due_date",
+        "type": "date",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 12,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "note",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 13,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "checklist",
+        "type": "jsonb",
+        "table": "tasks",
+        "comment": null,
+        "default": "'[]'::jsonb",
+        "identity": "",
+        "not_null": true,
+        "position": 14,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "legacy",
+        "type": "jsonb",
+        "table": "tasks",
+        "comment": null,
+        "default": "'{}'::jsonb",
+        "identity": "",
+        "not_null": true,
+        "position": 15,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "department_detail",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": "''::text",
+        "identity": "",
+        "not_null": true,
+        "position": 16,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "entity_detail",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": "''::text",
+        "identity": "",
+        "not_null": true,
+        "position": 17,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "project_detail",
+        "type": "text",
+        "table": "tasks",
+        "comment": null,
+        "default": "''::text",
+        "identity": "",
+        "not_null": true,
+        "position": 18,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_by_user_id",
+        "type": "uuid",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 19,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "table": "tasks",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 20,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "workspace_id",
+        "type": "uuid",
+        "table": "workspace_members",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "user_id",
+        "type": "uuid",
+        "table": "workspace_members",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "role",
+        "type": "text",
+        "table": "workspace_members",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "workspace_members",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "id",
+        "type": "uuid",
+        "table": "workspaces",
+        "comment": null,
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "position": 1,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "name",
+        "type": "text",
+        "table": "workspaces",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "position": 2,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "table": "workspaces",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 3,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "table": "workspaces",
+        "comment": null,
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "position": 4,
+        "generated": ""
+      },
+      {
+        "acl": null,
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "table": "workspaces",
+        "comment": null,
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "position": 5,
+        "generated": ""
+      }
+    ],
+    "indexes": [
+      {
+        "name": "calendar_slots_day_idx",
+        "table": "calendar_slots",
+        "definition": "CREATE INDEX calendar_slots_day_idx ON public.calendar_slots USING btree (workspace_id, day)"
+      },
+      {
+        "name": "calendar_slots_pkey",
+        "table": "calendar_slots",
+        "definition": "CREATE UNIQUE INDEX calendar_slots_pkey ON public.calendar_slots USING btree (workspace_id, id)"
+      },
+      {
+        "name": "calendar_slots_task_id_idx",
+        "table": "calendar_slots",
+        "definition": "CREATE INDEX calendar_slots_task_id_idx ON public.calendar_slots USING btree (workspace_id, task_id)"
+      },
+      {
+        "name": "clients_pkey",
+        "table": "clients",
+        "definition": "CREATE UNIQUE INDEX clients_pkey ON public.clients USING btree (workspace_id, id)"
+      },
+      {
+        "name": "department_clients_client_id_idx",
+        "table": "department_clients",
+        "definition": "CREATE INDEX department_clients_client_id_idx ON public.department_clients USING btree (workspace_id, client_id)"
+      },
+      {
+        "name": "department_clients_pkey",
+        "table": "department_clients",
+        "definition": "CREATE UNIQUE INDEX department_clients_pkey ON public.department_clients USING btree (workspace_id, id)"
+      },
+      {
+        "name": "department_clients_workspace_id_department_id_key",
+        "table": "department_clients",
+        "definition": "CREATE UNIQUE INDEX department_clients_workspace_id_department_id_key ON public.department_clients USING btree (workspace_id, department_id)"
+      },
+      {
+        "name": "departments_pkey",
+        "table": "departments",
+        "definition": "CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (workspace_id, id)"
+      },
+      {
+        "name": "departments_seed_key",
+        "table": "departments",
+        "definition": "CREATE UNIQUE INDEX departments_seed_key ON public.departments USING btree (workspace_id, seed_key) WHERE (seed_key IS NOT NULL)"
+      },
+      {
+        "name": "entities_pkey",
+        "table": "entities",
+        "definition": "CREATE UNIQUE INDEX entities_pkey ON public.entities USING btree (workspace_id, id)"
+      },
+      {
+        "name": "entities_seed_key",
+        "table": "entities",
+        "definition": "CREATE UNIQUE INDEX entities_seed_key ON public.entities USING btree (workspace_id, seed_key) WHERE (seed_key IS NOT NULL)"
+      },
+      {
+        "name": "profiles_pkey",
+        "table": "profiles",
+        "definition": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (workspace_id, id)"
+      },
+      {
+        "name": "profiles_workspace_auth_user_uidx",
+        "table": "profiles",
+        "definition": "CREATE UNIQUE INDEX profiles_workspace_auth_user_uidx ON public.profiles USING btree (workspace_id, auth_user_id) WHERE ((auth_user_id IS NOT NULL) AND (archived_at IS NULL))"
+      },
+      {
+        "name": "project_entities_entity_id_idx",
+        "table": "project_entities",
+        "definition": "CREATE INDEX project_entities_entity_id_idx ON public.project_entities USING btree (workspace_id, entity_id)"
+      },
+      {
+        "name": "project_entities_pkey",
+        "table": "project_entities",
+        "definition": "CREATE UNIQUE INDEX project_entities_pkey ON public.project_entities USING btree (workspace_id, id)"
+      },
+      {
+        "name": "project_entities_workspace_id_project_id_entity_id_key",
+        "table": "project_entities",
+        "definition": "CREATE UNIQUE INDEX project_entities_workspace_id_project_id_entity_id_key ON public.project_entities USING btree (workspace_id, project_id, entity_id)"
+      },
+      {
+        "name": "projects_department_id_idx",
+        "table": "projects",
+        "definition": "CREATE INDEX projects_department_id_idx ON public.projects USING btree (workspace_id, department_id)"
+      },
+      {
+        "name": "projects_pkey",
+        "table": "projects",
+        "definition": "CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (workspace_id, id)"
+      },
+      {
+        "name": "projects_seed_key",
+        "table": "projects",
+        "definition": "CREATE UNIQUE INDEX projects_seed_key ON public.projects USING btree (workspace_id, seed_key) WHERE (seed_key IS NOT NULL)"
+      },
+      {
+        "name": "task_assignees_pkey",
+        "table": "task_assignees",
+        "definition": "CREATE UNIQUE INDEX task_assignees_pkey ON public.task_assignees USING btree (workspace_id, id)"
+      },
+      {
+        "name": "task_assignees_profile_id_idx",
+        "table": "task_assignees",
+        "definition": "CREATE INDEX task_assignees_profile_id_idx ON public.task_assignees USING btree (workspace_id, profile_id)"
+      },
+      {
+        "name": "task_assignees_workspace_id_task_id_profile_id_key",
+        "table": "task_assignees",
+        "definition": "CREATE UNIQUE INDEX task_assignees_workspace_id_task_id_profile_id_key ON public.task_assignees USING btree (workspace_id, task_id, profile_id)"
+      },
+      {
+        "name": "task_clients_client_id_idx",
+        "table": "task_clients",
+        "definition": "CREATE INDEX task_clients_client_id_idx ON public.task_clients USING btree (workspace_id, client_id)"
+      },
+      {
+        "name": "task_clients_pkey",
+        "table": "task_clients",
+        "definition": "CREATE UNIQUE INDEX task_clients_pkey ON public.task_clients USING btree (workspace_id, id)"
+      },
+      {
+        "name": "task_clients_workspace_id_task_id_key",
+        "table": "task_clients",
+        "definition": "CREATE UNIQUE INDEX task_clients_workspace_id_task_id_key ON public.task_clients USING btree (workspace_id, task_id)"
+      },
+      {
+        "name": "task_entities_entity_idx",
+        "table": "task_entities",
+        "definition": "CREATE INDEX task_entities_entity_idx ON public.task_entities USING btree (workspace_id, entity_id, task_id)"
+      },
+      {
+        "name": "task_entities_one_primary_uidx",
+        "table": "task_entities",
+        "definition": "CREATE UNIQUE INDEX task_entities_one_primary_uidx ON public.task_entities USING btree (workspace_id, task_id) WHERE is_primary"
+      },
+      {
+        "name": "task_entities_pkey",
+        "table": "task_entities",
+        "definition": "CREATE UNIQUE INDEX task_entities_pkey ON public.task_entities USING btree (workspace_id, task_id, entity_id)"
+      },
+      {
+        "name": "tasks_completed_at_idx",
+        "table": "tasks",
+        "definition": "CREATE INDEX tasks_completed_at_idx ON public.tasks USING btree (workspace_id, completed_at)"
+      },
+      {
+        "name": "tasks_created_by_user_idx",
+        "table": "tasks",
+        "definition": "CREATE INDEX tasks_created_by_user_idx ON public.tasks USING btree (workspace_id, created_by_user_id)"
+      },
+      {
+        "name": "tasks_department_id_idx",
+        "table": "tasks",
+        "definition": "CREATE INDEX tasks_department_id_idx ON public.tasks USING btree (workspace_id, department_id)"
+      },
+      {
+        "name": "tasks_entity_id_idx",
+        "table": "tasks",
+        "definition": "CREATE INDEX tasks_entity_id_idx ON public.tasks USING btree (workspace_id, entity_id)"
+      },
+      {
+        "name": "tasks_pkey",
+        "table": "tasks",
+        "definition": "CREATE UNIQUE INDEX tasks_pkey ON public.tasks USING btree (workspace_id, id)"
+      },
+      {
+        "name": "tasks_project_id_idx",
+        "table": "tasks",
+        "definition": "CREATE INDEX tasks_project_id_idx ON public.tasks USING btree (workspace_id, project_id)"
+      },
+      {
+        "name": "workspace_members_pkey",
+        "table": "workspace_members",
+        "definition": "CREATE UNIQUE INDEX workspace_members_pkey ON public.workspace_members USING btree (workspace_id, user_id)"
+      },
+      {
+        "name": "workspaces_pkey",
+        "table": "workspaces",
+        "definition": "CREATE UNIQUE INDEX workspaces_pkey ON public.workspaces USING btree (id)"
+      }
+    ],
+    "schemas": [
+      {
+        "acl": "{pg_database_owner=UC/pg_database_owner,=U/pg_database_owner,postgres=U/pg_database_owner,anon=U/pg_database_owner,authenticated=U/pg_database_owner,service_role=U/pg_database_owner}",
+        "name": "public",
+        "owner": "pg_database_owner"
+      }
+    ],
+    "policies": [
+      {
+        "cmd": "SELECT",
+        "qual": "can_read_task(workspace_id, task_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "calendar_slots",
+        "permissive": "PERMISSIVE",
+        "policyname": "calendar_slots_read_own_or_reporting",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, true)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "clients",
+        "permissive": "PERMISSIVE",
+        "policyname": "clients_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, true)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "department_clients",
+        "permissive": "PERMISSIVE",
+        "policyname": "department_clients_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, false)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "departments",
+        "permissive": "PERMISSIVE",
+        "policyname": "departments_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, false)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "entities",
+        "permissive": "PERMISSIVE",
+        "policyname": "entities_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, false)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "profiles",
+        "permissive": "PERMISSIVE",
+        "policyname": "profiles_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, false)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "project_entities",
+        "permissive": "PERMISSIVE",
+        "policyname": "project_entities_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, false)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "projects",
+        "permissive": "PERMISSIVE",
+        "policyname": "projects_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "can_read_task(workspace_id, task_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "task_assignees",
+        "permissive": "PERMISSIVE",
+        "policyname": "task_assignees_read_own_or_reporting",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(workspace_id, true)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "task_clients",
+        "permissive": "PERMISSIVE",
+        "policyname": "task_clients_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "can_read_task(workspace_id, task_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "task_entities",
+        "permissive": "PERMISSIVE",
+        "policyname": "task_entities_read_own_or_reporting",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "can_read_task(workspace_id, id)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "tasks",
+        "permissive": "PERMISSIVE",
+        "policyname": "tasks_read_own_or_reporting",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(user_id = ( SELECT auth.uid() AS uid))",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "workspace_members",
+        "permissive": "PERMISSIVE",
+        "policyname": "membership_read",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "is_workspace_member(id)",
+        "roles": [
+          "authenticated"
+        ],
+        "tablename": "workspaces",
+        "permissive": "PERMISSIVE",
+        "policyname": "workspace_read",
+        "schemaname": "public",
+        "with_check": null
+      }
+    ],
+    "triggers": [
+      {
+        "name": "touch_calendar_slots",
+        "table": "calendar_slots",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_calendar_slots BEFORE UPDATE ON calendar_slots FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_clients",
+        "table": "clients",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_clients BEFORE UPDATE ON clients FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_department_clients",
+        "table": "department_clients",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_department_clients BEFORE UPDATE ON department_clients FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_departments",
+        "table": "departments",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_departments BEFORE UPDATE ON departments FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_entities",
+        "table": "entities",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_entities BEFORE UPDATE ON entities FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_profiles",
+        "table": "profiles",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_profiles BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_project_entities",
+        "table": "project_entities",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_project_entities BEFORE UPDATE ON project_entities FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "project_edition_unique",
+        "table": "projects",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER project_edition_unique BEFORE INSERT OR UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION project_edition_unique()"
+      },
+      {
+        "name": "touch_projects",
+        "table": "projects",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_projects BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_task_assignees",
+        "table": "task_assignees",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_task_assignees BEFORE UPDATE ON task_assignees FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_task_clients",
+        "table": "task_clients",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_task_clients BEFORE UPDATE ON task_clients FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_task_entities",
+        "table": "task_entities",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_task_entities BEFORE UPDATE ON task_entities FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      },
+      {
+        "name": "touch_tasks",
+        "table": "tasks",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER touch_tasks BEFORE UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION touch_updated_at()"
+      }
+    ],
+    "functions": [
+      {
+        "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+        "name": "can_read_task",
+        "owner": "postgres",
+        "config": [
+          "search_path=\"\""
+        ],
+        "identity": "w uuid, task_key bigint",
+        "definition": "CREATE OR REPLACE FUNCTION public.can_read_task(w uuid, task_key bigint)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select\n    public.current_workspace_role(w) is not null\n    and (\n      public.current_workspace_role(w) in ('owner', 'admin', 'analyst')\n      or exists (\n      select 1\n      from public.tasks t\n      where t.workspace_id = w\n        and t.id = task_key\n        and (\n          t.created_by_user_id = (select auth.uid())\n          or exists (\n            select 1\n            from public.task_assignees a\n            join public.profiles p\n              on p.workspace_id = a.workspace_id\n             and p.id = a.profile_id\n             and p.archived_at is null\n            where a.workspace_id = w\n              and a.task_id = task_key\n              and p.auth_user_id = (select auth.uid())\n              and a.archived_at is null\n          )\n        )\n      )\n    )\n$function$\n",
+        "security_definer": true
+      },
+      {
+        "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+        "name": "current_workspace_role",
+        "owner": "postgres",
+        "config": [
+          "search_path=\"\""
+        ],
+        "identity": "w uuid",
+        "definition": "CREATE OR REPLACE FUNCTION public.current_workspace_role(w uuid)\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select m.role\n  from public.workspace_members m\n  where m.workspace_id = w\n    and m.user_id = (select auth.uid())\n  limit 1\n$function$\n",
+        "security_definer": true
+      },
+      {
+        "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+        "name": "is_workspace_member",
+        "owner": "postgres",
+        "config": [
+          "search_path=\"\""
+        ],
+        "identity": "w uuid, admin_only boolean",
+        "definition": "CREATE OR REPLACE FUNCTION public.is_workspace_member(w uuid, admin_only boolean DEFAULT false)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n select exists(select 1 from public.workspace_members m where m.workspace_id=w\n and m.user_id=(select auth.uid()) and (not admin_only or m.role in ('owner','admin')));\n$function$\n",
+        "security_definer": true
+      },
+      {
+        "acl": null,
+        "name": "project_edition_unique",
+        "owner": "postgres",
+        "config": [
+          "search_path=\"\""
+        ],
+        "identity": "",
+        "definition": "CREATE OR REPLACE FUNCTION public.project_edition_unique()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n if TG_OP='UPDATE' then\n  if lower(trim(new.name))=lower(trim(old.name)) and new.year is not distinct from old.year and coalesce(new.edition,'')=coalesce(old.edition,'') and new.workspace_id=old.workspace_id then return new; end if;\n end if;\n perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(new.workspace_id::text,0));\n if exists(select 1 from public.projects p where p.workspace_id=new.workspace_id and p.id<>new.id and lower(trim(p.name))=lower(trim(new.name)) and p.year is not distinct from new.year and (new.year is not null or lower(trim(coalesce(p.edition,'')))=lower(trim(coalesce(new.edition,''))))) then\n  raise exception 'Project name/year or legacy edition already exists';\n end if;\n return new;\nend; $function$\n",
+        "security_definer": false
+      },
+      {
+        "acl": "{postgres=X/postgres}",
+        "name": "rls_auto_enable",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "identity": "",
+        "definition": "CREATE OR REPLACE FUNCTION public.rls_auto_enable()\n RETURNS event_trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE\n  cmd record;\n  tbl name;\nBEGIN\n  FOR cmd IN\n    SELECT *\n    FROM pg_event_trigger_ddl_commands()\n    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')\n      AND object_type IN ('table','partitioned table')\n  LOOP\n     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN\n      BEGIN\n        SELECT c.relname INTO tbl FROM pg_catalog.pg_class c WHERE c.oid = cmd.objid;\n        EXECUTE format('alter table if exists %I.%I enable row level security', cmd.schema_name, tbl);\n        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;\n      EXCEPTION\n        WHEN OTHERS THEN\n          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;\n      END;\n     ELSE\n        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;\n     END IF;\n  END LOOP;\nEND;\n$function$\n",
+        "security_definer": true
+      },
+      {
+        "acl": "{postgres=X/postgres}",
+        "name": "seed_catalog",
+        "owner": "postgres",
+        "config": [
+          "search_path=\"\""
+        ],
+        "identity": "target_workspace uuid",
+        "definition": "CREATE OR REPLACE FUNCTION public.seed_catalog(target_workspace uuid)\n RETURNS void\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\ndeclare item record; existing_id bigint; candidate bigint;\nbegin\n perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(target_workspace::text,0));\n if not exists(select 1 from public.workspaces where id=target_workspace) then raise exception 'Unknown workspace'; end if;\n for item in select * from (values\n('departments', 'Finančný úsek', 'departments:1', 1, 8000001::bigint),\n('departments', 'Projektový tím', 'departments:2', 2, 8000002::bigint),\n('departments', 'Marketing', 'departments:3', 3, 8000003::bigint),\n('departments', 'Medicínsky úsek', 'departments:4', 4, 8000004::bigint),\n('departments', 'IT úsek', 'departments:5', 5, 8000005::bigint),\n('departments', 'HR úsek', 'departments:6', 6, 8000006::bigint),\n('departments', 'PR úsek', 'departments:7', 7, 8000007::bigint),\n('departments', 'Oddelenie právnych služieb', 'departments:8', 8, 8000008::bigint),\n('departments', 'Obchodný úsek', 'departments:9', 9, 8000009::bigint),\n('departments', 'Úsek prevádzky', 'departments:10', 10, 8000010::bigint),\n('departments', 'Pracovná zdravotná služba', 'departments:11', 11, 8000011::bigint),\n('departments', 'Dopravná zdravotná služba', 'departments:12', 12, 8000012::bigint),\n('departments', 'Dlhodobá starostlivosť', 'departments:13', 13, 8000013::bigint),\n('departments', 'PH International', 'departments:14', 14, 8000014::bigint),\n('departments', 'Darcovské centrum', 'departments:15', 15, 8000015::bigint),\n('departments', 'Pôrodnice', 'departments:16', 16, 8000016::bigint),\n('departments', 'Iné', 'departments:17', 17, 8000017::bigint),\n('entities', 'NEM Medissimo', 'entities:1', 1, 8001001::bigint),\n('entities', 'NEM Dunajská Streda', 'entities:2', 2, 8001002::bigint),\n('entities', 'NEM Topoľčany', 'entities:3', 3, 8001003::bigint),\n('entities', 'NEM Rimavská Sobota', 'entities:4', 4, 8001004::bigint),\n('entities', 'NEM Spišská Nová Ves', 'entities:5', 5, 8001005::bigint),\n('entities', 'NEM Trebišov', 'entities:6', 6, 8001006::bigint),\n('entities', 'NEM Svidník', 'entities:7', 7, 8001007::bigint),\n('entities', 'NEM Humenné', 'entities:8', 8, 8001008::bigint),\n('entities', 'NEM Galanta', 'entities:9', 9, 8001009::bigint),\n('entities', 'NEM Partizánske', 'entities:10', 10, 8001010::bigint),\n('entities', 'NEM Rožňava', 'entities:11', 11, 8001011::bigint),\n('entities', 'NEM Michalovce', 'entities:12', 12, 8001012::bigint),\n('entities', 'NEM Vranov nad Topľou', 'entities:13', 13, 8001013::bigint),\n('entities', 'NEM Stropkov', 'entities:14', 14, 8001014::bigint),\n('entities', 'PLK Central', 'entities:15', 15, 8001015::bigint),\n('entities', 'PLK Central Tower', 'entities:16', 16, 8001016::bigint),\n('entities', 'PLK Bory', 'entities:17', 17, 8001017::bigint),\n('entities', 'PLK Betliarska', 'entities:18', 18, 8001018::bigint),\n('entities', 'PLK Devínska Nová Ves', 'entities:19', 19, 8001019::bigint),\n('entities', 'PLK Vlčie Hrdlo', 'entities:20', 20, 8001020::bigint),\n('entities', 'PLK Sereď', 'entities:21', 21, 8001021::bigint),\n('entities', 'PLK Nitra', 'entities:22', 22, 8001022::bigint),\n('entities', 'PLK Prešov', 'entities:23', 23, 8001023::bigint),\n('entities', 'PLK Košice', 'entities:24', 24, 8001024::bigint),\n('entities', 'SEN Pohoda Seniorov', 'entities:25', 25, 8001025::bigint),\n('entities', 'SEN SeniorCare Galanta', 'entities:26', 26, 8001026::bigint),\n('entities', 'SEN SeniorCare Kaskády', 'entities:27', 27, 8001027::bigint),\n('entities', 'SEN SČSS Stropkov', 'entities:28', 28, 8001028::bigint),\n('entities', 'Sportclinic', 'entities:29', 29, 8001029::bigint),\n('entities', 'HQ Bratislava', 'entities:30', 30, 8001030::bigint),\n('entities', 'HQ Košice', 'entities:31', 31, 8001031::bigint),\n('entities', 'Iné', 'entities:32', 32, 8001032::bigint),\n('projects', 'Najzamestnávateľ', 'projects:1', 1, 8002001::bigint),\n('projects', 'Ružový október', 'projects:2', 2, 8002002::bigint),\n('projects', 'Movember', 'projects:3', 3, 8002003::bigint),\n('projects', 'Vianočný večierok', 'projects:4', 4, 8002004::bigint),\n('projects', 'Teambuilding', 'projects:5', 5, 8002005::bigint),\n('projects', 'Strategická konferencia', 'projects:6', 6, 8002006::bigint),\n('projects', 'Deň sestier', 'projects:7', 7, 8002007::bigint),\n('projects', 'Deň lekárov', 'projects:8', 8, 8002008::bigint),\n('projects', 'Deň OZP', 'projects:9', 9, 8002009::bigint),\n('projects', 'Hokejová kvapka krvi', 'projects:10', 10, 8002010::bigint),\n('projects', 'Futbalová kvapka krvi', 'projects:11', 11, 8002011::bigint),\n('projects', 'Týždeň dojčenia', 'projects:12', 12, 8002012::bigint),\n('projects', 'Piknik s laktačnou poradkyňou', 'projects:13', 13, 8002013::bigint),\n('projects', 'Bezpečnosť pacienta', 'projects:14', 14, 8002014::bigint),\n('projects', 'Svetový deň srdca', 'projects:15', 15, 8002015::bigint),\n('projects', 'Top sestra', 'projects:16', 16, 8002016::bigint),\n('projects', 'Absolventi', 'projects:17', 17, 8002017::bigint),\n('projects', 'Biele srdce', 'projects:18', 18, 8002018::bigint),\n('projects', 'Intranet', 'projects:19', 19, 8002019::bigint),\n('projects', 'Klientská zóna', 'projects:20', 20, 8002020::bigint),\n('projects', 'Re/Branding', 'projects:21', 21, 8002021::bigint),\n('projects', 'Iné', 'projects:22', 22, 8002022::bigint)) as catalog(kind,label,key,position,preferred_id) loop\n  execute format('select id from public.%I where workspace_id=$1 and seed_key=$2',item.kind) into existing_id using target_workspace,item.key;\n  if existing_id is not null then continue; end if;\n  execute format('select id from public.%I where workspace_id=$1 and name=$2 %s order by id limit 1',item.kind,case when item.kind='projects' then $predicate$and year is null and coalesce(edition,'')=''$predicate$ else '' end) into existing_id using target_workspace,item.label;\n  if existing_id is not null then\n   execute format('update public.%I set seed_key=$2 where workspace_id=$1 and id=$3 and seed_key is null',item.kind) using target_workspace,item.key,existing_id;\n   continue;\n  end if;\n  candidate=item.preferred_id;\n  loop\n   execute format('select id from public.%I where workspace_id=$1 and id=$2',item.kind) into existing_id using target_workspace,candidate;\n   exit when existing_id is null; candidate=candidate+1;\n  end loop;\n  execute format('insert into public.%I(workspace_id,id,name,seed_key,sort_order) values($1,$2,$3,$4,$5)',item.kind) using target_workspace,candidate,item.label,item.key,item.position;\n end loop;\nend; $function$\n",
+        "security_definer": false
+      },
+      {
+        "acl": null,
+        "name": "touch_updated_at",
+        "owner": "postgres",
+        "config": [
+          "search_path=\"\""
+        ],
+        "identity": "",
+        "definition": "CREATE OR REPLACE FUNCTION public.touch_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$ begin new.updated_at=now(); return new; end; $function$\n",
+        "security_definer": false
+      }
+    ],
+    "relations": [
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "calendar_slots",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "clients",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "department_clients",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "departments",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "entities",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "profiles",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "project_entities",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "projects",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": false,
+        "kind": "v",
+        "name": "reporting_task_entity_links",
+        "owner": "postgres",
+        "comment": null,
+        "options": [
+          "security_invoker=true"
+        ],
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": false,
+        "kind": "v",
+        "name": "reporting_tasks",
+        "owner": "postgres",
+        "comment": null,
+        "options": [
+          "security_invoker=true"
+        ],
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "task_assignees",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "task_clients",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "task_entities",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "tasks",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "workspace_members",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,service_role=Dxtm/postgres,authenticated=r/postgres}",
+        "rls": true,
+        "kind": "r",
+        "name": "workspaces",
+        "owner": "postgres",
+        "comment": null,
+        "options": null,
+        "force_rls": false
+      }
+    ],
+    "sequences": null,
+    "extensions": [
+      {
+        "name": "pg_stat_statements",
+        "schema": "extensions",
+        "version": "1.11"
+      },
+      {
+        "name": "pgcrypto",
+        "schema": "extensions",
+        "version": "1.3"
+      },
+      {
+        "name": "plpgsql",
+        "schema": "pg_catalog",
+        "version": "1.0"
+      },
+      {
+        "name": "supabase_vault",
+        "schema": "vault",
+        "version": "0.3.1"
+      },
+      {
+        "name": "uuid-ossp",
+        "schema": "extensions",
+        "version": "1.1"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "calendar_slots_duration_check",
+        "type": "c",
+        "table": "calendar_slots",
+        "validated": true,
+        "definition": "CHECK (duration >= 0.25 AND duration <= 24::numeric)"
+      },
+      {
+        "name": "calendar_slots_id_check",
+        "type": "c",
+        "table": "calendar_slots",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "calendar_slots_pkey",
+        "type": "p",
+        "table": "calendar_slots",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "calendar_slots_start_hour_check",
+        "type": "c",
+        "table": "calendar_slots",
+        "validated": true,
+        "definition": "CHECK (start_hour >= 0::numeric AND start_hour <= 23.75)"
+      },
+      {
+        "name": "calendar_slots_workspace_id_fkey",
+        "type": "f",
+        "table": "calendar_slots",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "calendar_slots_workspace_id_task_id_fkey",
+        "type": "f",
+        "table": "calendar_slots",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, task_id) REFERENCES tasks(workspace_id, id)"
+      },
+      {
+        "name": "clients_id_check",
+        "type": "c",
+        "table": "clients",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "clients_name_check",
+        "type": "c",
+        "table": "clients",
+        "validated": true,
+        "definition": "CHECK (length(TRIM(BOTH FROM name)) > 0)"
+      },
+      {
+        "name": "clients_pkey",
+        "type": "p",
+        "table": "clients",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "clients_workspace_id_fkey",
+        "type": "f",
+        "table": "clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "department_clients_id_check",
+        "type": "c",
+        "table": "department_clients",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "department_clients_pkey",
+        "type": "p",
+        "table": "department_clients",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "department_clients_workspace_id_client_id_fkey",
+        "type": "f",
+        "table": "department_clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, client_id) REFERENCES clients(workspace_id, id)"
+      },
+      {
+        "name": "department_clients_workspace_id_department_id_fkey",
+        "type": "f",
+        "table": "department_clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, department_id) REFERENCES departments(workspace_id, id)"
+      },
+      {
+        "name": "department_clients_workspace_id_department_id_key",
+        "type": "u",
+        "table": "department_clients",
+        "validated": true,
+        "definition": "UNIQUE (workspace_id, department_id)"
+      },
+      {
+        "name": "department_clients_workspace_id_fkey",
+        "type": "f",
+        "table": "department_clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "departments_id_check",
+        "type": "c",
+        "table": "departments",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "departments_name_check",
+        "type": "c",
+        "table": "departments",
+        "validated": true,
+        "definition": "CHECK (length(TRIM(BOTH FROM name)) > 0)"
+      },
+      {
+        "name": "departments_pkey",
+        "type": "p",
+        "table": "departments",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "departments_workspace_id_fkey",
+        "type": "f",
+        "table": "departments",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "entities_id_check",
+        "type": "c",
+        "table": "entities",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "entities_name_check",
+        "type": "c",
+        "table": "entities",
+        "validated": true,
+        "definition": "CHECK (length(TRIM(BOTH FROM name)) > 0)"
+      },
+      {
+        "name": "entities_pkey",
+        "type": "p",
+        "table": "entities",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "entities_workspace_id_fkey",
+        "type": "f",
+        "table": "entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "profiles_auth_user_id_fkey",
+        "type": "f",
+        "table": "profiles",
+        "validated": true,
+        "definition": "FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "profiles_id_check",
+        "type": "c",
+        "table": "profiles",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "profiles_pkey",
+        "type": "p",
+        "table": "profiles",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "profiles_workspace_id_fkey",
+        "type": "f",
+        "table": "profiles",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "project_entities_id_check",
+        "type": "c",
+        "table": "project_entities",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "project_entities_pkey",
+        "type": "p",
+        "table": "project_entities",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "project_entities_workspace_id_entity_id_fkey",
+        "type": "f",
+        "table": "project_entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, entity_id) REFERENCES entities(workspace_id, id)"
+      },
+      {
+        "name": "project_entities_workspace_id_fkey",
+        "type": "f",
+        "table": "project_entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "project_entities_workspace_id_project_id_entity_id_key",
+        "type": "u",
+        "table": "project_entities",
+        "validated": true,
+        "definition": "UNIQUE (workspace_id, project_id, entity_id)"
+      },
+      {
+        "name": "project_entities_workspace_id_project_id_fkey",
+        "type": "f",
+        "table": "project_entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, project_id) REFERENCES projects(workspace_id, id)"
+      },
+      {
+        "name": "projects_id_check",
+        "type": "c",
+        "table": "projects",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "projects_name_check",
+        "type": "c",
+        "table": "projects",
+        "validated": true,
+        "definition": "CHECK (length(TRIM(BOTH FROM name)) > 0)"
+      },
+      {
+        "name": "projects_pkey",
+        "type": "p",
+        "table": "projects",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "projects_workspace_id_department_id_fkey",
+        "type": "f",
+        "table": "projects",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, department_id) REFERENCES departments(workspace_id, id)"
+      },
+      {
+        "name": "projects_workspace_id_fkey",
+        "type": "f",
+        "table": "projects",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "projects_year_check",
+        "type": "c",
+        "table": "projects",
+        "validated": true,
+        "definition": "CHECK (year >= 1000 AND year <= 9999)"
+      },
+      {
+        "name": "task_assignees_id_check",
+        "type": "c",
+        "table": "task_assignees",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "task_assignees_pkey",
+        "type": "p",
+        "table": "task_assignees",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "task_assignees_workspace_id_fkey",
+        "type": "f",
+        "table": "task_assignees",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "task_assignees_workspace_id_profile_id_fkey",
+        "type": "f",
+        "table": "task_assignees",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, profile_id) REFERENCES profiles(workspace_id, id)"
+      },
+      {
+        "name": "task_assignees_workspace_id_task_id_fkey",
+        "type": "f",
+        "table": "task_assignees",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, task_id) REFERENCES tasks(workspace_id, id)"
+      },
+      {
+        "name": "task_assignees_workspace_id_task_id_profile_id_key",
+        "type": "u",
+        "table": "task_assignees",
+        "validated": true,
+        "definition": "UNIQUE (workspace_id, task_id, profile_id)"
+      },
+      {
+        "name": "task_clients_id_check",
+        "type": "c",
+        "table": "task_clients",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "task_clients_pkey",
+        "type": "p",
+        "table": "task_clients",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "task_clients_workspace_id_client_id_fkey",
+        "type": "f",
+        "table": "task_clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, client_id) REFERENCES clients(workspace_id, id)"
+      },
+      {
+        "name": "task_clients_workspace_id_fkey",
+        "type": "f",
+        "table": "task_clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "task_clients_workspace_id_task_id_fkey",
+        "type": "f",
+        "table": "task_clients",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, task_id) REFERENCES tasks(workspace_id, id)"
+      },
+      {
+        "name": "task_clients_workspace_id_task_id_key",
+        "type": "u",
+        "table": "task_clients",
+        "validated": true,
+        "definition": "UNIQUE (workspace_id, task_id)"
+      },
+      {
+        "name": "task_entities_pkey",
+        "type": "p",
+        "table": "task_entities",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, task_id, entity_id)"
+      },
+      {
+        "name": "task_entities_workspace_id_entity_id_fkey",
+        "type": "f",
+        "table": "task_entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, entity_id) REFERENCES entities(workspace_id, id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "task_entities_workspace_id_fkey",
+        "type": "f",
+        "table": "task_entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "task_entities_workspace_id_task_id_fkey",
+        "type": "f",
+        "table": "task_entities",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, task_id) REFERENCES tasks(workspace_id, id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "tasks_created_by_user_id_fkey",
+        "type": "f",
+        "table": "tasks",
+        "validated": true,
+        "definition": "FOREIGN KEY (created_by_user_id) REFERENCES auth.users(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "tasks_id_check",
+        "type": "c",
+        "table": "tasks",
+        "validated": true,
+        "definition": "CHECK (id > 0 AND id <= '9007199254740991'::bigint)"
+      },
+      {
+        "name": "tasks_pkey",
+        "type": "p",
+        "table": "tasks",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, id)"
+      },
+      {
+        "name": "tasks_priority_check",
+        "type": "c",
+        "table": "tasks",
+        "validated": true,
+        "definition": "CHECK (priority = ANY (ARRAY['Nizka'::text, 'Stredna'::text, 'Vysoka'::text]))"
+      },
+      {
+        "name": "tasks_status_check",
+        "type": "c",
+        "table": "tasks",
+        "validated": true,
+        "definition": "CHECK (status = ANY (ARRAY['Backlog'::text, 'Dnes'::text, 'Robi sa'::text, 'Caka'::text, 'Hotovo'::text]))"
+      },
+      {
+        "name": "tasks_title_check",
+        "type": "c",
+        "table": "tasks",
+        "validated": true,
+        "definition": "CHECK (length(TRIM(BOTH FROM title)) > 0)"
+      },
+      {
+        "name": "tasks_workspace_id_department_id_fkey",
+        "type": "f",
+        "table": "tasks",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, department_id) REFERENCES departments(workspace_id, id)"
+      },
+      {
+        "name": "tasks_workspace_id_entity_id_fkey",
+        "type": "f",
+        "table": "tasks",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, entity_id) REFERENCES entities(workspace_id, id)"
+      },
+      {
+        "name": "tasks_workspace_id_fkey",
+        "type": "f",
+        "table": "tasks",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "tasks_workspace_id_project_id_fkey",
+        "type": "f",
+        "table": "tasks",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id, project_id) REFERENCES projects(workspace_id, id)"
+      },
+      {
+        "name": "workspace_members_pkey",
+        "type": "p",
+        "table": "workspace_members",
+        "validated": true,
+        "definition": "PRIMARY KEY (workspace_id, user_id)"
+      },
+      {
+        "name": "workspace_members_role_check",
+        "type": "c",
+        "table": "workspace_members",
+        "validated": true,
+        "definition": "CHECK (role = ANY (ARRAY['owner'::text, 'admin'::text, 'user'::text, 'analyst'::text, 'member'::text]))"
+      },
+      {
+        "name": "workspace_members_user_id_fkey",
+        "type": "f",
+        "table": "workspace_members",
+        "validated": true,
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "workspace_members_workspace_id_fkey",
+        "type": "f",
+        "table": "workspace_members",
+        "validated": true,
+        "definition": "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "workspaces_pkey",
+        "type": "p",
+        "table": "workspaces",
+        "validated": true,
+        "definition": "PRIMARY KEY (id)"
+      }
+    ],
+    "default_acl": [
+      {
+        "acl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+        "kind": "S",
+        "owner": "supabase_admin",
+        "schema": "public"
+      },
+      {
+        "acl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+        "kind": "f",
+        "owner": "supabase_admin",
+        "schema": "public"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+        "kind": "r",
+        "owner": "supabase_admin",
+        "schema": "public"
+      },
+      {
+        "acl": "{postgres=rwU/postgres}",
+        "kind": "S",
+        "owner": "postgres",
+        "schema": "public"
+      },
+      {
+        "acl": "{postgres=X/postgres}",
+        "kind": "f",
+        "owner": "postgres",
+        "schema": "public"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres,anon=Dxtm/postgres,authenticated=Dxtm/postgres,service_role=Dxtm/postgres}",
+        "kind": "r",
+        "owner": "postgres",
+        "schema": "public"
+      }
+    ],
+    "custom_types": null,
+    "event_triggers": [
+      {
+        "name": "ensure_rls",
+        "tags": [
+          "CREATE TABLE",
+          "CREATE TABLE AS",
+          "SELECT INTO"
+        ],
+        "event": "ddl_command_end",
+        "owner": "postgres",
+        "enabled": "O",
+        "function": "rls_auto_enable()"
+      }
+    ],
+    "server_version": "17.11",
+    "external_reference": {
+      "type": "uuid",
+      "table": "auth.users",
+      "column": "id"
+    },
+    "migration_registry": null
+  }
+}

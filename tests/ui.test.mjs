@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import * as model from '../app/model.ts';
 import * as reportModel from '../app/report-model.ts';
+import * as remoteReportModel from '../app/remote-report-model.ts';
 import * as supabaseAuth from '../app/supabase-auth.ts';
 
 // Optional offline component harness. Set BABEL_BUNDLE to Playwright's bundled
@@ -12,11 +13,12 @@ import * as supabaseAuth from '../app/supabase-auth.ts';
 const bundle = process.env.BABEL_BUNDLE;
 const babel = bundle ? createRequire(import.meta.url)(bundle) : null;
 const options = { skip: !babel && 'Set BABEL_BUNDLE for offline component checks' };
-function mount(file, props, exportName = 'default', savedWorkspace) {
-  const cells = [], effects = [];
+function mount(file, props, exportName = 'default', savedWorkspace, authOverride, location, localTest = false) {
+  const cells = [], effects = [], timers = new Map(), intervals = [], windowEvents = new Map(), documentEvents = new Map();
+  let timerId = 0;
   let cursor = 0, pending = [], tree;
   const scroll = { scrollTop: 0 };
-  const fakeDocument = { activeElement: null, body: { style: { overflow: "" } } };
+  const fakeDocument = { addEventListener(name, fn) { documentEvents.set(name, fn); }, removeEventListener(name) { documentEvents.delete(name); }, visibilityState: "visible", activeElement: null, body: { style: { overflow: "" } } };
   const react = {
     useState(initial) {
       const i = cursor++;
@@ -46,11 +48,13 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === './model') return model;
     if (name === './report-model') return reportModel;
-    if (name === './supabase-auth') return supabaseAuth;
+    if (name === './remote-report-model') return remoteReportModel;
+    if (name === './cloud-task-write') return { writeOwnCloudTask: async()=>{throw Error('Zápis je v tomto teste uzamknutý');} };
+    if (name === './supabase-auth') return authOverride ?? supabaseAuth;
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
-    }, document: fakeDocument, window: { setInterval() {}, clearInterval() {}, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
+    }, document: fakeDocument, window: { location, history: { pushState(_state, _title, path) { if (location) { const next = new URL(path, "https://test.invalid"); location.pathname = next.pathname; location.search = next.search; } } }, setTimeout(fn, delay) { const id=++timerId; timers.set(id,{fn,delay}); return id; }, clearTimeout(id) { timers.delete(id); }, setInterval(fn) { intervals.push(fn); return intervals.length; }, clearInterval() {}, addEventListener(name, fn) { windowEvents.set(name, fn); }, removeEventListener(name) { windowEvents.delete(name); }, sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date, process: { env: { NEXT_PUBLIC_LOCAL_TEST: localTest ? "1" : "0" } } });
     return exports;
   };
   const exports = load(file);
@@ -69,8 +73,35 @@ function mount(file, props, exportName = 'default', savedWorkspace) {
     };
     walk(tree); return result;
   };
-  return { render, nodes, storage, document: fakeDocument, find: predicate => nodes().find(predicate) };
+  return { render, nodes, storage, timers, intervals, windowEvents, documentEvents, document: fakeDocument, find: predicate => nodes().find(predicate) };
 }
+
+test('priame otvorenie a obnovenie Reportu zachová lokálne úlohy aj dátový model', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [{ id: 1, name: 'Úloha po obnovení', slots: [] }] });
+  for (const location of [{ pathname: '/report', search: '' }, { pathname: '/report/', search: '' }, { pathname: '/', search: '?screen=Report' }]) {
+    const app = mount('page.tsx', {}, 'default', data, undefined, location);
+    const report = app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function');
+    assert.ok(report);
+    assert.deepEqual(Array.from(report.props.tasks, t => t.name), ['Úloha po obnovení']);
+    const saved = JSON.parse(app.storage.get(model.workspaceKey));
+    assert.deepEqual(saved, data);
+    const refreshed = mount('page.tsx', {}, 'default', saved, undefined, location);
+    assert.ok(refreshed.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function'));
+    assert.deepEqual(JSON.parse(refreshed.storage.get(model.workspaceKey)), data);
+    refreshed.find(n => n.props['aria-label'] === 'Pracovná plocha').props.onClick(); refreshed.render();
+    assert.equal(location.pathname, '/');
+    const workspace = mount('page.tsx', {}, 'default', data, undefined, location);
+    assert.equal(workspace.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function'), undefined);
+  }
+});
+
+test('koreňová cesta otvára pracovnú plochu a zachováva lokálne úlohy', options, () => {
+  const data = model.normalizeWorkspace({ tasks: [{ id: 2, name: 'Úloha na pracovnej ploche', slots: [] }] });
+  const app = mount('page.tsx', {}, 'default', data, undefined, { pathname: '/', search: '' });
+  assert.equal(app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function'), undefined);
+  assert.ok(app.find(n => n.props['aria-label'] === 'Upraviť Úloha na pracovnej ploche'));
+  assert.deepEqual(JSON.parse(app.storage.get(model.workspaceKey)), data);
+});
 
 test('every calendar navigation handler resets scroll, including repeated Today and date', options, () => {
   const app = mount('calendar.tsx', { tasks: [], onOpen() {}, onEdit() {}, onAdd() {}, onMove() {} });
@@ -399,8 +430,204 @@ test('loading remote tasks never replaces or locks local rows or report tasks, e
   assert.ok(app.find(n => n.props['aria-label'] === 'Upraviť Lokálna'));
   assert.ok(app.find(n => n.props['aria-label'] === 'Databázové úlohy'));
   app.find(n => n.props['aria-label'] === 'Report').props.onClick(); app.render();
+  app.find(n => n.type === 'button' && String(n.props.children?.[0]).startsWith('Lokálny report')).props.onClick(); app.render();
   const report = app.find(n => typeof n.props.onCreate === 'function' && typeof n.props.onEdit === 'function');
   assert.deepEqual(Array.from(report.props.tasks, t => t.name), ['Lokálna']);
   report.props.onEdit(report.props.tasks[0]); app.render();
   assert.equal(app.find(n => n.type === 'input' && n.props.autoFocus).props.value, 'Lokálna');
+});
+
+
+test('report oddeľuje šesť vzdialených a štyri lokálne úlohy a nemá duplicitný súhrn', options, () => {
+ const data=model.normalizeWorkspace({tasks:Array.from({length:4},(_,i)=>({id:i+1,name:'Lokálna '+(i+1),slots:[]}))});
+ const remote=Array.from({length:6},(_,i)=>({workspace_id:'workspace-A',id:i+1,title:'Vzdialená '+(i+1),status:i===0?'Hotovo':'Backlog',priority:'Stredna'}));
+ const app=mount('page.tsx',{},'default',data);
+ const snapshot=app.storage.get(model.workspaceKey);
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded(remote);app.render();
+ app.find(n=>n.props['aria-label']==='Report').props.onClick();app.render();
+ const report=app.find(n=>typeof n.type==='function'&&Array.isArray(n.props.tasks)&&n.props.tasks.length>0);
+ assert.equal(report.props.tasks.length,6);
+ assert.equal(app.find(n=>n.props['aria-label']==='Prehlad'),undefined);
+ assert.equal(app.find(n=>n.props['aria-label']==='Databázové úlohy'),undefined);
+ assert.ok(app.find(n=>n.props['aria-label']==='Zdroj reportu'));
+ const rendered=mount('remote-report-panel.tsx',report.props);
+ const summary=rendered.find(n=>n.props['aria-label']==='Súhrn vzdialeného reportu');
+ assert.deepEqual(Array.from(summary.props.children,n=>n.props.children[0].props.children),[6,5,1]);
+ assert.equal(rendered.nodes().filter(n=>n.type==='li').length,6);
+ assert.equal(rendered.nodes().filter(n=>n.type==='button').length,1);
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded([]);app.render();
+ assert.equal(app.find(n=>typeof n.type==='function'&&Array.isArray(n.props.tasks)).props.tasks.length,0);
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded(remote);app.render();
+ app.find(n=>n.type==='button'&&String(n.props.children?.[0]).startsWith('Lokálny report')).props.onClick();app.render();
+ const local=app.find(n=>typeof n.props.onCreate==='function'&&typeof n.props.onEdit==='function');
+ assert.equal(local.props.tasks.length,4);
+ assert.ok(local.props.tasks.every(task=>task.name.startsWith('Lokálna')));
+ app.find(n=>n.type==='button'&&String(n.props.children?.[0]).startsWith('Vzdialený report')).props.onClick();app.render();
+ app.find(n=>typeof n.props.onTasksLoaded==='function').props.onTasksLoaded([]);app.render();
+ const cleared=app.find(n=>typeof n.type==='function'&&Array.isArray(n.props.tasks));
+ assert.equal(cleared.props.tasks.length,0);
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+});
+
+test('vzdialený report filtruje súhrn aj zoznam rovnako a nepoužíva lokálne dátumy', options, () => {
+ const tasks=Array.from({length:6},(_,i)=>({workspace_id:i<3?'A':'B',id:i%3,title:'Vzdialená '+(i+1),status:i===0?'Hotovo':'Backlog',priority:i===5?'Vysoka':'Stredna'}));
+ const app=mount('remote-report-panel.tsx',{tasks});
+ const count=()=>app.find(n=>n.props['aria-label']==='Súhrn vzdialeného reportu').props.children[0].props.children[0].props.children;
+ assert.equal(count(),6);
+ app.find(n=>n.props['aria-label']==='Hľadať vzdialené úlohy').props.onChange({target:{value:'Vzdialená 6'}});app.render();
+ assert.equal(count(),1);assert.equal(app.nodes().filter(n=>n.type==='li').length,1);
+ assert.equal(app.find(n=>n.props['aria-label']==='Obdobie'),undefined);
+ app.find(n=>n.props.children==='Zrušiť vzdialené filtre').props.onClick();app.render();
+ assert.equal(count(),6);
+ app.find(n=>n.props['aria-label']==='Stav vzdialenej úlohy').props.onChange({target:{value:'Hotovo'}});app.render();
+ assert.equal(count(),1);assert.equal(app.nodes().filter(n=>n.type==='li').length,1);
+});
+
+test('súhrn lokálnej pracovnej plochy počíta iba rovnaké viditeľné riadky ako tabuľka', options, () => {
+ const data=model.normalizeWorkspace({tasks:Array.from({length:4},(_,i)=>({id:i+1,name:'Lokálna '+(i+1),slots:[]}))});
+ const app=mount('page.tsx',{},'default',data);
+ app.find(n=>n.props['aria-label']==='Hladat ulohy').props.onChange({target:{value:'Lokálna 4'}});app.render();
+ const count=app.find(n=>n.props['aria-label']==='Prehlad').props.children[0].props.children[0].props.children;
+ assert.equal(count,1);assert.equal(app.nodes().filter(n=>n.props.className==='taskName').length,1);
+});
+
+test('QA reportu prepne odhlásenie na lokálny zdroj a prázdny vzdialený report nezamieňa s filtrami', options, () => {
+ const data=model.normalizeWorkspace({tasks:[{id:1,name:'Lokálna',slots:[]}]});
+ const app=mount('page.tsx',{},'default',data);
+ const panel=()=>app.find(n=>typeof n.props.onSessionChange==='function');
+ panel().props.onTasksLoaded([{workspace_id:'A',id:1,title:'Vzdialená',status:null,priority:null}]);app.render();
+ app.find(n=>n.props['aria-label']==='Report').props.onClick();app.render();
+ const snapshot=app.storage.get(model.workspaceKey);
+ panel().props.onTasksLoaded([]);
+ panel().props.onSessionChange({phase:'signed-out',user:null,expiresAt:null,tasks:[],message:''},()=>{});app.render();
+ const local=app.find(n=>typeof n.props.onCreate==='function'&&typeof n.props.onEdit==='function');
+ assert.equal(local.props.tasks.length,1);
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+ const empty=mount('remote-report-panel.tsx',{tasks:[]});
+ assert.ok(empty.find(n=>n.type==='p'&&String(n.props.children).startsWith('Nie sú načítané žiadne')));
+ assert.equal(empty.find(n=>n.type==='p'&&String(n.props.children).includes('nevyhovujú zvoleným')),undefined);
+});
+
+test('hlavička odhlási rovnakú reláciu, okamžite skryje vzdialené úlohy a zachová lokálne údaje', options, () => {
+ const data=model.normalizeWorkspace({tasks:[{id:1,name:'Lokálna úloha',slots:[]}]});
+ const app=mount('page.tsx',{},'default',data);
+ const snapshot=app.storage.get(model.workspaceKey);
+ const panel=()=>app.find(n=>typeof n.props.onSessionChange==='function');
+ const account=id=>({phase:'signed-in',user:{id},expiresAt:2000,tasks:[],message:''});
+ const remote=id=>[{workspace_id:id,id:1,title:'Vzdialená '+id,status:null,priority:null}];
+ assert.equal(app.find(n=>n.type==='button'&&n.props.children==='Odhlásiť sa'),undefined);
+ let signedOut=0;
+ panel().props.onSessionChange(account('A'),()=>{signedOut++;});
+ panel().props.onTasksLoaded(remote('A')); app.render();
+ assert.ok(app.find(n=>n.props['aria-label']==='Databázové úlohy'));
+ const header=app.find(n=>n.props.className==='headerActions');
+ assert.ok(header.props.children.some(n=>n?.type==='button'&&n.props.children==='Odhlásiť sa'));
+ app.find(n=>n.type==='button'&&n.props.children==='Odhlásiť sa').props.onClick(); app.render();
+ assert.equal(signedOut,1);
+ assert.equal(app.find(n=>n.props['aria-label']==='Databázové úlohy'),undefined);
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+ panel().props.onSessionChange({phase:'signed-out',user:null,expiresAt:null,tasks:[],message:''},()=>{}); app.render();
+ assert.equal(app.find(n=>n.type==='button'&&n.props.children==='Odhlásiť sa'),undefined);
+ panel().props.onSessionChange(account('B'),()=>{});
+ panel().props.onTasksLoaded(remote('B')); app.render();
+ assert.ok(app.find(n=>n.props['aria-label']==='Databázové úlohy'));
+ assert.ok(app.find(n=>n.type==='li'&&JSON.stringify(n.props.children).includes('Vzdialená B')));
+ assert.equal(app.storage.get(model.workspaceKey),snapshot);
+});
+
+test('hlavička používa controller panelu aj pri obnovení relácie a odmietne jej oneskorenú odpoveď po odhlásení', options, async () => {
+ const saved={access_token:'synteticky-access',refresh_token:'synteticky-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'A'}};
+ let release,latest,signOut,serverLogout=0;
+ const pending=new Promise(resolve=>{release=resolve;});
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:true,message:''}),TestSessionController:class extends supabaseAuth.TestSessionController {
+  constructor(storage,emit){
+   storage.setItem(supabaseAuth.testSessionKey,JSON.stringify(saved));
+   super(storage,emit,{signIn:async()=>saved,verify:()=>pending,read:async()=>[],refresh:async()=>saved,signOut:async()=>{serverLogout++;}});
+  }
+ }};
+ const rows=[];
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:value=>rows.push(value),onSessionChange:(state,logout)=>{latest=state;signOut=logout;}},'default',undefined,auth);
+ assert.equal(latest.phase,'checking'); assert.equal(typeof signOut,'function');
+ signOut(); app.render();
+ assert.equal(latest.phase,'signed-out'); assert.deepEqual(rows.at(-1),[]);
+ assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+ release(); await new Promise(setImmediate); app.render();
+ assert.equal(latest.phase,'signed-out'); assert.equal(serverLogout,1);
+});
+
+test('test auth panel gates remote data, clears password, and logout clears parent rows', options, async () => {
+ const tasks = [{workspace_id:'A',id:1,title:'Test',status:'Backlog',priority:'Stredna'}];
+ const remote = [], events = [];
+ const auth = { ...supabaseAuth, testConfigurationStatus: () => ({ ready: true, message: "" }), TestSessionController: class extends supabaseAuth.TestSessionController {
+   constructor(storage, emit) { super(storage, emit, {
+     signIn: async () => ({access_token:'fake',refresh_token:'fake-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'A',email:'test@example.invalid'}}),
+     verify: async () => { events.push('verify'); }, read: async () => { events.push('TASK READ'); return tasks; },
+     refresh: async () => { throw Error('unexpected'); }, signOut: async () => { events.push('logout'); }
+   }); }
+ }};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded: rows => remote.push(rows)},'default',undefined,auth);
+ assert.ok(app.find(n=>n.type==='form')); assert.deepEqual(remote.at(-1),[]);
+ app.find(n=>n.props['aria-label']==='E-mail').props.onChange({target:{value:'test@example.invalid'}});
+ app.find(n=>n.props['aria-label']==='Heslo').props.onChange({target:{value:'fake-password'}}); app.render();
+ await app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render();
+ assert.equal(app.find(n=>n.type==='form'),undefined); assert.deepEqual(remote.at(-1),[]); assert.deepEqual(events,['verify']);
+ assert.ok(app.find(n=>n.props.children==='Overiť prihlásenie/reláciu'));
+ assert.ok(app.find(n=>n.type==='p'&&typeof n.props.children==='string'&&n.props.children.includes('uzamknuté do kontroly RLS')));
+ for(const trigger of [app.intervals[0],app.windowEvents.get('focus'),app.documentEvents.get('visibilitychange')]) {
+  trigger(); await new Promise(setImmediate); app.render();
+  assert.deepEqual(remote.at(-1),[]);
+ }
+ assert.deepEqual(events,['verify','verify','verify','verify']);
+
+ app.find(n=>n.props.children==='Odhlásiť sa').props.onClick(); app.render();
+ assert.deepEqual(remote.at(-1),[]); assert.ok(app.find(n=>n.type==='form')); assert.equal(app.find(n=>n.props['aria-label']==='Heslo').props.value,'');
+ assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+});
+
+
+test('test auth panel explains missing configuration and disables sign-in without exposing remote rows', options, () => {
+ const remote=[];
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:false,message:'Chýba konfigurácia testovacieho Supabase.'})};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:rows=>remote.push(rows)},'default',undefined,auth);
+ assert.equal(app.find(n=>n.type==='button'&&n.props.type==='submit').props.disabled,true);
+ assert.match(app.find(n=>n.props.role==='alert').props.children,/Chýba konfigurácia/);
+ assert.deepEqual(remote.at(-1),[]);
+});
+
+
+test('test auth panel loading can be cancelled and late login cannot restore remote rows', options, async () => {
+ let finish;
+ const pending=new Promise(resolve=>{finish=resolve;}), remote=[];
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:true,message:''}),TestSessionController:class extends supabaseAuth.TestSessionController {
+  constructor(storage,emit){super(storage,emit,{signIn:()=>pending,verify:async()=>{},read:async()=>[{workspace_id:'A',id:1,title:'Old',status:null,priority:null}],refresh:async()=>{throw Error('unexpected');},signOut:async()=>{}});}
+ }};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:rows=>remote.push(rows)},'default',undefined,auth);
+ const signing=app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render();
+ assert.equal(app.find(n=>n.type==='form'),undefined);
+ assert.ok(app.find(n=>n.props.role==='status'&&typeof n.props.children==='string'&&n.props.children.includes('Overujem reláciu')));
+ app.find(n=>n.props.children==='Odhlásiť sa').props.onClick();
+ finish({access_token:'fake',refresh_token:'fake',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'A'}}); await signing; app.render();
+ assert.ok(app.find(n=>n.type==='form')); assert.deepEqual(remote.at(-1),[]); assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+});
+test('test auth panel expiry timer clears the parent preview without a network response', options, async () => {
+ let now=Date.now(); const expires=Math.floor(now/1000)+3600, remote=[];
+ const auth={...supabaseAuth,testConfigurationStatus:()=>({ready:true,message:''}),TestSessionController:class extends supabaseAuth.TestSessionController {
+  constructor(storage,emit){super(storage,emit,{signIn:async()=>({access_token:'fake',refresh_token:'fake',expires_at:expires,user:{id:'A'}}),verify:async()=>{},read:async()=>[{workspace_id:'A',id:1,title:'Test',status:null,priority:null}],refresh:async()=>{throw Error('unexpected');},signOut:async()=>{}},()=>now);}
+ }};
+ const app=mount('test-auth-panel.tsx',{onTasksLoaded:rows=>remote.push(rows)},'default',undefined,auth);
+ await app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render(); assert.equal(remote.at(-1).length,0);
+ const timer=[...app.timers.values()].at(-1); assert.ok(timer.delay>0); now=expires*1000+1; timer.fn(); app.render();
+ assert.deepEqual(remote.at(-1),[]); assert.ok(app.find(n=>n.type==='form')); assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+});
+
+
+test('lokálny TEST skryje cloudové prihlásenie a vzdialený report bez zmeny lokálneho workspace', options, () => {
+ const data=model.normalizeWorkspace({tasks:[{id:1,name:'Syntetická lokálna úloha',slots:[]}]});
+ const app=mount('page.tsx',{},'default',data,undefined,{pathname:'/report',search:''},true);
+ assert.equal(app.find(n=>typeof n.props.onSessionChange==='function'),undefined);
+ assert.ok(app.find(n=>n.props.role==='status'&&typeof n.props.children==='string'&&n.props.children.startsWith('Lokálny TEST')));
+ assert.equal(app.nodes().some(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('Vzdialený report')),false);
+ assert.deepEqual(JSON.parse(app.storage.get(model.workspaceKey)),data);
+ const standard=mount('page.tsx',{},'default',data,undefined,{pathname:'/',search:''});
+ assert.ok(standard.find(n=>typeof n.props.onSessionChange==='function'));
 });

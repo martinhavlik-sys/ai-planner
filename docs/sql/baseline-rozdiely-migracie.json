@@ -1,0 +1,138 @@
+{
+  "relations": {
+    "only_live": [
+      "/reporting_task_entity_links/postgres/v",
+      "/reporting_tasks/postgres/v",
+      "/task_entities/postgres/r"
+    ],
+    "only_migrations": [],
+    "different": [
+      "/calendar_slots/postgres/r",
+      "/clients/postgres/r",
+      "/department_clients/postgres/r",
+      "/departments/postgres/r",
+      "/entities/postgres/r",
+      "/profiles/postgres/r",
+      "/project_entities/postgres/r",
+      "/projects/postgres/r",
+      "/task_assignees/postgres/r",
+      "/task_clients/postgres/r",
+      "/tasks/postgres/r",
+      "/workspace_members/postgres/r",
+      "/workspaces/postgres/r"
+    ]
+  },
+  "columns": {
+    "only_live": [
+      "reporting_task_entity_links/workspace_id//",
+      "reporting_task_entity_links/task_id//",
+      "reporting_task_entity_links/entity_id//",
+      "reporting_task_entity_links/is_primary//",
+      "reporting_tasks/workspace_id//",
+      "reporting_tasks/task_id//",
+      "reporting_tasks/created_at//",
+      "reporting_tasks/updated_at//",
+      "reporting_tasks/created_by_user_id//",
+      "reporting_tasks/completed_at//",
+      "reporting_tasks/due_date//",
+      "reporting_tasks/status//",
+      "reporting_tasks/priority//",
+      "reporting_tasks/department_id//",
+      "reporting_tasks/project_id//",
+      "reporting_tasks/legacy_entity_id//",
+      "reporting_tasks/primary_entity_id//",
+      "task_entities/workspace_id//",
+      "task_entities/task_id//",
+      "task_entities/entity_id//",
+      "task_entities/is_primary//",
+      "task_entities/created_at//",
+      "task_entities/updated_at//",
+      "tasks/created_by_user_id//",
+      "tasks/completed_at//"
+    ],
+    "only_migrations": [],
+    "different": []
+  },
+  "constraints": {
+    "only_live": [
+      "task_entities/task_entities_pkey//",
+      "task_entities/task_entities_workspace_id_entity_id_fkey//",
+      "task_entities/task_entities_workspace_id_fkey//",
+      "task_entities/task_entities_workspace_id_task_id_fkey//",
+      "tasks/tasks_created_by_user_id_fkey//"
+    ],
+    "only_migrations": [],
+    "different": [
+      "workspace_members/workspace_members_role_check//"
+    ]
+  },
+  "indexes": {
+    "only_live": [
+      "profiles/profiles_workspace_auth_user_uidx//",
+      "task_entities/task_entities_entity_idx//",
+      "task_entities/task_entities_one_primary_uidx//",
+      "task_entities/task_entities_pkey//",
+      "tasks/tasks_completed_at_idx//",
+      "tasks/tasks_created_by_user_idx//"
+    ],
+    "only_migrations": [],
+    "different": []
+  },
+  "functions": {
+    "only_live": [
+      "/can_read_task/w uuid, task_key bigint/",
+      "/current_workspace_role/w uuid/",
+      "/rls_auto_enable//"
+    ],
+    "only_migrations": [],
+    "different": []
+  },
+  "policies": {
+    "only_live": [
+      "calendar_slots/calendar_slots_read_own_or_reporting//",
+      "task_assignees/task_assignees_read_own_or_reporting//",
+      "task_entities/task_entities_read_own_or_reporting//",
+      "tasks/tasks_read_own_or_reporting//"
+    ],
+    "only_migrations": [
+      "calendar_slots/calendar_slots_read//",
+      "task_assignees/task_assignees_read//",
+      "tasks/tasks_read//"
+    ],
+    "different": []
+  },
+  "triggers": {
+    "only_live": [
+      "task_entities/touch_task_entities//"
+    ],
+    "only_migrations": [],
+    "different": []
+  },
+  "views": {
+    "only_live": [
+      "/reporting_task_entity_links//",
+      "/reporting_tasks//"
+    ],
+    "only_migrations": [],
+    "different": []
+  },
+  "event_triggers": {
+    "only_live": [
+      "/ensure_rls/postgres/"
+    ],
+    "only_migrations": [],
+    "different": []
+  },
+  "default_acl": {
+    "only_live": [
+      "//postgres/S",
+      "//postgres/f",
+      "//postgres/r",
+      "//supabase_admin/S",
+      "//supabase_admin/f",
+      "//supabase_admin/r"
+    ],
+    "only_migrations": [],
+    "different": []
+  }
+}
