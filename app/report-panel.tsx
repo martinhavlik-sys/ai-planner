@@ -8,11 +8,12 @@ import type { ReportFilters } from "./report-model";
 
 type Props = { tasks?: Task[]; departments?: Project[]; entities?: Entity[]; projects?: Campaign[]; onCreate?: () => void; onEdit?: (task: Task) => void };
 export default function ReportPanel({ tasks = [], departments = [], entities = [], projects = [], onCreate, onEdit }: Props) {
-  const [filters, setFilters] = useState<ReportFilters>({ ...defaultReportFilters });
+  const initialFilters: ReportFilters = { ...defaultReportFilters, ...(process.env.NEXT_PUBLIC_LOCAL_TEST === "1" ? { period: "Všetky obdobia" } : {}) };
+  const [filters, setFilters] = useState<ReportFilters>(initialFilters);
   const set = (key: keyof ReportFilters, value: string) => setFilters(current => ({ ...current, [key]: value }));
   const result = buildReport(tasks, filters);
   const { range } = result;
-  const reset = () => setFilters({ ...defaultReportFilters });
+  const reset = () => setFilters({ ...initialFilters });
   const allPeriods = filters.period === "Všetky obdobia";
   const doneLabel = allPeriods ? "Hotové úlohy" : filters.dateType === "Dátum dokončenia" ? "Dokončené v období" : filters.dateType === "Termín" ? "Hotové úlohy s termínom v období" : filters.dateType === "Dátum vytvorenia" ? "Hotové úlohy vytvorené v období" : "Hotové úlohy s blokom v období";
   const missingLabel = { "Dátum dokončenia": "dátum dokončenia", "Dátum vytvorenia": "dátum vytvorenia", "Termín": "platný termín", "Dátum pracovného bloku": "platný pracovný blok" }[filters.dateType];

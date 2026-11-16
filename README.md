@@ -1,4 +1,17 @@
-# AI Planner · v9 · 22. 9. 2026
+# Aktuálny TEST · 16. 11. 2026
+
+Spustiteľná lokálna verzia bez Cloudflare alebo Supabase:
+
+```sh
+pnpm install --frozen-lockfile
+node scripts/spustit-lokalny-test.mjs
+```
+
+Otvorte **http://127.0.0.1:4173**. Potrebujete Node.js 22.18+ (overené 24.19.0).
+[Spustenie balíka, overené funkcie a hranice cloudového testu](docs/REALIZACIA-LOKALNY-TEST.md).
+Nasledujúci prehľad opisuje historické vydania; aktuálny TEST postup je v odkaze vyššie.
+
+## AI Planner · v9 · 22. 9. 2026
 
 Katalógová aktualizácia pridáva presné editovateľné seed dáta pre 17 oddelení, 32 entít a 22 projektov. Zaradenia úloh sú voliteľné a nezávislé, projekt má samostatný nepovinný rok a historické väzby zostávajú zachované. Lokálne ukladanie zostáva primárne; Supabase ani Auth sa nezapínajú.
 

@@ -13,7 +13,7 @@ import * as supabaseAuth from '../app/supabase-auth.ts';
 const bundle = process.env.BABEL_BUNDLE;
 const babel = bundle ? createRequire(import.meta.url)(bundle) : null;
 const options = { skip: !babel && 'Set BABEL_BUNDLE for offline component checks' };
-function mount(file, props, exportName = 'default', savedWorkspace, authOverride, location) {
+function mount(file, props, exportName = 'default', savedWorkspace, authOverride, location, localTest = false) {
   const cells = [], effects = [], timers = new Map(), intervals = [], windowEvents = new Map(), documentEvents = new Map();
   let timerId = 0;
   let cursor = 0, pending = [], tree;
@@ -53,7 +53,7 @@ function mount(file, props, exportName = 'default', savedWorkspace, authOverride
     if (name === './repository') return { remoteStatus: () => 'Lokálne dáta' };
     if (name.startsWith('./')) return load(`${name.slice(2)}.tsx`);
     throw new Error(name);
-    }, document: fakeDocument, window: { location, history: { pushState(_state, _title, path) { if (location) { const next = new URL(path, "https://test.invalid"); location.pathname = next.pathname; location.search = next.search; } } }, setTimeout(fn, delay) { const id=++timerId; timers.set(id,{fn,delay}); return id; }, clearTimeout(id) { timers.delete(id); }, setInterval(fn) { intervals.push(fn); return intervals.length; }, clearInterval() {}, addEventListener(name, fn) { windowEvents.set(name, fn); }, removeEventListener(name) { windowEvents.delete(name); }, sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date });
+    }, document: fakeDocument, window: { location, history: { pushState(_state, _title, path) { if (location) { const next = new URL(path, "https://test.invalid"); location.pathname = next.pathname; location.search = next.search; } } }, setTimeout(fn, delay) { const id=++timerId; timers.set(id,{fn,delay}); return id; }, clearTimeout(id) { timers.delete(id); }, setInterval(fn) { intervals.push(fn); return intervals.length; }, clearInterval() {}, addEventListener(name, fn) { windowEvents.set(name, fn); }, removeEventListener(name) { windowEvents.delete(name); }, sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } }, Date, process: { env: { NEXT_PUBLIC_LOCAL_TEST: localTest ? "1" : "0" } } });
     return exports;
   };
   const exports = load(file);
@@ -617,4 +617,16 @@ test('test auth panel expiry timer clears the parent preview without a network r
  await app.find(n=>n.type==='form').props.onSubmit({preventDefault(){}}); app.render(); assert.equal(remote.at(-1).length,0);
  const timer=[...app.timers.values()].at(-1); assert.ok(timer.delay>0); now=expires*1000+1; timer.fn(); app.render();
  assert.deepEqual(remote.at(-1),[]); assert.ok(app.find(n=>n.type==='form')); assert.equal(app.storage.has(supabaseAuth.testSessionKey),false);
+});
+
+
+test('lokálny TEST skryje cloudové prihlásenie a vzdialený report bez zmeny lokálneho workspace', options, () => {
+ const data=model.normalizeWorkspace({tasks:[{id:1,name:'Syntetická lokálna úloha',slots:[]}]});
+ const app=mount('page.tsx',{},'default',data,undefined,{pathname:'/report',search:''},true);
+ assert.equal(app.find(n=>typeof n.props.onSessionChange==='function'),undefined);
+ assert.ok(app.find(n=>n.props.role==='status'&&typeof n.props.children==='string'&&n.props.children.startsWith('Lokálny TEST')));
+ assert.equal(app.nodes().some(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('Vzdialený report')),false);
+ assert.deepEqual(JSON.parse(app.storage.get(model.workspaceKey)),data);
+ const standard=mount('page.tsx',{},'default',data,undefined,{pathname:'/',search:''});
+ assert.ok(standard.find(n=>typeof n.props.onSessionChange==='function'));
 });
